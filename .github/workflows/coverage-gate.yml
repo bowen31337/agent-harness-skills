@@ -1,0 +1,177 @@
+# .github/workflows/coverage-gate.yml
+# Standalone coverage gate — blocks PRs whose line-coverage falls below the
+# configured threshold (default 90 %).
+#
+# Customise the threshold:
+#   • Per-run  : set the workflow_dispatch input (manual triggers only)
+#   • Repo-wide: add a repository variable called COVERAGE_THRESHOLD
+#   • Hardcode : edit the `env.DEFAULT_COVERAGE_THRESHOLD` value below
+#
+# Exit codes mirrored from harness_skills/gates/coverage.py:
+#   0 — coverage meets or exceeds the threshold  → check passes, merge allowed
+#   1 — coverage below threshold                 → check fails,  merge blocked
+#   2 — internal gate error                      → check fails,  investigate
+name: Coverage Gate
+
+on:
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      threshold:
+        description: "Minimum line-coverage % (0–100)"
+        required: false
+        default: "90"
+      coverage_file:
+        description: "Path to the coverage report (relative to repo root)"
+        required: false
+        default: "coverage.xml"
+
+env:
+  # Fallback threshold when neither the workflow_dispatch input nor the
+  # COVERAGE_THRESHOLD repository variable is set.
+  DEFAULT_COVERAGE_THRESHOLD: "90"
+
+jobs:
+  coverage-gate:
+    name: Coverage Gate (≥ ${{ inputs.threshold || vars.COVERAGE_THRESHOLD || '90' }}%)
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history lets diff-coverage tools compare against the base branch
+          fetch-depth: 0
+
+      # ── 2. Python + uv ───────────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # ── 3. Run tests and collect coverage ────────────────────────────────────
+      #
+      # Generates coverage.xml (or the file named in coverage_file input).
+      # Adjust this step to match your test command if you don't use pytest.
+      - name: Run tests with coverage
+        run: |
+          uv run pytest \
+            --cov \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            -q \
+            2>&1 | tee pytest-output.txt
+          # pytest exits non-zero on test failures — that is intentional.
+          # The coverage gate below will also catch a missing report.
+
+      # ── 4. Resolve threshold ─────────────────────────────────────────────────
+      - name: Resolve threshold
+        id: threshold
+        run: |
+          # Priority: workflow_dispatch input > repo variable > env default
+          threshold="${{ inputs.threshold }}"
+          if [ -z "$threshold" ]; then
+            threshold="${{ vars.COVERAGE_THRESHOLD }}"
+          fi
+          if [ -z "$threshold" ]; then
+            threshold="$DEFAULT_COVERAGE_THRESHOLD"
+          fi
+          echo "value=$threshold" >> "$GITHUB_OUTPUT"
+          echo "Coverage threshold resolved to: $threshold%"
+
+      # ── 5. Run the coverage gate ─────────────────────────────────────────────
+      - name: Run coverage gate
+        id: gate
+        run: |
+          set +e
+
+          coverage_file="${{ inputs.coverage_file || 'coverage.xml' }}"
+          threshold="${{ steps.threshold.outputs.value }}"
+
+          result=$(uv run python -m harness_skills.gates.coverage \
+            --root . \
+            --threshold "$threshold" \
+            --coverage-file "$coverage_file" \
+            --format auto \
+            2>&1)
+          exit_code=$?
+
+          echo "$result"
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+
+          # Extract the numeric coverage percentage for the step summary
+          actual=$(echo "$result" | grep -oP 'Actual coverage\s*:\s*\K[0-9.]+' | head -1)
+          [ -z "$actual" ] && actual="N/A"
+          echo "actual=$actual"         >> "$GITHUB_OUTPUT"
+          echo "threshold=$threshold"   >> "$GITHUB_OUTPUT"
+
+          exit $exit_code
+
+      # ── 6. Post step summary ─────────────────────────────────────────────────
+      - name: Post coverage summary
+        if: always()
+        run: |
+          threshold="${{ steps.threshold.outputs.value }}"
+          actual="${{ steps.gate.outputs.actual }}"
+          exit_code="${{ steps.gate.outputs.exit_code }}"
+
+          if [ "$exit_code" = "0" ]; then
+            icon="✅"
+            verdict="passed"
+            headline="Coverage gate passed"
+          else
+            icon="❌"
+            verdict="failed"
+            headline="Coverage gate FAILED — merge blocked"
+          fi
+
+          {
+            echo "## $icon Coverage Gate — $headline"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Measured coverage | ${actual}% |"
+            echo "| Required threshold | ${threshold}% |"
+            if [ "$exit_code" = "0" ] && [ "$actual" != "N/A" ]; then
+              delta=$(python3 -c "print(f'{float(\"$actual\") - float(\"$threshold\"):+.2f}')" 2>/dev/null || echo "N/A")
+              echo "| Delta | ${delta} pp |"
+            fi
+            echo "| Gate verdict | $verdict |"
+            echo ""
+
+            if [ "$exit_code" != "0" ]; then
+              echo "### How to fix"
+              echo ""
+              echo "1. Identify uncovered lines:"
+              echo "   \`\`\`bash"
+              echo "   pytest --cov --cov-report=term-missing"
+              echo "   \`\`\`"
+              echo "2. Find the files with lowest coverage:"
+              echo "   \`\`\`bash"
+              echo "   coverage report --sort=cover | head -20"
+              echo "   \`\`\`"
+              echo "3. Write tests for the uncovered paths, then push again."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── 7. Upload coverage report as artefact ────────────────────────────────
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            pytest-output.txt
+          retention-days: 30
+          if-no-files-found: warn

@@ -1,0 +1,64 @@
+# Pre-commit hooks for agent-harness-skills
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # ---------------------------------------------------------------------------
+  # Ruff — fast Python linter + formatter (replaces flake8, isort, pyupgrade)
+  # Enforces: pep8-naming (N*), pycodestyle (E/W), Pyflakes (F),
+  #           import order (I), bugbear (B), simplify (SIM), pathlib (PTH)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.7
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: ["--fix", "--exit-non-zero-on-fix"]
+      - id: ruff-format
+        name: ruff format
+
+  # ---------------------------------------------------------------------------
+  # Custom file-naming convention checker
+  # Rules: PY001 snake_case modules, PY002 test_ prefix, PY003 snake_case
+  #        packages, SH001 kebab-case scripts, SK001 kebab-case skill dirs,
+  #        DOC001 UPPERCASE root docs, CI001 kebab-case workflows,
+  #        CFG001 kebab/snake config YAML
+  # ---------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: check-file-naming
+        name: file naming conventions
+        language: python
+        entry: python scripts/check_file_naming.py
+        pass_filenames: false   # script walks the repo itself
+        always_run: true
+        stages: [pre-commit]
+
+  # ---------------------------------------------------------------------------
+  # General hygiene
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        args: ["--markdown-linebreak-ext=md"]
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--unsafe"]   # allow custom YAML tags used in harness configs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: debug-statements    # catch leftover breakpoint() / pdb.set_trace()
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  # ---------------------------------------------------------------------------
+  # Shell-script linter (requires shellcheck to be installed on the host)
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        types: [shell]

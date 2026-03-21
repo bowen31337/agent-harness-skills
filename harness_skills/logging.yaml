@@ -1,0 +1,91 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Structured Logging Configuration — agent-harness-skills
+# Framework: python_logging  |  Convention: 5-field NDJSON
+# ──────────────────────────────────────────────────────────────────────────────
+#
+# Use with Python's logging.config.fileConfig alternative via dictConfig:
+#
+#   import yaml, logging.config
+#   with open("harness_skills/logging.yaml") as f:
+#       cfg = yaml.safe_load(f)
+#   logging.config.dictConfig(cfg)
+#
+# Or simply call configure() from harness_skills.logging_config for the
+# programmatic setup (recommended).
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: 1
+disable_existing_loggers: false
+
+# ── Formatters ─────────────────────────────────────────────────────────────────
+formatters:
+
+  # Compact NDJSON — one JSON object per line, required for production / CI
+  convention_json:
+    (): harness_skills.logging_config.ConventionFormatter
+
+  # Human-readable, ANSI-coloured — for interactive development (TTY only)
+  convention_pretty:
+    (): harness_skills.logging_config.PrettyConventionFormatter
+
+# ── Handlers ───────────────────────────────────────────────────────────────────
+handlers:
+
+  # Production: compact NDJSON to stdout
+  stdout:
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+    formatter: convention_json
+    level: DEBUG
+
+  # Development: coloured human-readable to stdout
+  stdout_pretty:
+    class: logging.StreamHandler
+    stream: ext://sys.stdout
+    formatter: convention_pretty
+    level: DEBUG
+
+  # File handler: rotating NDJSON — enable by referencing in root.handlers
+  # Adjust filename / maxBytes / backupCount as needed.
+  file_rotating:
+    class: logging.handlers.RotatingFileHandler
+    filename: logs/harness.ndjson
+    maxBytes: 10485760      # 10 MiB
+    backupCount: 5
+    encoding: utf-8
+    formatter: convention_json
+    level: DEBUG
+
+# ── Logger overrides ───────────────────────────────────────────────────────────
+loggers:
+
+  # Silence noisy third-party libraries while keeping harness logs visible
+  anthropic:
+    level: WARNING
+    propagate: true
+
+  httpx:
+    level: WARNING
+    propagate: true
+
+  httpcore:
+    level: WARNING
+    propagate: true
+
+  # Agent-harness domains — set per-domain levels here as needed
+  harness:
+    level: DEBUG
+    propagate: true
+
+  root_logger:
+    level: INFO
+    propagate: true
+
+# ── Root logger ────────────────────────────────────────────────────────────────
+root:
+  # Set LOG_LEVEL env var to override (e.g. LOG_LEVEL=DEBUG)
+  level: INFO
+  handlers:
+    - stdout
+  # To additionally write to a rotating file, add:
+  # - file_rotating

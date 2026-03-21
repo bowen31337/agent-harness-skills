@@ -1,0 +1,177 @@
+# .github/workflows/perf-gate.yml
+# Performance Benchmark Gate
+# Runs harness evaluate --gate performance on every pull request.
+# Thresholds are configured in .harness/perf-thresholds.yml.
+#
+# Exit codes: 0 = all thresholds passed
+#             1 = one or more error-severity thresholds breached
+#             2 = internal harness error (check runner logs)
+name: Performance Benchmark Gate
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  perf-gate:
+    name: Performance Thresholds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history for baseline diff
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # ── Download baseline artifact from main (for regression comparison) ──
+      - name: Download baseline perf report
+        id: baseline
+        continue-on-error: true   # first run on main won't have a baseline yet
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: perf-gate.yml
+          branch: ${{ github.event.repository.default_branch }}
+          name: perf-baseline-report
+          path: .harness/baseline/
+          if_no_artifact_found: warn
+
+      # ── Run the gate ───────────────────────────────────────────────────────
+      - name: Run performance benchmark gate
+        id: perf
+        run: |
+          set +e
+
+          EXTRA_ARGS=""
+          if [ -f ".harness/baseline/perf-report.json" ]; then
+            EXTRA_ARGS="--baseline .harness/baseline/perf-report.json"
+          fi
+
+          result=$(uv run harness evaluate \
+            --gate performance \
+            --thresholds .harness/perf-thresholds.yml \
+            --format json \
+            $EXTRA_ARGS 2>&1)
+
+          exit_code=$?
+          echo "$result" | tee perf-report.json
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "passed=$(echo "$result" | jq -r '.passed // false')" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      # ── Write a rich job summary ───────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ ! -f perf-report.json ]; then
+            echo "No perf report found — harness may have crashed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          passed=$(jq -r '.passed // false' perf-report.json)
+          if [ "$passed" = "true" ]; then
+            icon="✅"; headline="All performance thresholds passed"
+          else
+            icon="❌"; headline="Performance threshold VIOLATIONS detected"
+          fi
+
+          {
+            echo "## $icon Performance Benchmark Gate — $headline"
+            echo ""
+            echo "Thresholds defined in [\`.harness/perf-thresholds.yml\`](.harness/perf-thresholds.yml)"
+            echo ""
+
+            # Summary table
+            jq -r '
+              .summary as $s |
+              "| Metric | Value |",
+              "|--------|-------|",
+              "| Rules evaluated | \($s.total_gates) |",
+              "| Passed | \($s.passed_gates) |",
+              "| Blocking failures (error) | \($s.blocking_failures) |",
+              "| Warnings | \($s.total_failures - $s.blocking_failures) |"
+            ' perf-report.json
+
+            echo ""
+
+            # Slowest spans table (if present)
+            span_count=$(jq '.spans | length // 0' perf-report.json 2>/dev/null)
+            if [ "${span_count:-0}" -gt 0 ]; then
+              echo "### Slowest Spans (p99)"
+              echo ""
+              echo "| Span | p99 (ms) | Threshold (ms) | Status |"
+              echo "|------|----------|----------------|--------|"
+              jq -r '
+                (.spans // []) |
+                sort_by(-.p99_ms) |
+                .[0:10] |
+                .[] |
+                "| `\(.name)` | \(.p99_ms) | \(.threshold_ms) | \(if .passed then "✅" else "❌" end) |"
+              ' perf-report.json
+              echo ""
+            fi
+
+            # Blocking failures
+            error_count=$(jq '[.failures[] | select(.severity == "error")] | length' perf-report.json)
+            if [ "${error_count:-0}" -gt 0 ]; then
+              echo "### ❌ Blocking Threshold Breaches"
+              echo ""
+              jq -r '
+                .failures[] | select(.severity == "error") |
+                "- **\(.rule_id // .message)**" +
+                (if .span_name then " — span `\(.span_name)`" else "" end) +
+                (if .measured_ms and .threshold_ms then
+                  " (\(.measured_ms) ms vs \(.threshold_ms) ms limit)"
+                else "" end) +
+                (if .suggestion then "\n  > 💡 \(.suggestion)" else "" end)
+              ' perf-report.json
+              echo ""
+            fi
+
+            # Warnings
+            warn_count=$(jq '[.failures[] | select(.severity == "warning")] | length' perf-report.json)
+            if [ "${warn_count:-0}" -gt 0 ]; then
+              echo "### ⚠️ Warnings (non-blocking)"
+              echo ""
+              jq -r '
+                .failures[] | select(.severity == "warning") |
+                "- \(.rule_id // .message)" +
+                (if .measured_ms and .threshold_ms then
+                  " (\(.measured_ms) ms vs \(.threshold_ms) ms limit)"
+                else "" end)
+              ' perf-report.json
+            fi
+
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ── Upload the report for download by next run (baseline) ─────────────
+      - name: Upload perf report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report
+          path: perf-report.json
+          retention-days: 30
+
+      # On main/master, also upload as the new baseline
+      - name: Upload perf baseline (main only)
+        if: >
+          always() &&
+          github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-baseline-report
+          path: perf-report.json
+          retention-days: 90

@@ -1,0 +1,17 @@
+# Auto-provision Loki as a Grafana datasource on first boot.
+apiVersion: 1
+
+datasources:
+  - name:      Loki
+    type:      loki
+    access:    proxy
+    url:       http://loki:3100
+    isDefault: true
+    editable:  true
+    jsonData:
+      maxLines:          5000
+      timeout:           60
+      queryTimeout:      "60s"
+      httpHeaderName1:   "X-Scope-OrgID"
+    secureJsonData:
+      httpHeaderValue1:  "tenant1"

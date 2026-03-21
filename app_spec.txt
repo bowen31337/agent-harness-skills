@@ -1,0 +1,677 @@
+<!--
+  claw-forge Project Specification
+  =================================
+  Harness Skills Generator - A comprehensive agent harness engineering toolkit
+  that analyzes codebases and generates the full scaffolding, feedback loops,
+  documentation, and architectural constraints that make AI agents productive.
+
+  Based on harness engineering principles from OpenAI, Martin Fowler, and
+  the broader agent-first development community.
+
+  Design informed by the Agent Tool Design Guidelines (docs/agent_tool_desig_guidelines.md)
+  ensuring all tools are shaped to model abilities, use progressive disclosure,
+  and support multi-agent coordination.
+
+  Features: 129 across 9 categories
+-->
+<project_specification mode="greenfield">
+  <project_name>harness-skills</project_name>
+
+  <overview>
+    Harness Skills Generator is a comprehensive toolkit that analyzes codebases and generates
+    agent harness infrastructure — AGENTS.md files, architectural constraints, golden principles,
+    evaluation gates, observability configs, and execution plan frameworks. It shifts the engineer's
+    role from writing code to designing environments where AI coding agents (Claude Code, Codex,
+    Cursor, etc.) produce reliable, architecturally coherent output at scale. The tool is built as
+    a plugin-based Python CLI with a Claude Code skill interface layer.
+  </overview>
+
+  <target_audience>
+    Engineers and teams using AI coding agents who want structured harnesses for their projects.
+    This includes individual developers setting up agent workflows, tech leads defining architectural
+    guardrails for agent-assisted teams, and platform engineers building standardized agent
+    environments across organizations. Users range from those new to agent-first development
+    (who need sensible defaults) to experienced harness engineers (who need customization and
+    plugin extensibility).
+  </target_audience>
+
+  <design_principles>
+    <!--
+      These principles are derived from the Agent Tool Design Guidelines
+      (docs/agent_tool_desig_guidelines.md). Each principle maps to specific
+      features in core_features via guideline_refs attributes on categories.
+    -->
+    <principle id="G1" name="Structured Tools Over Free-Form Output">
+      All CLI commands emit structured output (JSON/YAML) by default when stdout is not a TTY.
+      The harness_manifest.json is validated against a published JSON Schema. Gate results,
+      violation reports, and plan status are all machine-parseable with typed pydantic response
+      models, ensuring agents consume structured data rather than parsing free-form text.
+    </principle>
+    <principle id="G2" name="Progressive Disclosure Over Context Dumping">
+      AGENTS.md files use a tiered structure: root overview (&lt;500 tokens) linking to per-domain
+      docs, each domain doc linking to file-level references. The CLI supports --verbosity levels
+      (quiet/normal/verbose/debug). harness.config.yaml offers profiles (starter/standard/advanced)
+      so teams adopt complexity incrementally rather than being overwhelmed by all options upfront.
+    </principle>
+    <principle id="G3" name="Tool Lifecycle &amp; Evolution via Trace-Driven Iteration">
+      Every generated artifact embeds a version identifier and generation timestamp for staleness
+      detection. The harness audit command compares artifacts against current codebase state and
+      reports freshness scores. An artifact changelog tracks harness evolution over time, enabling
+      teams to retire outdated constraints as model capabilities improve. Beyond periodic audits,
+      the harness supports trace-driven iteration: collect agent execution traces, dispatch parallel
+      error-analysis agents to classify failure patterns, synthesise findings into targeted harness
+      changes, and re-run to measure improvement — creating a continuous feedback loop between agent
+      behaviour and harness design.
+    </principle>
+    <principle id="G4" name="Agent-Driven Context Assembly">
+      Rather than pre-assembling context dumps, the harness provides search primitives (harness search,
+      harness context) that let agents query artifacts by keyword, domain, or symbol. Execution plans
+      include context assembly sections with grep patterns and file globs. A symbol index maps
+      identifiers to file locations for fast agent-driven lookup.
+    </principle>
+    <principle id="G5" name="Subagent Coordination From Day One">
+      Execution plans support task dependencies (depends_on fields) and lock protocols preventing
+      concurrent modification. A shared state file lets agents publish intermediate results for
+      cross-agent visibility. The harness coordinate command detects file-level conflicts between
+      concurrent agents and suggests task reordering to minimize merge friction.
+    </principle>
+    <principle id="G6" name="Elicitation Quality Measurement">
+      Telemetry hooks track which harness artifacts agents actually read, CLI command invocation
+      frequency, and gate failure patterns. The harness telemetry command reports artifact utilization
+      rates and effectiveness scores, enabling teams to identify underutilized artifacts for redesign
+      or removal rather than accumulating unused documentation.
+    </principle>
+    <principle id="G7" name="Minimize Tool Count, Maximize Tool Depth">
+      The CLI maintains a ceiling of ~20 commands. Before adding any new command, the team asks:
+      can progressive disclosure handle this? Can an existing command be extended? Does this use
+      case arise in &gt;10% of runs? Commands support composition (--then chaining) to reduce the
+      number of separate invocations agents must reason about.
+    </principle>
+    <principle id="G8" name="Force Verification Before Exit">
+      The most common agent failure pattern is writing a solution, re-reading its own code, judging
+      it "looks right", and exiting — without running tests or comparing against the spec. The harness
+      implements a pre-completion hook that mechanically prevents task exit without a verification pass:
+      tests must run, output must be checked against acceptance criteria, and the evaluation gate report
+      must be green. Inspired by LangChain's PreCompletionChecklistMiddleware and the Ralph Wiggum Loop
+      pattern — evidence before assertions, always.
+    </principle>
+    <principle id="G9" name="Onboard Agents Into Their Environment at Boot">
+      Agents waste early turns on environment discovery — finding file paths, checking tool installs,
+      locating configs. The harness eliminates this class of errors via boot-time context injection:
+      a startup hook that provides the working directory layout, available commands, language/framework
+      versions, active harness profile, and key file locations before the first model call. This maps
+      to LangChain's LocalContextMiddleware concept and ensures agents begin productive work immediately
+      rather than spending tokens on orientation.
+    </principle>
+    <principle id="G10" name="Detect and Break Doom Loops">
+      Agents sometimes commit to a broken approach and make 10+ small variations to the same file without
+      progress. The harness tracks per-resource edit counts during a task; when edits to a single file
+      exceed a configurable threshold, the harness injects a Socratic reconsidering prompt that forces
+      the agent to step back, re-examine its approach, and consider alternatives. This guardrail is
+      designed as a modular, removable middleware — expected to become unnecessary as model reasoning
+      improves. Based on LangChain's LoopDetectionMiddleware.
+    </principle>
+  </design_principles>
+
+  <technology_stack>
+    <backend>
+      <language>Python 3.12+</language>
+      <package_manager>uv</package_manager>
+      <cli_framework>Click (composable commands, plugin-friendly)</cli_framework>
+      <ast_parsing>tree-sitter with language-specific grammars (Python, TypeScript, Go, Rust, Java, C#)</ast_parsing>
+      <template_engine>Jinja2 (template inheritance, filters, macros)</template_engine>
+      <config_parsing>PyYAML + pydantic v2 (typed config validation)</config_parsing>
+      <testing>pytest + pytest-cov</testing>
+      <linting>Ruff</linting>
+      <type_checking>mypy (strict mode)</type_checking>
+    </backend>
+    <plugin_system>
+      <discovery>Python entry_points (setuptools/packaging standard)</discovery>
+      <interfaces>Abstract base classes for analyzers, generators, CI backends, template packs</interfaces>
+    </plugin_system>
+    <documentation>
+      <format>MkDocs with Material theme</format>
+      <api_docs>Auto-generated from docstrings</api_docs>
+    </documentation>
+    <infrastructure>
+      <ci>GitHub Actions (primary), GitLab CI, generic shell script</ci>
+      <distribution>PyPI package (uv/pip installable)</distribution>
+    </infrastructure>
+  </technology_stack>
+
+  <prerequisites>
+    - Python 3.12+ with uv installed
+    - tree-sitter and language grammars (auto-installed as dependencies)
+    - Git (for repository analysis and checkpoint integration)
+    - Target project must be a git repository (for import graph and history analysis)
+  </prerequisites>
+
+  <core_features>
+    <category name="Codebase Analysis &amp; Detection" guideline_refs="G1,G4">
+      - Skill detects primary language(s) and framework(s) from package files (package.json, pyproject.toml, Cargo.toml, go.mod, Gemfile, pom.xml, etc.)
+      - Skill detects project structure pattern (monorepo, polyrepo, single-app) from directory layout and workspace configs
+      - Skill identifies existing test framework and test location conventions from config files and test directory structure
+      - Skill identifies existing linter/formatter configuration (ESLint, Ruff, rustfmt, Prettier, etc.) and extracts active rules
+      - Skill detects CI/CD platform from config files (.github/workflows, .gitlab-ci.yml, Jenkinsfile, .circleci/config.yml)
+      - Skill maps directory tree into candidate domain boundaries (e.g., src/auth, src/billing become domains) using heuristics and import clustering
+      - Skill detects existing dependency layering patterns from import graph analysis via tree-sitter AST parsing
+      - Skill identifies existing documentation files (README, CONTRIBUTING, existing AGENTS.md) and their coverage completeness
+      - Skill detects database technology from config files, migration directories, ORM model definitions, and connection strings
+      - Skill identifies API style (REST, GraphQL, gRPC) from route definitions, schema files, or proto files
+      - Skill detects environment variable patterns from .env.example, config files, and os.environ/process.env references in code
+      - Skill produces a harness_manifest.json validated against a published JSON Schema (harness_manifest.schema.json), summarizing all detected context (stack, domains, patterns, conventions) for downstream generators; CLI emits validation errors with JSONPath locations on schema violations
+      - Skill generates a harness_manifest.schema.json file alongside the manifest so downstream tools and agents can validate manifest fragments independently
+      - Skill generates a symbol index (harness_symbols.json) mapping function names, class names, and key identifiers to file paths and line numbers, enabling agents to look up symbols without scanning the entire codebase
+    </category>
+
+    <category name="AGENTS.md Generation" guideline_refs="G2,G3">
+      - Skill generates a tiered AGENTS.md system: a root AGENTS.md overview (&lt;500 tokens) linking to per-domain docs, each domain doc linking to deeper reference files, ensuring agents pull context on demand rather than loading everything upfront
+      - Skill includes detected build, test, and lint commands in the root AGENTS.md with exact invocation syntax
+      - Skill generates per-domain AGENTS.md files for each detected subsystem (e.g., src/auth/AGENTS.md, src/billing/AGENTS.md)
+      - Each domain AGENTS.md includes: purpose statement, key files listing, internal patterns, domain-specific constraints
+      - Skill includes architecture overview section mapping domain boundaries and dependency flow direction
+      - Skill includes security protocols section covering secret handling, input validation patterns, and auth conventions
+      - Skill includes git workflow section with branch naming conventions, commit message format, and PR process
+      - Skill includes code conventions section derived from existing linter config and detected patterns in the codebase
+      - Skill includes testing conventions section with test file naming, assertion style, coverage expectations, and fixture patterns
+      - Skill includes error handling patterns section derived from existing codebase error handling conventions
+      - Skill cross-links all generated documentation so agents can navigate between related files via relative paths
+      - Skill enforces token-budget awareness with each AGENTS.md staying under a configurable max token count to avoid context pollution
+      - Skill flags stale documentation risks by tracking which source files each AGENTS.md references, detecting drift, and reporting artifact age with a staleness score; includes all generated artifacts (AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md) in staleness tracking
+      - Skill supports regeneration mode that re-scans codebase and updates existing AGENTS.md files without overwriting manual edits via three-way merge strategy
+      - Skill generates a context depth map in the root AGENTS.md showing the tiered structure (L0: root overview, L1: domain docs, L2: file-level comments) with token budgets per level
+      - Each generated AGENTS.md includes a Quick Reference section (&lt;200 tokens) at the top with only the most critical commands and constraints, followed by expandable detail sections
+    </category>
+
+    <category name="Architecture Documentation &amp; Enforcement" guideline_refs="G1,G3">
+      - Skill generates ARCHITECTURE.md with a domain map showing all detected subsystems and their relationships
+      - Skill infers dependency direction between domains from import analysis and generates a text-based dependency flow diagram
+      - Skill generates a layered architecture definition per domain (Types to Config to Repo to Service to Runtime to UI or project-appropriate equivalent)
+      - Skill detects violations of the inferred dependency layers in existing code and reports them as warnings with file locations
+      - Skill generates linter rules that mechanically enforce dependency direction (ESLint import rules, Ruff import checks, Go import restrictions, etc.)
+      - Skill generates CI validation script that fails builds on architectural boundary violations
+      - Skill generates a providers pattern definition for cross-cutting concerns (logging, auth, config) that domains must use instead of direct imports
+      - Skill documents the one-way dependency rule: each layer may only import from layers below it, never above or sideways
+      - Skill generates file naming convention rules and a linter config to enforce them based on detected conventions
+      - Skill generates file size limit rules (configurable threshold) to prevent monolithic files that confuse agents
+      - Skill generates module boundary rules where public API surface per domain is explicitly declared in index/init files
+      - Skill generates docs/design-docs/ directory structure with a template for architectural decision records (ADRs)
+      - Skill generates docs/generated/ directory for auto-derived documentation (database schemas, API specs, dependency graphs)
+      - Skill supports custom layer definitions allowing engineers to override the default layer stack for their architecture style
+      - Skill generates a structural test suite that validates all architectural invariants are maintained
+      - Skill generates a harness lint command (shell script or Makefile target) that runs all architectural checks in one pass
+      - Skill embeds a version identifier and generation timestamp in every generated artifact (AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md) enabling staleness detection across the full artifact set
+      - Skill generates a harness audit command that compares all generated artifacts against current codebase state and reports a per-artifact freshness score (current, stale, outdated, obsolete) with recommended actions
+      - Skill generates an artifact changelog (docs/harness-changelog.md) that records what changed in each harness update run, enabling teams to review harness evolution over time
+    </category>
+
+    <category name="Golden Principles &amp; Pattern Enforcement" guideline_refs="G1">
+      - Skill analyzes the codebase for recurring code patterns and extracts them as candidate golden principles with frequency data
+      - Skill generates a PRINCIPLES.md file listing all mechanical rules agents must follow with rationale and examples
+      - Skill generates a prefer-shared-utilities-over-hand-rolled-helpers rule with pointers to existing utility packages in the codebase
+      - Skill generates boundary-level validation rules specifying that data validation happens at system boundaries (API input, external services) not deep in business logic
+      - Skill generates concurrency and async patterns rule based on detected framework conventions (async/await patterns, thread safety rules, pool usage)
+      - Skill generates error handling pattern rules specifying structured errors, error codes, and logging format conventions
+      - Skill generates naming convention rules for functions, variables, files, and database columns derived from existing codebase style analysis
+      - Skill generates import ordering and grouping rules matching existing conventions detected from the most common patterns
+      - Skill generates a no-magic-numbers and no-hardcoded-strings rule with config pattern guidance and constant extraction conventions
+      - Skill generates test writing principles covering arrange-act-assert structure, test naming conventions, fixture patterns, and mock boundary rules
+      - Skill supports custom principle definitions allowing engineers to add project-specific golden rules via interactive prompt or config file
+      - Skill generates background cleanup task definitions that agents can run to enforce principles across the entire codebase as refactoring PRs
+      - Skill generates a principle violation report command that scans the codebase and lists all deviations from golden principles with severity and location
+    </category>
+
+    <category name="Evaluation Gates &amp; Testing Harness" guideline_refs="G1,G6">
+      - Skill generates an EVALUATION.md defining all completion criteria agents must satisfy before opening a PR
+      - Skill generates a regression test gate ensuring all existing tests must pass before any change is accepted
+      - Skill generates a coverage gate with configurable threshold (default 90%) that blocks PRs falling below the bar
+      - Skill generates a security check gate covering secret scanning, dependency vulnerability audit, and input validation verification
+      - Skill generates a performance benchmark gate with configurable thresholds (e.g., no API endpoint exceeds 500ms, no span exceeds 2 seconds)
+      - Skill generates an architectural compliance gate that runs the structural test suite from the architecture enforcement component
+      - Skill generates a golden principles compliance gate that runs the principle violation scanner and fails on critical violations
+      - Skill generates a documentation freshness gate that verifies AGENTS.md files reference files that still exist and content is current
+      - Skill generates a type safety gate that runs the type checker (TypeScript strict, mypy, etc.) with zero errors required
+      - Skill generates a lint gate that runs all configured linters with zero warnings required on changed files
+      - Skill generates a harness evaluate command that runs all gates in sequence and produces a structured JSON pass/fail report conforming to evaluation_report.schema.json, with --format flag supporting json, yaml, and human-readable table output
+      - Skill generates per-gate configuration in harness.config.yaml so engineers can enable, disable, or adjust thresholds per gate
+      - Skill generates CI pipeline integration as GitHub Actions workflow and GitLab CI job that runs harness evaluate on every PR
+      - Skill generates a gate failure report as structured JSON (with severity, gate_id, file_path, line_number, suggestion fields) that agents can parse and act on programmatically
+      - Skill supports custom evaluation gates allowing engineers to define project-specific gates via a plugin interface in harness.config.yaml
+    </category>
+
+    <category name="Observability &amp; Application Legibility" guideline_refs="G4,G6">
+      - Skill generates structured logging configuration matching the detected framework (Python logging, Winston, slog, tracing, etc.)
+      - Skill generates a logging convention document specifying required fields per log entry (timestamp, level, domain, trace_id, message)
+      - Skill generates log format linter rules ensuring all log statements follow the structured pattern
+      - Skill generates a per-worktree boot script that launches an isolated application instance for each agent task
+      - Skill generates environment isolation configuration with separate ports, database schemas, or containers per worktree
+      - Skill generates a health check endpoint specification that agents can poll to verify the application is running correctly
+      - Skill generates a harness boot command that starts the isolated app instance and waits for health check to pass before returning
+      - Skill generates a harness observe command that tails structured logs filtered by domain or trace_id in real time
+      - Skill generates browser automation integration config (Playwright or Puppeteer) so agents can drive the UI and capture screenshots
+      - Skill generates a DOM snapshot utility that agents can invoke to inspect current UI state without a full browser session
+      - Skill generates performance measurement hooks so agents can query response times, memory usage, and startup duration
+      - Skill generates an error aggregation view so agents can query recent errors grouped by domain and frequency
+      - Skill generates a harness screenshot command that captures the current application state as a visual artifact for PR evidence
+      - Skill generates observability stack templates (optional) for lightweight log aggregation in local dev using file-based collectors
+      - Skill generates telemetry hooks that track which harness artifacts agents actually read, how often each CLI command is invoked, and which gate failures are most common, writing usage data to docs/harness-telemetry.json
+      - Skill generates a harness telemetry command that reports artifact utilization rates, command call frequency, and gate effectiveness scores, enabling teams to identify underutilized artifacts for redesign or removal
+      - Skill generates an effectiveness scoring system that correlates harness artifact usage with PR quality metrics (gate pass rate, review cycles, time to merge), reported as a harness effectiveness dashboard
+    </category>
+
+    <category name="Execution Plans &amp; State Management" guideline_refs="G4,G5">
+      - Skill generates docs/exec-plans/ directory structure with templates for execution plan artifacts including task dependency graph support and multi-agent coordination metadata (assigned_agent, lock_status, depends_on fields)
+      - Skill generates execution plan template with sections: objective, approach, steps, context assembly, progress log, known debt, completion criteria
+      - Skill generates a harness plan command that creates a new execution plan from a feature description or ticket
+      - Skill generates progress log format where agents append timestamped entries as they complete steps within a plan
+      - Skill generates a plan status dashboard command (harness status) showing all active, completed, and blocked plans with --format json|yaml|table output and machine-parseable status fields
+      - Skill generates context handoff protocol where ending agent sessions write a structured summary to the plan progress log; handoff includes search hints (file paths, grep patterns, relevant symbols) so the next agent can rebuild context using its own search tools rather than relying on pre-assembled dumps
+      - Skill generates a harness resume command that loads the most recent plan state and presents it as agent context
+      - Skill generates git-based checkpoint integration where agents commit work-in-progress to a branch with plan reference in the commit message; checkpoint metadata includes agent_id and task_id for multi-agent traceability
+      - Skill generates a technical debt tracker where agents log known shortcuts or TODOs into docs/exec-plans/debt.md with severity and remediation notes
+      - Skill generates a plan-to-PR linking convention where each PR references its source execution plan for full traceability
+      - Skill generates a stale plan detector that flags execution plans with no progress updates beyond a configurable threshold
+      - Skill generates a plan completion report summarizing what was done, what debt was incurred, and what follow-up is needed
+      - Execution plan templates include a context assembly section with grep patterns, file globs, and symbol references that agents can use to independently rebuild task context using search tools
+      - Skill generates a harness context command that, given a plan ID or domain name, returns a minimal set of file paths and search patterns rather than dumping full file contents, supporting agent-driven context assembly
+      - Execution plans support task dependencies via a depends_on field, and harness status displays a dependency graph showing which tasks are blocked, ready, or in-progress
+      - Skill generates a task lock protocol where agents acquire a lock on a plan task before starting work, preventing concurrent modification by multiple agents; locks include agent_id, timestamp, and auto-expire after a configurable timeout
+      - Skill generates a shared state file (docs/exec-plans/shared-state.yaml) where agents can publish intermediate results (discovered endpoints, schema changes, test results) that other agents can query
+      - Skill generates a harness coordinate command that shows cross-agent task status, identifies conflicts (two agents modifying the same files), and suggests task reordering to minimize merge conflicts
+    </category>
+
+    <category name="Skill Invocation &amp; CLI Interface" guideline_refs="G1,G2,G7">
+      - Skill registers as /harness:create for full harness generation from codebase analysis through all artifact output
+      - Skill registers as /harness:update for re-scanning codebase and updating existing harness artifacts while preserving manual edits
+      - Skill registers as /harness:lint for running all architectural and golden principle checks in one pass
+      - Skill registers as /harness:evaluate for running all evaluation gates and producing a structured pass/fail report
+      - Skill registers as /harness:boot for launching an isolated application instance for an agent task
+      - Skill registers as /harness:plan for creating a new execution plan from a description or ticket reference
+      - Skill registers as /harness:status for showing current state of all plans, gates, and harness health metrics
+      - Skill registers as /harness:resume for loading most recent plan state and presenting it for context handoff
+      - Skill registers as /harness:screenshot for capturing application state as a visual artifact
+      - Skill generates a harness.config.yaml with config profiles (starter, standard, advanced) providing progressive complexity; starter profile enables only essential gates and documentation, standard adds architecture enforcement, advanced unlocks all features including telemetry and multi-agent coordination
+      - Skill generates a harness init shell script for teams not using Claude Code providing the same functionality via standalone CLI
+      - All CLI commands support a --output-format flag (json, yaml, table) defaulting to table for humans and json when stdout is not a TTY, enabling structured consumption by agents and scripts
+      - Skill generates typed pydantic response models for every CLI command output, ensuring all structured output is schema-validated before emission
+      - CLI commands support --verbosity levels (quiet, normal, verbose, debug) controlling output detail; quiet mode emits only machine-parseable results, verbose mode includes rationale and context
+      - Skill supports command composition where harness create, harness lint, and harness evaluate can be chained in a single invocation (e.g., harness create --then lint --then evaluate), reducing the number of separate tool invocations agents must reason about
+    </category>
+  </core_features>
+
+  <tool_inventory ceiling="20">
+    <!--
+      Per Guideline 7: Minimize Tool Count, Maximize Tool Depth.
+      This inventory tracks all CLI commands and skill registrations.
+      Before adding any new command, verify: (1) can progressive disclosure handle it?
+      (2) can an existing command be extended? (3) does the use case arise in >10% of runs?
+    -->
+    <tool name="harness create" type="compound" composes="scan,generate" skill="/harness:create" />
+    <tool name="harness update" type="compound" composes="scan,merge,generate" skill="/harness:update" />
+    <tool name="harness lint" type="check" skill="/harness:lint" />
+    <tool name="harness evaluate" type="compound" composes="all gates" skill="/harness:evaluate" />
+    <tool name="harness boot" type="runtime" skill="/harness:boot" />
+    <tool name="harness plan" type="state" skill="/harness:plan" />
+    <tool name="harness status" type="query" skill="/harness:status" />
+    <tool name="harness resume" type="state" skill="/harness:resume" />
+    <tool name="harness screenshot" type="capture" skill="/harness:screenshot" />
+    <tool name="harness audit" type="check" />
+    <tool name="harness search" type="query" />
+    <tool name="harness context" type="query" />
+    <tool name="harness coordinate" type="query" />
+    <tool name="harness telemetry" type="query" />
+    <tool name="harness observe" type="runtime" />
+    <current_count>15</current_count>
+    <headroom>5</headroom>
+  </tool_inventory>
+
+  <project_structure>
+    harness_skills/
+    ├── __init__.py
+    ├── cli/                        # Click CLI commands
+    │   ├── __init__.py
+    │   ├── main.py                 # CLI entry point and command group
+    │   ├── create.py               # /harness:create command
+    │   ├── update.py               # /harness:update command
+    │   ├── lint.py                 # /harness:lint command
+    │   ├── evaluate.py             # /harness:evaluate command
+    │   ├── boot.py                 # /harness:boot command
+    │   ├── plan.py                 # /harness:plan command
+    │   ├── status.py               # /harness:status command
+    │   ├── resume.py               # /harness:resume command
+    │   ├── screenshot.py           # /harness:screenshot command
+    │   ├── audit.py                # harness audit command (artifact freshness)
+    │   ├── search.py               # harness search command (agent-driven context lookup)
+    │   ├── context.py              # harness context command (minimal context assembly)
+    │   ├── coordinate.py           # harness coordinate command (multi-agent coordination)
+    │   └── telemetry.py            # harness telemetry command (usage analytics)
+    ├── core/                       # Core engine
+    │   ├── __init__.py
+    │   ├── scanner.py              # Orchestrates codebase analysis
+    │   ├── manifest.py             # harness_manifest.json read/write with JSON Schema validation
+    │   ├── config.py               # harness.config.yaml management (pydantic models, profiles)
+    │   ├── plugin.py               # Plugin discovery and loading via entry_points
+    │   ├── merge.py                # Three-way merge for regeneration mode
+    │   ├── symbols.py              # Symbol index generation and lookup
+    │   ├── telemetry.py            # Telemetry collection and reporting
+    │   └── coordination.py         # Multi-agent lock protocol and shared state
+    ├── analyzers/                  # Language-specific codebase analyzers
+    │   ├── __init__.py
+    │   ├── base.py                 # Abstract analyzer interface (ABC)
+    │   ├── python_analyzer.py      # Python analyzer (ast + tree-sitter)
+    │   ├── typescript_analyzer.py  # TypeScript analyzer (tree-sitter)
+    │   ├── go_analyzer.py          # Go analyzer (tree-sitter)
+    │   ├── rust_analyzer.py        # Rust analyzer (tree-sitter)
+    │   ├── java_analyzer.py        # Java analyzer (tree-sitter)
+    │   └── csharp_analyzer.py      # C# analyzer (tree-sitter)
+    ├── generators/                 # Artifact generators
+    │   ├── __init__.py
+    │   ├── base.py                 # Abstract generator interface
+    │   ├── agents_md.py            # AGENTS.md generator (root + per-domain)
+    │   ├── architecture.py         # ARCHITECTURE.md + linter rules + structural tests
+    │   ├── principles.py           # PRINCIPLES.md + enforcement rules + violation scanner
+    │   ├── evaluation.py           # EVALUATION.md + gates + CI pipeline
+    │   ├── observability.py        # Logging config + boot scripts + observe commands
+    │   └── exec_plans.py           # Execution plan templates + state management
+    ├── ci/                         # CI platform generators
+    │   ├── __init__.py
+    │   ├── base.py                 # Abstract CI generator interface
+    │   ├── github_actions.py       # GitHub Actions workflow generator
+    │   ├── gitlab_ci.py            # GitLab CI config generator
+    │   └── shell_script.py         # Generic shell script fallback
+    ├── schemas/                    # JSON Schemas for structured output validation
+    │   ├── harness_manifest.schema.json
+    │   ├── evaluation_report.schema.json
+    │   └── plan_status.schema.json
+    ├── templates/                  # Built-in Jinja2 templates
+    │   ├── agents_md/
+    │   │   ├── root.md.j2          # Root AGENTS.md template
+    │   │   └── domain.md.j2        # Per-domain AGENTS.md template
+    │   ├── architecture/
+    │   │   ├── architecture.md.j2  # ARCHITECTURE.md template
+    │   │   ├── adr.md.j2           # ADR template
+    │   │   └── structural_test.py.j2
+    │   ├── principles/
+    │   │   ├── principles.md.j2    # PRINCIPLES.md template
+    │   │   └── violation_scanner.py.j2
+    │   ├── evaluation/
+    │   │   ├── evaluation.md.j2    # EVALUATION.md template
+    │   │   ├── github_actions.yml.j2
+    │   │   ├── gitlab_ci.yml.j2
+    │   │   └── evaluate.sh.j2
+    │   ├── observability/
+    │   │   ├── logging_config.j2
+    │   │   ├── boot.sh.j2
+    │   │   └── health_check.j2
+    │   ├── exec_plans/
+    │   │   ├── plan.yaml.j2
+    │   │   ├── debt.md.j2
+    │   │   └── completion_report.md.j2
+    │   └── config/
+    │       └── harness.config.yaml.j2
+    └── utils/                      # Shared utilities
+        ├── __init__.py
+        ├── tree_sitter.py          # tree-sitter setup and query helpers
+        ├── import_graph.py         # Import graph construction and analysis
+        ├── file_scanner.py         # Glob-based file discovery and classification
+        ├── token_counter.py        # Token budget estimation for AGENTS.md files
+        └── git.py                  # Git operations (checkpoint, branch, diff)
+    tests/
+    ├── conftest.py
+    ├── fixtures/                   # Sample project fixtures for testing
+    │   ├── python_fastapi/
+    │   ├── typescript_nextjs/
+    │   ├── go_service/
+    │   └── monorepo/
+    ├── test_analyzers/
+    │   ├── test_python_analyzer.py
+    │   ├── test_typescript_analyzer.py
+    │   └── test_go_analyzer.py
+    ├── test_generators/
+    │   ├── test_agents_md.py
+    │   ├── test_architecture.py
+    │   ├── test_principles.py
+    │   ├── test_evaluation.py
+    │   ├── test_observability.py
+    │   └── test_exec_plans.py
+    ├── test_ci/
+    │   ├── test_github_actions.py
+    │   └── test_gitlab_ci.py
+    ├── test_core/
+    │   ├── test_scanner.py
+    │   ├── test_manifest.py
+    │   ├── test_config.py
+    │   ├── test_plugin.py
+    │   ├── test_merge.py
+    │   ├── test_symbols.py
+    │   ├── test_telemetry.py
+    │   └── test_coordination.py
+    └── test_cli/
+        ├── test_create.py
+        ├── test_evaluate.py
+        ├── test_search.py
+        └── test_coordinate.py
+  </project_structure>
+
+  <key_interactions>
+    <interaction number="1" name="First-time harness creation">
+      1. Engineer runs harness create (or /harness:create in Claude Code) in their project root
+      2. Scanner analyzes codebase: detects language, framework, domains, patterns, existing docs
+      3. Skill presents harness_manifest.json summary and asks for confirmation/adjustments
+      4. Engineer confirms or adjusts domain boundaries and layer definitions
+      5. Skill generates all harness artifacts: AGENTS.md files, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md, configs
+      6. Skill generates CI pipeline with evaluation gates
+      7. Skill generates harness.config.yaml with detected defaults using the appropriate profile (starter/standard/advanced)
+      8. Engineer reviews generated artifacts, commits to repository
+    </interaction>
+    <interaction number="2" name="Harness update after codebase changes">
+      1. Engineer adds new modules or refactors existing code
+      2. Engineer runs harness update (or /harness:update)
+      3. Scanner re-analyzes codebase and detects changes (new domains, moved files, new patterns)
+      4. Skill uses three-way merge to update AGENTS.md and other artifacts without overwriting manual edits
+      5. Skill reports what changed: new domains discovered, stale references fixed, new patterns detected
+      6. Skill appends changes to artifact changelog (docs/harness-changelog.md)
+      7. Engineer reviews diff and commits
+    </interaction>
+    <interaction number="3" name="Agent runs evaluation before PR">
+      1. Agent completes a coding task in an isolated worktree
+      2. Agent runs harness evaluate --format json
+      3. System runs all gates in sequence: regression tests, coverage, security, performance, architecture, principles, docs freshness, types, lint
+      4. System produces structured JSON report with pass/fail per gate, severity, file paths, and actionable fix suggestions
+      5. If any gate fails, agent parses structured failure report and iterates on specific issues
+      6. Once all gates pass, agent opens PR with evaluation report attached
+    </interaction>
+    <interaction number="4" name="Execution plan lifecycle with multi-agent coordination">
+      1. Engineer or agent runs harness plan with a feature description
+      2. System creates execution plan in docs/exec-plans/ with steps, dependencies, context assembly hints, and empty progress log
+      3. Agent acquires task lock via lock protocol before starting work
+      4. Agent uses harness context to assemble relevant file paths and search patterns for the task
+      5. Agent begins work, appending progress entries as steps complete
+      6. If agent session ends mid-task, it writes context handoff summary with search hints to progress log
+      7. New agent session runs harness resume, loads plan state, rebuilds context via search tools, continues from last checkpoint
+      8. On completion, system generates plan completion report with debt inventory
+    </interaction>
+    <interaction number="5" name="Isolated application boot for agent task">
+      1. Agent receives a bug fix or feature task
+      2. Agent runs harness boot to start isolated application instance
+      3. System assigns unique port/database, boots app, waits for health check
+      4. Agent uses harness observe to tail logs, harness screenshot to capture UI state
+      5. Agent drives browser via Playwright to reproduce bug or verify feature
+      6. Agent fixes code, re-runs harness evaluate, confirms fix via UI observation
+      7. Agent runs harness screenshot for PR evidence
+    </interaction>
+    <interaction number="6" name="Multi-agent parallel development">
+      1. Lead agent decomposes a large feature into subtasks with dependency graph via harness plan
+      2. Independent subtasks are assigned to parallel agents; each acquires a task lock
+      3. Agents use harness coordinate to check for file-level conflicts before starting
+      4. Each agent publishes intermediate results to shared-state.yaml (e.g., new API endpoints, schema changes)
+      5. Dependent tasks query shared state to pick up upstream results without waiting for full completion
+      6. Harness coordinate flags conflicts and suggests reordering when two agents touch the same files
+      7. Each agent runs harness evaluate independently; all must pass before the feature PR is opened
+    </interaction>
+    <interaction number="7" name="Harness health audit and evolution">
+      1. Team runs harness audit periodically (weekly or on schedule)
+      2. System compares all generated artifacts against current codebase state
+      3. Each artifact receives a freshness score: current, stale, outdated, or obsolete
+      4. Team runs harness telemetry to see which artifacts agents actually use
+      5. Low-utilization artifacts are flagged for redesign or removal
+      6. Team updates harness.config.yaml profile or regenerates artifacts with harness update
+      7. Artifact changelog records the evolution for team review
+    </interaction>
+  </key_interactions>
+
+  <implementation_steps>
+    <phase name="Phase 1: Core Engine &amp; Analysis">
+      Initialize Python project with uv, pyproject.toml, and project structure
+      Implement abstract analyzer base class with interface for language detection, import graph, pattern extraction
+      Implement Python analyzer using ast module and tree-sitter for import graph and pattern detection
+      Implement TypeScript analyzer using tree-sitter for import graph and pattern detection
+      Implement core scanner that orchestrates analyzers and produces harness_manifest.json
+      Implement harness_manifest.schema.json and pydantic-based schema validation for manifest output
+      Implement file scanner utility for glob-based file discovery and classification
+      Implement tree-sitter utility with setup helpers and common query patterns
+      Implement import graph utility for constructing and analyzing dependency graphs
+      Implement manifest read/write with pydantic models for type-safe serialization and JSON Schema validation
+      Implement config management with pydantic models, YAML serialization, and config profiles (starter/standard/advanced) for harness.config.yaml
+      Implement symbol index generator that maps identifiers to file paths and line numbers
+      Write comprehensive tests for analyzers using sample project fixtures
+      Write tests for scanner, manifest, config, and symbol index modules
+    </phase>
+    <phase name="Phase 2: AGENTS.md &amp; Architecture Generation">
+      Implement Jinja2 template loading with three-tier resolution (user overrides, template packs, built-in defaults)
+      Implement tiered root AGENTS.md generator with Quick Reference section and context depth map
+      Implement per-domain AGENTS.md generator with domain-specific context from manifest
+      Implement token budget counter and enforcement for AGENTS.md size limits (L0: &lt;500 tokens, L1: configurable)
+      Implement ARCHITECTURE.md generator with domain map and dependency flow diagram
+      Implement dependency layer definition generator with configurable layer stack
+      Implement linter rule generator for architectural boundary enforcement (ESLint, Ruff, etc.)
+      Implement structural test generator that validates architectural invariants
+      Implement ADR template generator for docs/design-docs/ directory
+      Implement artifact version embedding and staleness scoring across all generated files
+      Implement artifact changelog generator (docs/harness-changelog.md)
+      Implement three-way merge engine for regeneration mode (update without overwriting manual edits)
+      Write tests for all generators using snapshot testing against expected output
+    </phase>
+    <phase name="Phase 3: Golden Principles &amp; Evaluation Gates">
+      Implement pattern extractor that analyzes codebase for recurring patterns and frequency data
+      Implement PRINCIPLES.md generator with mechanical rules, rationale, and examples
+      Implement principle violation scanner that reports deviations with severity and file location
+      Implement EVALUATION.md generator defining all completion criteria
+      Implement individual evaluation gate runners (regression, coverage, security, performance, architecture, principles, docs freshness, types, lint)
+      Implement gate orchestrator that runs all gates in sequence and produces structured JSON pass/fail report conforming to evaluation_report.schema.json
+      Implement gate failure report formatter with structured JSON output (severity, gate_id, file_path, line_number, suggestion)
+      Implement per-gate configuration in harness.config.yaml with enable/disable and threshold controls
+      Implement custom gate plugin interface via entry_points
+      Write tests for principle extraction, violation scanning, and all evaluation gates
+    </phase>
+    <phase name="Phase 4: Observability, Execution Plans &amp; Multi-Agent Coordination">
+      Implement structured logging config generator matching detected framework conventions
+      Implement log format linter rule generator
+      Implement per-worktree boot script generator with environment isolation (ports, databases)
+      Implement health check specification generator
+      Implement browser automation config generator (Playwright/Puppeteer setup)
+      Implement execution plan template generator with YAML-based plan format including dependency graph and coordination metadata
+      Implement progress log format and append mechanism
+      Implement context handoff protocol with search hints for agent-driven context rebuild
+      Implement context assembly sections in plan templates (grep patterns, file globs, symbol references)
+      Implement task dependency graph with depends_on fields and blocked/ready/in-progress status
+      Implement task lock protocol with agent_id, timestamp, and auto-expiry
+      Implement shared state file (docs/exec-plans/shared-state.yaml) for cross-agent intermediate results
+      Implement plan status dashboard aggregating active, completed, and blocked plans with --format support
+      Implement stale plan detector with configurable threshold
+      Implement git checkpoint integration utility with agent_id and task_id metadata
+      Write tests for observability generators, execution plan management, and coordination primitives
+    </phase>
+    <phase name="Phase 5: CI Integration &amp; CLI">
+      Implement GitHub Actions workflow generator that runs harness evaluate on PRs
+      Implement GitLab CI config generator with equivalent pipeline
+      Implement generic shell script fallback for CI-agnostic environments
+      Implement Click CLI entry point with command group registration and --output-format/--verbosity global options
+      Implement typed pydantic response models for all CLI command outputs
+      Implement harness create command orchestrating full analysis and generation pipeline
+      Implement harness update command with re-scan, three-way merge, and changelog append
+      Implement harness lint command running architectural and principle checks
+      Implement harness evaluate command running all gates with structured JSON output
+      Implement harness boot command for isolated app instances
+      Implement harness plan, status, and resume commands for execution plan management
+      Implement harness screenshot command for visual artifact capture
+      Implement harness audit command for artifact freshness scoring
+      Implement harness search command for agent-driven artifact and symbol lookup
+      Implement harness context command for minimal context assembly from plan or domain
+      Implement harness coordinate command for cross-agent conflict detection and task reordering
+      Implement command composition via --then flag for chaining commands
+      Write CLI integration tests for all commands
+    </phase>
+    <phase name="Phase 6: Telemetry &amp; Plugin System">
+      Implement telemetry collection hooks tracking artifact reads, command invocations, and gate failures
+      Implement harness telemetry command reporting utilization rates and effectiveness scores
+      Implement effectiveness scoring correlating artifact usage with PR quality metrics
+      Implement plugin discovery and loading via Python entry_points
+      Implement plugin interface documentation and example plugin skeleton
+      Implement Go analyzer using tree-sitter
+      Implement Rust analyzer using tree-sitter
+      Implement Java analyzer using tree-sitter
+      Implement C# analyzer using tree-sitter
+      Implement template pack system for community-shared templates
+      Write tests for telemetry, plugin loading, and additional analyzers
+      Write end-to-end integration tests against multi-language sample projects
+    </phase>
+    <phase name="Phase 7: Documentation &amp; Distribution">
+      Set up MkDocs with Material theme for project documentation
+      Write getting started guide with step-by-step first harness creation
+      Write architecture guide explaining plugin system and extension points
+      Write template customization guide for creating custom template packs
+      Write CI integration guide for GitHub Actions, GitLab CI, and custom setups
+      Write multi-agent coordination guide explaining lock protocol, shared state, and harness coordinate
+      Write tool lifecycle guide explaining audit, telemetry, and artifact evolution
+      Configure PyPI packaging and publish harness-skills as installable package
+      Write Claude Code skill registration files for /harness:* commands
+      Write harness init standalone script for non-Claude-Code environments
+      Final end-to-end testing across Python, TypeScript, Go, and monorepo fixtures
+    </phase>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      All 129 features in core_features are implemented and passing
+      Codebase analysis correctly detects language, framework, and domains for Python, TypeScript, Go, Rust, Java, and C# projects
+      All harness artifacts generate correctly with project-specific content (not generic boilerplate)
+      Three-way merge preserves manual edits during harness update regeneration
+      All evaluation gates produce actionable pass/fail results as structured JSON
+      Plugin system correctly discovers and loads third-party analyzers, generators, and gates
+      CI pipeline generators produce valid GitHub Actions and GitLab CI configurations
+      Multi-agent coordination primitives (locks, shared state, conflict detection) work correctly under concurrent access
+      Telemetry accurately tracks artifact usage and command invocation patterns
+    </functionality>
+    <quality>
+      Test coverage at or above 90% across all modules
+      Zero mypy type errors in strict mode
+      Zero Ruff lint warnings
+      All CLI commands have help text and error handling for invalid inputs
+      Template output is clean, well-formatted, and free of rendering artifacts
+      All structured output conforms to published JSON Schemas with zero validation errors
+    </quality>
+    <usability>
+      First harness creation completes in under 60 seconds for a typical project (under 100k lines)
+      Generated AGENTS.md files are immediately useful to AI agents without manual editing
+      harness.config.yaml is self-documenting with inline comments explaining each option
+      Config profiles (starter/standard/advanced) provide sensible progressive complexity
+      CLI provides clear progress feedback during analysis and generation
+      Error messages include actionable guidance for resolution
+      Agents can discover relevant context via harness search and harness context without human assistance
+    </usability>
+    <extensibility>
+      Adding a new language analyzer requires implementing one abstract class with no core changes
+      Adding a new CI platform requires implementing one abstract class with no core changes
+      Adding a new evaluation gate requires one plugin entry_point registration
+      Custom template packs can override any built-in template without forking
+    </extensibility>
+    <agent_effectiveness>
+      Harness telemetry shows &gt;80% of generated artifacts are read by agents during task execution
+      Gate failure reports are specific enough that agents can resolve failures without human intervention in &gt;90% of cases
+      Multi-agent task coordination reduces merge conflicts by &gt;50% compared to uncoordinated parallel work
+      Tool count stays at or below the 20-command ceiling documented in tool_inventory
+    </agent_effectiveness>
+  </success_criteria>
+
+</project_specification>

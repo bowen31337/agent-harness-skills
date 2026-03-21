@@ -1,0 +1,377 @@
+<!--
+  claw-forge Project Specification
+  =================================
+  Logging Convention Standard — a language-agnostic logging contract and reference
+  implementation that enforces five required fields per log entry:
+    timestamp, level, domain, trace_id, message
+
+  Each feature bullet becomes one agent task.
+  Features: 128 across 9 categories
+-->
+<project_specification mode="greenfield">
+  <project_name>logging-convention</project_name>
+
+  <overview>
+    The Logging Convention Standard defines a strict, language-agnostic structured-logging contract
+    for services and libraries. Every log entry MUST carry five required fields — timestamp (ISO-8601
+    UTC), level (DEBUG/INFO/WARN/ERROR/FATAL), domain (dot-separated service scope), trace_id
+    (W3C-compatible 32-hex-char ID), and message (human-readable string). The project ships a
+    reference Python library, a JSON Schema validator, a CLI linter, a set of transport adapters
+    (stdout, file, OpenTelemetry OTLP, Loki), and a language-agnostic specification document that
+    teams can adopt across any stack.
+  </overview>
+
+  <target_audience>
+    Platform engineers and backend developers who need consistent, machine-parseable logs across
+    polyglot microservice architectures. Teams using distributed tracing (Jaeger, Tempo, Zipkin),
+    log aggregation (Loki, Elasticsearch, Splunk), and on-call tooling who require every log line
+    to carry a trace_id for correlation.
+  </target_audience>
+
+  <technology_stack>
+    <frontend>None (CLI tool + library; optional React log-viewer demo app)</frontend>
+    <backend>Python 3.11+ reference library; JSON Schema (draft-2020-12) specification</backend>
+    <database>None (logs are streamed to transports, not stored by the library)</database>
+    <communication>stdout NDJSON, file rotation, OpenTelemetry OTLP/gRPC, Grafana Loki HTTP push</communication>
+    <infrastructure>PyPI package, GitHub Actions CI, Docker test fixtures, pre-commit hooks</infrastructure>
+  </technology_stack>
+
+  <prerequisites>
+    - Python 3.11+ with pip
+    - Node 18+ (optional, for JSON Schema tooling)
+    - Docker (for Loki / OTLP integration tests)
+    - pre-commit (`pip install pre-commit`)
+    - Run `pip install -e ".[dev]"` to install library + dev dependencies
+    - Run `pre-commit install` to activate lint hooks
+  </prerequisites>
+
+  <core_features>
+
+    <category name="Log Entry Contract &amp; Required Fields">
+      - System defines LogEntry as a typed dataclass with exactly five required fields: timestamp, level, domain, trace_id, message
+      - timestamp field stores a datetime object and serializes to ISO-8601 UTC string with millisecond precision (e.g. 2026-03-13T14:22:05.123Z)
+      - System rejects any LogEntry where timestamp is None, naive (no timezone), or not a datetime instance
+      - level field accepts only the string literals DEBUG, INFO, WARN, ERROR, FATAL (case-insensitive input, normalized to uppercase on storage)
+      - System raises ValueError when level is set to any value outside the allowed set
+      - domain field stores a non-empty dot-separated string (e.g. "payments.stripe.webhook") identifying the originating service scope
+      - System rejects domain values that are empty, whitespace-only, or contain consecutive dots
+      - trace_id field stores a 32-character lowercase hex string compatible with W3C Trace Context spec
+      - System rejects trace_id values that are not exactly 32 lowercase hex characters
+      - System auto-generates a valid trace_id when caller passes trace_id=None and a context trace is not active
+      - message field stores a non-empty UTF-8 string with no length limit enforced at the contract layer
+      - System rejects message values that are empty or whitespace-only
+      - LogEntry supports an optional extra dict field for arbitrary additional key-value pairs
+      - System ensures extra keys do not shadow any of the five required field names
+      - System provides a LogEntry.to_dict() method returning a plain dict with all five fields plus extra
+      - System provides a LogEntry.to_json() method returning a compact JSON string
+      - System provides a LogEntry.from_dict(d) classmethod that validates and reconstructs a LogEntry from a dict
+      - System provides a LogEntry.from_json(s) classmethod that parses and validates a JSON string
+    </category>
+
+    <category name="JSON Schema Specification">
+      - System ships a canonical JSON Schema file at schemas/log_entry.schema.json using draft-2020-12
+      - Schema declares all five required properties with strict types and format constraints
+      - Schema defines timestamp as type string with format date-time
+      - Schema defines level as type string with enum ["DEBUG","INFO","WARN","ERROR","FATAL"]
+      - Schema defines domain as type string with pattern ^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)*$
+      - Schema defines trace_id as type string with pattern ^[0-9a-f]{32}$
+      - Schema defines message as type string with minLength 1
+      - Schema defines extra as type object with additionalProperties allowed and no required keys
+      - Schema lists all five fields in the required array
+      - System provides a validate_dict(d) function that validates a plain dict against the JSON Schema and returns a list of ValidationError objects
+      - System provides a validate_json(s) function that parses a JSON string then validates against the schema
+      - System exposes the schema file path via logging_convention.SCHEMA_PATH for tooling integration
+      - System publishes the schema to a stable public URL (docs/schema/log_entry.schema.json) for cross-language use
+    </category>
+
+    <category name="Logger API &amp; Context Management">
+      - System provides a get_logger(domain) factory that returns a DomainLogger bound to the given domain string
+      - DomainLogger exposes .debug(msg, **extra), .info(msg, **extra), .warn(msg, **extra), .error(msg, **extra), .fatal(msg, **extra) methods
+      - Each method constructs a LogEntry, sets timestamp=utcnow(), level from method name, domain from binding, traces from context
+      - System maintains a thread-local and asyncio-context-var trace context stack
+      - System provides set_trace_id(trace_id) context manager that pushes a trace_id onto the context stack for the duration of the block
+      - System provides get_current_trace_id() returning the active trace_id or a freshly generated one if no context is active
+      - System provides a with_trace(trace_id) async context manager for asyncio tasks
+      - DomainLogger supports .bind(**fields) returning a child logger with extra fields pre-attached to every entry
+      - System allows nested .bind() calls that merge fields from all ancestor bindings
+      - System provides a root_logger() returning a DomainLogger with domain="root" for top-level use
+      - System allows callers to override trace_id per log call via .info(msg, trace_id=override)
+      - Logger methods are thread-safe and can be called concurrently from multiple threads
+    </category>
+
+    <category name="Transport Adapters">
+      - System defines a Transport abstract base class with a single emit(entry: LogEntry) method
+      - System provides a StdoutTransport that writes one NDJSON line per entry to sys.stdout
+      - StdoutTransport supports a pretty=True mode that writes colorized, human-readable output for local development
+      - System provides a FileTransport(path, max_bytes, backup_count) that writes NDJSON with automatic rotation via RotatingFileHandler
+      - System provides an OTLPTransport(endpoint, headers) that converts LogEntry to OpenTelemetry LogRecord and exports via OTLP/gRPC
+      - OTLPTransport maps trace_id to the OTLP traceId field and domain to the InstrumentationScope name
+      - System provides a LokiTransport(push_url, labels) that batches entries and HTTP-pushes to Grafana Loki
+      - LokiTransport adds domain and level as Loki stream labels and trace_id as a structured metadata field
+      - System provides a MultiTransport(*transports) that fans out each entry to all configured transports
+      - System provides a FilteringTransport(transport, min_level) that drops entries below the minimum level before forwarding
+      - System provides a SamplingTransport(transport, rate) that probabilistically forwards entries (rate=1.0 = all, 0.1 = 10%)
+      - Transport errors are caught and re-emitted to a fallback stderr sink to prevent logging from crashing the application
+      - System provides a BufferingTransport(transport, buffer_size, flush_interval) for high-throughput batching
+      - BufferingTransport flushes on flush_interval seconds or when buffer_size entries accumulate, whichever comes first
+      - System provides a configure(transports=[...]) global function that sets the active transport for all loggers
+    </category>
+
+    <category name="CLI Linter &amp; Validator">
+      - System ships a `log-lint` CLI entry point installable via pip
+      - `log-lint validate <file>` reads an NDJSON log file line by line and reports lines that fail schema validation
+      - Linter output includes line number, the offending JSON, and the specific field that failed validation
+      - `log-lint validate` exits with code 0 if all lines are valid, code 1 if any line is invalid
+      - `log-lint validate --strict` also fails if any line contains unknown top-level keys not in extra
+      - `log-lint stats <file>` prints a summary table: total lines, breakdown by level, unique domains, unique trace_ids
+      - `log-lint trace <trace_id> <file>` extracts and pretty-prints all entries matching the given trace_id
+      - `log-lint domain <domain> <file>` filters entries by domain prefix (e.g. "payments" matches "payments.stripe")
+      - `log-lint convert --from=logfmt --to=json <file>` converts logfmt-formatted lines to compliant NDJSON
+      - CLI supports reading from stdin when file argument is `-` (e.g. `kubectl logs pod | log-lint validate -`)
+      - CLI supports `--output=json` to emit machine-readable validation results for CI integration
+      - `log-lint check-schema` prints the active JSON Schema version and its public URL
+    </category>
+
+    <category name="Language-Agnostic Specification Document">
+      - System publishes a SPEC.md file at the repository root defining the logging convention in plain English
+      - SPEC.md version-controls the convention with a SemVer version header (e.g. Logging Convention v1.0.0)
+      - SPEC.md defines each of the five required fields with: name, type, format, validation rules, example value
+      - SPEC.md includes a compliant NDJSON example entry showing all five fields populated correctly
+      - SPEC.md includes a non-compliant examples section showing six common violations and why each fails
+      - SPEC.md includes a "How to adopt" section with language-specific snippets for Python, TypeScript, Go, and Java
+      - SPEC.md documents the allowed level values and their semantic meaning (DEBUG=verbose dev info, FATAL=process must exit)
+      - SPEC.md documents the domain naming convention: reverse-hierarchical, dot-separated, no spaces, lowercase preferred
+      - SPEC.md documents trace_id compatibility with W3C Trace Context traceparent header (low 32 hex chars = trace ID)
+      - SPEC.md includes a changelog section tracking breaking vs non-breaking changes between versions
+      - System generates a SPEC.html rendered version via MkDocs and publishes it to GitHub Pages on every release tag
+    </category>
+
+    <category name="Integrations &amp; Middleware">
+      - System provides a FastAPI middleware class LoggingMiddleware that emits an INFO entry for every HTTP request/response with domain="http.server"
+      - FastAPI middleware extracts trace_id from incoming W3C traceparent header and injects it into context
+      - FastAPI middleware adds request_id, method, path, status_code, duration_ms to the log entry extra dict
+      - System provides a Django middleware equivalent with the same field mapping
+      - System provides a logging.Handler subclass (ConventionHandler) bridging Python's stdlib logging to the convention library
+      - ConventionHandler maps Python log levels to convention levels (WARNING→WARN, CRITICAL→FATAL)
+      - ConventionHandler extracts %(name)s as the domain field and injects into LogEntry
+      - System provides an OpenTelemetry log exporter that reads OTEL context to auto-populate trace_id
+      - System provides a pytest plugin (pytest-log-convention) that captures log entries during tests and exposes them via a log_entries fixture
+      - pytest plugin asserts that no ERROR or FATAL entries are emitted during a test unless the test explicitly expects them
+      - System provides a pre-commit hook config (hooks/log-lint-hook.yaml) that runs `log-lint validate` on *.log files in the repo
+    </category>
+
+    <category name="Testing &amp; Quality Gates">
+      - Unit tests cover LogEntry construction with all valid field combinations
+      - Unit tests cover each of the six validation failure cases (missing field, wrong type, bad format per field)
+      - Unit tests cover LogEntry.to_dict(), to_json(), from_dict(), from_json() round-trip fidelity
+      - Unit tests cover all five log level methods on DomainLogger
+      - Unit tests cover trace_id context propagation across thread boundaries
+      - Unit tests cover trace_id context propagation across asyncio task boundaries
+      - Unit tests cover .bind() field merging across three levels of nesting
+      - Unit tests cover StdoutTransport emitting correct NDJSON (captured via capsys)
+      - Unit tests cover FileTransport writing and rotating log files
+      - Integration tests cover OTLPTransport exporting to a local OTEL collector fixture (Docker)
+      - Integration tests cover LokiTransport pushing batches to a local Loki fixture (Docker)
+      - Integration tests cover MultiTransport delivering entries to all child transports
+      - Integration tests cover FilteringTransport suppressing sub-threshold entries
+      - Unit tests cover CLI `log-lint validate` exit code 0 on valid file and exit code 1 on invalid file
+      - Unit tests cover CLI `log-lint trace` correctly extracting matching entries
+      - Property-based tests (Hypothesis) verify that any dict passing JSON Schema validation also passes LogEntry.from_dict()
+      - Test coverage gate: CI fails if line coverage drops below 95%
+      - System ships a Makefile with targets: test, lint, typecheck, coverage, docs
+    </category>
+
+    <category name="Packaging, CI &amp; Release">
+      - System ships a pyproject.toml with [project] metadata, dependencies, and [project.scripts] for `log-lint`
+      - Optional dependencies group [dev] includes pytest, hypothesis, mypy, ruff, black, pre-commit, mkdocs
+      - Optional dependencies group [otlp] includes opentelemetry-exporter-otlp-proto-grpc
+      - Optional dependencies group [loki] includes httpx for Loki HTTP push
+      - GitHub Actions workflow lint.yml runs ruff, black --check, mypy on every pull request
+      - GitHub Actions workflow test.yml runs pytest with coverage report on Python 3.11 and 3.12 on every pull request
+      - GitHub Actions workflow release.yml builds and publishes to PyPI on every version tag push
+      - GitHub Actions workflow docs.yml deploys MkDocs site to GitHub Pages on every tag
+      - System provides a CHANGELOG.md maintained by the conventional-commits standard
+      - System provides a .pre-commit-config.yaml running ruff, black, mypy, and log-lint on staged files
+      - Docker Compose file (docker-compose.test.yml) spins up OTEL Collector, Loki, and Jaeger for integration tests
+      - System version is the single source of truth in pyproject.toml and exposed as logging_convention.__version__
+    </category>
+
+  </core_features>
+
+  <database_schema>
+    <tables>
+      <!-- No persistent database — logs are streamed to transports.
+           The schema below represents the in-memory LogEntry structure
+           expressed as a conceptual table for documentation purposes. -->
+      <table name="log_entry (conceptual)">
+        <column>timestamp  TIMESTAMPTZ NOT NULL  -- ISO-8601 UTC, millisecond precision</column>
+        <column>level      VARCHAR(5)  NOT NULL  -- CHECK level IN ('DEBUG','INFO','WARN','ERROR','FATAL')</column>
+        <column>domain     TEXT        NOT NULL  -- dot-separated, e.g. "payments.stripe.webhook"</column>
+        <column>trace_id   CHAR(32)    NOT NULL  -- lowercase hex, W3C Trace Context compatible</column>
+        <column>message    TEXT        NOT NULL  -- CHECK length(message) > 0</column>
+        <column>extra      JSONB       NULL      -- arbitrary additional fields; keys must not shadow required fields</column>
+      </table>
+    </tables>
+  </database_schema>
+
+  <api_endpoints_summary>
+    <!-- This is a library/CLI project, not an HTTP service.
+         The "endpoints" below document the Python public API surface. -->
+    <domain name="LogEntry">
+      LogEntry(timestamp, level, domain, trace_id, message, extra=None) -- constructor
+      LogEntry.to_dict()          -- serialize to plain dict
+      LogEntry.to_json()          -- serialize to compact JSON string
+      LogEntry.from_dict(d)       -- classmethod: validate + deserialize from dict
+      LogEntry.from_json(s)       -- classmethod: validate + deserialize from JSON string
+    </domain>
+    <domain name="Logger Factory">
+      get_logger(domain: str) -> DomainLogger   -- create a domain-bound logger
+      root_logger() -> DomainLogger             -- convenience root logger (domain="root")
+      configure(transports: list[Transport])    -- set global active transports
+    </domain>
+    <domain name="DomainLogger">
+      logger.debug(msg, **extra)   -- emit DEBUG entry
+      logger.info(msg, **extra)    -- emit INFO entry
+      logger.warn(msg, **extra)    -- emit WARN entry
+      logger.error(msg, **extra)   -- emit ERROR entry
+      logger.fatal(msg, **extra)   -- emit FATAL entry
+      logger.bind(**fields)        -- return child logger with pre-attached fields
+    </domain>
+    <domain name="Context &amp; Tracing">
+      set_trace_id(trace_id: str) -> ContextManager  -- push trace_id for duration of block
+      get_current_trace_id() -> str                  -- read active trace_id (or generate new)
+      with_trace(trace_id: str) -> AsyncContextManager -- asyncio-safe trace context
+    </domain>
+    <domain name="Validation">
+      validate_dict(d: dict) -> list[ValidationError]   -- validate against JSON Schema
+      validate_json(s: str)  -> list[ValidationError]   -- parse then validate
+      SCHEMA_PATH: Path                                  -- path to bundled schema file
+    </domain>
+    <domain name="CLI (log-lint)">
+      log-lint validate &lt;file&gt; [--strict] [--output=json]
+      log-lint stats    &lt;file&gt;
+      log-lint trace    &lt;trace_id&gt; &lt;file&gt;
+      log-lint domain   &lt;domain&gt;   &lt;file&gt;
+      log-lint convert  --from=logfmt --to=json &lt;file&gt;
+      log-lint check-schema
+    </domain>
+  </api_endpoints_summary>
+
+  <ui_layout>
+    No web UI is part of this project. The primary interfaces are:
+    - The Python library API (import logging_convention)
+    - The `log-lint` CLI
+    - The SPEC.md / SPEC.html specification document
+    - MkDocs-generated documentation site (GitHub Pages)
+  </ui_layout>
+
+  <design_system>
+    <colors>CLI uses ANSI color codes: DEBUG=cyan, INFO=green, WARN=yellow, ERROR=red, FATAL=bright red+bold</colors>
+    <typography>All output is monospace plain text or NDJSON; docs site uses MkDocs Material theme</typography>
+    <animations>None — CLI tools should be instantaneous; no loading spinners needed</animations>
+  </design_system>
+
+  <key_interactions>
+    <interaction number="1" name="Emit a structured log entry">
+      Developer calls get_logger("payments.stripe") to obtain a DomainLogger.
+      Developer wraps request handler with set_trace_id(trace_id) context manager.
+      Developer calls logger.info("Charge succeeded", amount=1999, currency="usd").
+      Library auto-sets timestamp=utcnow(), level=INFO, domain="payments.stripe", trace_id from context.
+      Library emits {"timestamp":"2026-03-13T14:22:05.123Z","level":"INFO","domain":"payments.stripe","trace_id":"4bf92f3577b34da6...","message":"Charge succeeded","extra":{"amount":1999,"currency":"usd"}} to configured transports.
+    </interaction>
+    <interaction number="2" name="Validate a log file in CI">
+      CI step runs: log-lint validate service.log
+      Linter reads each NDJSON line, validates against JSON Schema.
+      Any line missing trace_id, using invalid level, or having malformed timestamp is reported with line number and field name.
+      CI step exits 1 if any violations found, blocking the pull request merge.
+    </interaction>
+    <interaction number="3" name="Correlate logs by trace_id">
+      On-call engineer has a trace_id from a Jaeger span.
+      Engineer runs: log-lint trace 4bf92f3577b34da6a3ce929d0e0e4736 production.log
+      Linter extracts all entries with that trace_id and prints them in timestamp order.
+      Engineer sees the full causal chain across multiple domains within seconds.
+    </interaction>
+    <interaction number="4" name="Adopt the convention in a new service">
+      Developer reads SPEC.md and copies the JSON Schema URL into their service's validation layer.
+      Developer installs the Python library: pip install logging-convention[otlp]
+      Developer calls configure([OTLPTransport("http://otel-collector:4317")]) at service startup.
+      Developer replaces logging.getLogger calls with get_logger calls.
+      All log entries now include the five required fields and flow into their observability stack.
+    </interaction>
+  </key_interactions>
+
+  <implementation_steps>
+    <phase name="Phase 1: Core Contract &amp; Validation">
+      Define LogEntry dataclass with five required fields and validation on construction
+      Implement LogEntry.to_dict(), to_json(), from_dict(), from_json()
+      Write JSON Schema at schemas/log_entry.schema.json
+      Implement validate_dict() and validate_json() using jsonschema library
+      Write unit tests for all field validation rules (18 test cases)
+      Set up pyproject.toml, ruff, black, mypy, GitHub Actions lint workflow
+    </phase>
+    <phase name="Phase 2: Logger API &amp; Context">
+      Implement get_logger(domain) factory and DomainLogger class
+      Implement all five log-level methods on DomainLogger
+      Implement thread-local and asyncio ContextVar trace_id stack
+      Implement set_trace_id(), get_current_trace_id(), with_trace() helpers
+      Implement .bind() with field merging across nested loggers
+      Write unit tests for logger API and context propagation (thread + asyncio)
+    </phase>
+    <phase name="Phase 3: Transport Adapters">
+      Implement Transport ABC and StdoutTransport (plain + pretty mode)
+      Implement FileTransport with rotation
+      Implement MultiTransport, FilteringTransport, SamplingTransport, BufferingTransport
+      Implement configure() global function
+      Write unit tests for all transports (stdout captured via capsys, file via tmp_path)
+      Write Docker Compose fixture for OTLP + Loki integration tests
+      Implement OTLPTransport and integration test
+      Implement LokiTransport and integration test
+    </phase>
+    <phase name="Phase 4: CLI Linter">
+      Implement log-lint CLI entry point using argparse or click
+      Implement validate subcommand with --strict and --output=json flags
+      Implement stats, trace, domain, convert, check-schema subcommands
+      Write unit tests for all CLI subcommands with valid and invalid fixture files
+      Test stdin pipe mode (log-lint validate -)
+    </phase>
+    <phase name="Phase 5: Specification Document &amp; Integrations">
+      Write SPEC.md with all sections (field definitions, examples, adoption guide, changelog)
+      Implement FastAPI LoggingMiddleware with traceparent header extraction
+      Implement Django middleware equivalent
+      Implement stdlib logging.Handler bridge (ConventionHandler)
+      Implement pytest plugin (pytest-log-convention) with log_entries fixture
+      Write integration tests for each middleware
+    </phase>
+    <phase name="Phase 6: Docs, Packaging &amp; Release">
+      Set up MkDocs Material with SPEC.md, API reference, and adoption guide pages
+      Configure GitHub Actions docs.yml to publish to GitHub Pages on tag
+      Configure GitHub Actions release.yml to publish to PyPI on tag
+      Write CHANGELOG.md with v1.0.0 entry
+      Set up pre-commit hooks config and log-lint hook yaml
+      Final coverage check — ensure &gt;= 95% line coverage before tagging v1.0.0
+    </phase>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      All 128 feature bullets implemented and passing automated tests
+      log-lint validate correctly rejects 100% of non-compliant NDJSON lines in the test corpus
+      OTLPTransport and LokiTransport deliver entries successfully in Docker integration tests
+      JSON Schema validates correctly in Python (jsonschema), TypeScript (ajv), and Go (gojsonschema) cross-language tests
+    </functionality>
+    <ux>
+      `pip install logging-convention` and 5 lines of code is enough to emit compliant structured logs
+      `log-lint validate service.log` runs in under 1 second per 10,000 lines on commodity hardware
+      SPEC.md is self-contained: a developer can adopt the convention without reading any code
+      CLI error messages identify the exact field and line number of every violation
+    </ux>
+    <technical_quality>
+      Line coverage &gt;= 95% enforced by CI coverage gate
+      Zero mypy errors in strict mode
+      Zero ruff lint warnings
+      All public API symbols have docstrings
+      README includes a quickstart example that runs without modification
+    </technical_quality>
+  </success_criteria>
+
+</project_specification>

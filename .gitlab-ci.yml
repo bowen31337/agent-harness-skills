@@ -1,0 +1,470 @@
+# .gitlab-ci.yml
+# Golden Principles Compliance Gate
+# Runs the principle violation scanner on every merge request and fails on
+# critical violations. Exit codes: 0 = passed, 1 = violations found, 2 = internal error.
+
+stages:
+  - principles
+  - coverage
+  - evaluate
+  - perf
+  - type
+  - security
+
+# ── Golden Principles Compliance Gate ────────────────────────────────────────
+# Runs scripts/check_principles.py against the full source tree.
+# Exits non-zero on any `blocking` severity violation, blocking the merge.
+# Exit codes: 0 = passed, 1 = violations found, 2 = internal error.
+principles-gate:
+  stage: principles
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+
+      # Run the scanner — emit JSON report and human-readable output
+      uv run python scripts/check_principles.py \
+        --path . \
+        --format json \
+        --output principles-report.json \
+        --skill check-code
+      exit_code=$?
+
+      # Also emit human-readable summary to the job log
+      uv run python scripts/check_principles.py \
+        --path . \
+        --show-suggestions \
+        --skill check-code 2>&1 || true
+
+      passed=$(python3 -c \
+        "import json; r=json.load(open('principles-report.json')); print(r.get('passed', False))" \
+        2>/dev/null)
+
+      if [ "$passed" = "True" ]; then
+        echo "OK: All golden principle gates passed — no blocking violations found."
+      else
+        echo "FAIL: BLOCKING principle violations detected — merge prevented:"
+        python3 - <<'PYEOF'
+      import json, sys
+      try:
+          r = json.load(open("principles-report.json"))
+      except Exception as e:
+          print(f"  Could not parse report: {e}")
+          sys.exit(0)
+      s = r.get("summary", {})
+      print(f"  Principles loaded  : {s.get('principles_loaded', '?')}")
+      print(f"  Blocking violations: {s.get('blocking_failures', '?')}")
+      print()
+      for f in r.get("failures", []):
+          pid = f.get("principle_id", "?")
+          cat = f.get("category", "").upper()
+          msg = f.get("message", "")
+          loc = f.get("file_path", "")
+          ln  = f.get("line_number")
+          sug = f.get("suggestion", "")
+          loc_str = f"  {loc}" + (f":{ln}" if ln else "") if loc else ""
+          print(f"  [{pid}] {cat}{loc_str}")
+          print(f"  🔴 {msg}")
+          if sug:
+              print(f"     💡 {sug}")
+          print()
+      PYEOF
+      fi
+
+      exit $exit_code
+
+  artifacts:
+    when: always
+    paths:
+      - principles-report.json
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ── Coverage Gate ─────────────────────────────────────────────────────────────
+# Runs the test suite with coverage collection, then enforces a minimum
+# line-coverage threshold (default 90 %).
+# Blocks the merge request when coverage falls below the bar.
+#
+# Threshold override (in order of precedence):
+#   1. CI/CD variable COVERAGE_THRESHOLD set on the project/group
+#   2. COVERAGE_THRESHOLD variable defined in this file's `variables:` block
+#   3. Hard-coded default of 90 below
+#
+# Exit codes: 0 = passed, 1 = below threshold, 2 = internal error.
+coverage-gate:
+  stage: coverage
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+    # Override this variable at the project or group level to change the bar.
+    COVERAGE_THRESHOLD: "90"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+
+      # ── Step 1: Run tests and collect coverage ──────────────────────────────
+      echo "=== Step 1/2: Running tests with coverage ==="
+      uv run pytest \
+        --cov \
+        --cov-report=xml \
+        --cov-report=term-missing \
+        -q \
+        2>&1 | tee pytest-output.txt
+      test_exit=$?
+
+      if [ $test_exit -ne 0 ]; then
+        echo ""
+        echo "WARN: Test run exited with code $test_exit."
+        echo "      The coverage gate will still run if coverage.xml was produced."
+      fi
+
+      # ── Step 2: Enforce coverage threshold ─────────────────────────────────
+      echo ""
+      echo "=== Step 2/2: Enforcing coverage threshold (≥ ${COVERAGE_THRESHOLD}%) ==="
+
+      if [ ! -f coverage.xml ]; then
+        echo "ERROR: coverage.xml not found — ensure pytest ran with --cov --cov-report=xml."
+        exit 1
+      fi
+
+      uv run python -m harness_skills.gates.coverage \
+        --root . \
+        --threshold "$COVERAGE_THRESHOLD" \
+        --coverage-file coverage.xml \
+        --format auto \
+        2>&1 | tee coverage-report.txt
+      gate_exit=${PIPESTATUS[0]}
+
+      # ── Verdict ─────────────────────────────────────────────────────────────
+      echo ""
+      if [ $gate_exit -eq 0 ]; then
+        echo "OK: Coverage gate passed — coverage meets the ${COVERAGE_THRESHOLD}% threshold."
+      elif [ $gate_exit -eq 1 ]; then
+        echo "FAIL: Coverage gate FAILED — line coverage is below the required ${COVERAGE_THRESHOLD}%."
+        echo "      Add tests to cover the uncovered lines, then push again."
+        echo ""
+        echo "Hints:"
+        echo "  uv run pytest --cov --cov-report=term-missing   # see which lines are uncovered"
+        echo "  uv run coverage report --sort=cover | head -20  # files with lowest coverage"
+      else
+        echo "ERROR: Coverage gate encountered an internal error (exit code $gate_exit)."
+      fi
+
+      exit $gate_exit
+
+  coverage: '/TOTAL.*?(\d+(?:\.\d+)?)%/'
+
+  artifacts:
+    when: always
+    paths:
+      - coverage.xml
+      - coverage-report.txt
+      - pytest-output.txt
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+harness-evaluate:
+  stage: evaluate
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+      uv run harness evaluate --gate principles --fail-on critical --format json 2>&1 | tee evaluation-report.json
+      exit_code=${PIPESTATUS[0]}
+
+      passed=$(python3 -c "import json; r=json.load(open('evaluation-report.json')); print(r.get('passed', False))" 2>/dev/null)
+
+      if [ "$passed" = "True" ]; then
+        echo "OK: All golden principle gates passed -- no critical violations found."
+      else
+        echo "FAIL: CRITICAL principle violations detected -- blocking merge:"
+        python3 -c "import json; r=json.load(open('evaluation-report.json')); s=r.get('summary',{}); print('  Gates: '+str(s.get('passed_gates','?'))+'/'+str(s.get('total_gates','?'))+' passed'); print('  Critical violations: '+str(s.get('blocking_failures','?'))); [print('  ['+f.get('severity','?').upper()+'] '+f.get('message','')+(' -- '+f.get('file_path','')+((':'+str(f['line_number'])) if f.get('line_number') else '') if f.get('file_path') else '')) or (print('    Principle: '+f['principle']) if f.get('principle') else None) or (print('    -> '+f['suggestion']) if f.get('suggestion') else None) for f in r.get('failures',[]) if f.get('severity') in ('critical','error')]"
+      fi
+
+      exit $exit_code
+
+  artifacts:
+    when: always
+    paths:
+      - evaluation-report.json
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ── Type Safety Gate ──────────────────────────────────────────────────────────
+# Runs mypy (strict mode) via harness evaluate --gate types.
+# Zero type errors are tolerated — any error-severity finding blocks the merge.
+# Exit codes: 0 = passed, 1 = type errors found, 2 = internal error.
+type-gate:
+  stage: type
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+      uv run harness evaluate \
+        --gate types \
+        --fail-on error \
+        --format json 2>&1 | tee type-report.json
+      exit_code=${PIPESTATUS[0]}
+
+      passed=$(python3 -c "import json; r=json.load(open('type-report.json')); print(r.get('passed', False))" 2>/dev/null)
+
+      if [ "$passed" = "True" ]; then
+        echo "OK: Type checker passed -- zero type errors."
+      else
+        echo "FAIL: Type errors detected -- blocking merge:"
+        python3 - <<'PYEOF'
+      import json, sys
+      try:
+          r = json.load(open("type-report.json"))
+      except Exception as e:
+          print(f"  Could not parse report: {e}")
+          sys.exit(0)
+      s = r.get("summary", {})
+      print(f"  Gates: {s.get('passed_gates', '?')}/{s.get('total_gates', '?')} passed")
+      print(f"  Blocking errors: {s.get('blocking_failures', '?')}")
+      print()
+      for f in r.get("failures", []):
+          if f.get("severity") in ("error",):
+              loc = f.get("file_path", "")
+              if f.get("line_number"):
+                  loc += f":{f['line_number']}"
+              print(f"  [error] {f['message']}" + (f"  --  {loc}" if loc else ""))
+              if f.get("rule_id"):
+                  print(f"    Rule: {f['rule_id']}")
+              if f.get("suggestion"):
+                  print(f"    -> {f['suggestion']}")
+      PYEOF
+      fi
+
+      exit $exit_code
+
+  artifacts:
+    when: always
+    paths:
+      - type-report.json
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ── Performance Benchmark Gate ───────────────────────────────────────────────
+# Thresholds are defined in .harness/perf-thresholds.yml.
+# error-severity breaches block the merge; warnings annotate only.
+perf-gate:
+  stage: perf
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+      uv run harness evaluate \
+        --gate performance \
+        --thresholds .harness/perf-thresholds.yml \
+        --format json 2>&1 | tee perf-report.json
+      exit_code=${PIPESTATUS[0]}
+      passed=$(python3 -c "import json; r=json.load(open('perf-report.json')); print(r.get('passed', False))" 2>/dev/null)
+      if [ "$passed" = "True" ]; then
+        echo "OK: All performance thresholds passed."
+      else
+        echo "FAIL: Performance threshold violations detected:"
+        python3 .harness/perf_summary.py perf-report.json
+      fi
+      exit $exit_code
+
+  artifacts:
+    when: always
+    paths:
+      - perf-report.json
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# ── Security Check Gate ───────────────────────────────────────────────────────
+# Runs three sub-gates on every merge request and blocks on any error finding:
+#   1. secrets          — detects committed secrets / credentials
+#   2. dependencies     — flags packages with known CVEs
+#   3. input-validation — verifies untrusted input is sanitised before use
+# Exit codes: 0 = all gates passed, 1 = gate failures, 2 = internal error.
+security-gate:
+  stage: security
+  image: python:3.12-slim
+
+  variables:
+    UV_VERSION: "0.5.0"
+    PIP_NO_CACHE_DIR: "1"
+
+  before_script:
+    - pip install --quiet uv==$UV_VERSION
+    - uv sync --frozen
+
+  script:
+    - |
+      set +e
+      overall_exit=0
+
+      # ── Gate 1: Secret Scanning ──────────────────────────────────────────────
+      echo "=== Gate 1/3: Secret Scanning ==="
+      result=$(uv run harness evaluate \
+        --gate secrets \
+        --fail-on error \
+        --format json 2>&1)
+      exit_code=$?
+      echo "$result" | tee secret-scan-report.json
+      [ $exit_code -ne 0 ] && overall_exit=1
+
+      passed=$(echo "$result" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('passed', False))" 2>/dev/null)
+      if [ "$passed" = "True" ]; then
+        echo "OK: No secrets detected."
+      else
+        echo "FAIL: Secret(s) found — see secret-scan-report.json"
+        python3 - <<'PYEOF'
+      import json, sys
+      try:
+          r = json.load(open("secret-scan-report.json"))
+      except Exception as e:
+          print(f"  Could not parse report: {e}"); sys.exit(0)
+      for f in r.get("failures", []):
+          if f.get("severity") == "error":
+              loc = f.get("file_path", "")
+              if f.get("line_number"): loc += f":{f['line_number']}"
+              print(f"  [secrets] {f['message']}" + (f"  —  {loc}" if loc else ""))
+              if f.get("suggestion"): print(f"    -> {f['suggestion']}")
+      PYEOF
+      fi
+
+      # ── Gate 2: Dependency Vulnerability Audit ───────────────────────────────
+      echo ""
+      echo "=== Gate 2/3: Dependency Vulnerability Audit ==="
+      result=$(uv run harness evaluate \
+        --gate dependencies \
+        --fail-on error \
+        --format json 2>&1)
+      exit_code=$?
+      echo "$result" | tee dependency-audit-report.json
+      [ $exit_code -ne 0 ] && overall_exit=1
+
+      passed=$(echo "$result" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('passed', False))" 2>/dev/null)
+      if [ "$passed" = "True" ]; then
+        echo "OK: No known CVEs in dependencies."
+      else
+        echo "FAIL: Vulnerable dependencies detected — see dependency-audit-report.json"
+        python3 - <<'PYEOF'
+      import json, sys
+      try:
+          r = json.load(open("dependency-audit-report.json"))
+      except Exception as e:
+          print(f"  Could not parse report: {e}"); sys.exit(0)
+      s = r.get("summary", {})
+      print(f"  Blocking failures: {s.get('blocking_failures', '?')}")
+      for f in r.get("failures", []):
+          if f.get("severity") == "error":
+              cve = f.get("cve", "")
+              print(f"  [deps] {f['message']}" + (f"  (CVE: {cve})" if cve else ""))
+              if f.get("suggestion"): print(f"    -> {f['suggestion']}")
+      PYEOF
+      fi
+
+      # ── Gate 3: Input Validation Verification ────────────────────────────────
+      echo ""
+      echo "=== Gate 3/3: Input Validation Verification ==="
+      result=$(uv run harness evaluate \
+        --gate input-validation \
+        --fail-on error \
+        --format json 2>&1)
+      exit_code=$?
+      echo "$result" | tee input-validation-report.json
+      [ $exit_code -ne 0 ] && overall_exit=1
+
+      passed=$(echo "$result" | python3 -c "import json,sys; r=json.load(sys.stdin); print(r.get('passed', False))" 2>/dev/null)
+      if [ "$passed" = "True" ]; then
+        echo "OK: All inputs validated before use."
+      else
+        echo "FAIL: Unvalidated input paths detected — see input-validation-report.json"
+        python3 - <<'PYEOF'
+      import json, sys
+      try:
+          r = json.load(open("input-validation-report.json"))
+      except Exception as e:
+          print(f"  Could not parse report: {e}"); sys.exit(0)
+      for f in r.get("failures", []):
+          if f.get("severity") == "error":
+              loc = f.get("file_path", "")
+              if f.get("line_number"): loc += f":{f['line_number']}"
+              print(f"  [input-validation] {f['message']}" + (f"  —  {loc}" if loc else ""))
+              if f.get("suggestion"): print(f"    -> {f['suggestion']}")
+      PYEOF
+      fi
+
+      # ── Final verdict ────────────────────────────────────────────────────────
+      echo ""
+      if [ $overall_exit -eq 0 ]; then
+        echo "✅ All security gates passed — merge unblocked."
+      else
+        echo "❌ Security gate FAILED — merge blocked. Review reports above."
+      fi
+
+      exit $overall_exit
+
+  artifacts:
+    when: always
+    paths:
+      - secret-scan-report.json
+      - dependency-audit-report.json
+      - input-validation-report.json
+    expire_in: 30 days
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

@@ -1,0 +1,4 @@
+.env
+.claw-forge/state.log
+.claw-forge/state.db
+.claw-forge/state.db-journal

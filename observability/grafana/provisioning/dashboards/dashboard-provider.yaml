@@ -1,0 +1,15 @@
+# Tell Grafana to load dashboards from the /dashboards folder.
+apiVersion: 1
+
+providers:
+  - name:            "Local Dev Dashboards"
+    orgId:           1
+    folder:          "Local Dev"
+    folderUid:       "local-dev"
+    type:            file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false

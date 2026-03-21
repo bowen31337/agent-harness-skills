@@ -1,0 +1,151 @@
+snapshot:
+  timestamp: '2026-03-14T19:11:16'
+  agent_count: 109
+  conflict_count: 128
+  high_conflicts: 0
+  medium_conflicts: 128
+  low_conflicts: 0
+  state_service: http://localhost:8888
+  state_service_available: false
+  source: git-branch-analysis
+agents:
+- id: coding-03abe8fb
+  branch: feat/coding-03abe8fb
+  status: running
+  files_touched: 0
+- id: coding-077b5fbf
+  branch: feat/coding-077b5fbf
+  status: running
+  files_touched: 0
+- id: coding-08b91abd
+  branch: feat/coding-08b91abd
+  status: running
+  files_touched: 0
+- id: coding-0909d70f
+  branch: feat/coding-0909d70f
+  status: running
+  files_touched: 0
+- id: coding-0940d19e
+  branch: feat/coding-0940d19e
+  status: running
+  files_touched: 0
+- id: coding-1a1f9009
+  branch: feat/coding-1a1f9009
+  status: running
+  files_touched: 25
+  notable: true
+- id: coding-1a58df6e
+  branch: feat/coding-1a58df6e
+  status: running
+  files_touched: 8
+- id: coding-48dd7f13
+  branch: feat/coding-48dd7f13
+  status: running
+  files_touched: 56
+  notable: true
+- id: coding-4f1fbb15
+  branch: feat/coding-4f1fbb15
+  status: running
+  files_touched: 304
+  notable: true
+- id: coding-7f615c39
+  branch: feat/coding-7f615c39
+  status: running
+  files_touched: 62
+  notable: true
+- id: coding-b7da9203
+  branch: feat/coding-b7da9203
+  status: running
+  files_touched: 304
+  notable: true
+- id: coding-bae7b81c
+  branch: feat/coding-bae7b81c
+  status: running
+  files_touched: 65
+  notable: true
+- id: coding-e4908d0c
+  branch: feat/coding-e4908d0c
+  status: running
+  files_touched: 304
+  notable: true
+large_refactor_agents:
+- coding-4f1fbb15
+- coding-b7da9203
+- coding-e4908d0c
+conflict_clusters:
+- cluster: harness_skills/__init__.py
+  description: Most-contested file — touched by 20+ agents
+  agents_involved:
+  - coding-1a1f9009
+  - coding-48dd7f13
+  - coding-4f1fbb15
+  - coding-bae7b81c
+  - coding-b7da9203
+  - coding-e4908d0c
+  - coding-ad435ec4
+  - coding-c14bb315
+  - coding-9ba34c75
+  - coding-fde4b26c
+  recommendation: serialise — merge smallest-diff branch first, rebase others
+- cluster: harness_skills/telemetry.py
+  description: Telemetry module — multiple concurrent edits
+  agents_involved:
+  - coding-1a58df6e
+  - coding-1a1f9009
+  - coding-b7da9203
+  - coding-c14bb315
+  recommendation: serialise in file-size-ascending order
+- cluster: harness_skills/generators/evaluation.py
+  description: Evaluation generator — concurrent feature work
+  agents_involved:
+  - coding-1a1f9009
+  - coding-48dd7f13
+  - coding-b7da9203
+  - coding-e4908d0c
+  - coding-c14bb315
+  recommendation: coordinate via PR reviews before merge
+- cluster: docs/harness-changelog.md
+  description: Changelog — append-only, low actual conflict risk
+  agents_involved:
+  - coding-2b62ae0b
+  - coding-4f1fbb15
+  - coding-bae7b81c
+  - coding-ca31fa31
+  - coding-b7da9203
+  - coding-e4908d0c
+  recommendation: merge sequentially; use git rerere
+- cluster: docs/exec-plans/debt.md
+  description: Tech-debt tracking doc
+  agents_involved:
+  - coding-4f1fbb15
+  - coding-b2bee93b
+  - coding-b7da9203
+  - coding-e4908d0c
+  recommendation: last-writer-wins acceptable; content is additive
+- cluster: task_lock.py + task_lock_example.py
+  description: Task-lock implementation
+  agents_involved:
+  - coding-21e3a32a
+  - coding-4f1fbb15
+  - coding-b7da9203
+  - coding-e4908d0c
+  recommendation: serialise; locking semantics are sensitive to ordering
+intermediate_results: []
+execution_plan:
+  strategy: parallel-with-serialised-hotspots
+  slots:
+  - slot: 1
+    run_in_parallel: true
+    agents: all
+    notes: 'No line-range (HIGH) conflicts detected. 128 MEDIUM conflicts exist but
+      affect different sections of shared files. Recommend code-owners review for
+      harness_skills/__init__.py, harness_skills/telemetry.py, and harness_skills/generators/evaluation.py
+      before merging to main.
+
+      '
+  post_merge_checklist:
+  - Rebase large-refactor agents (coding-4f1fbb15, coding-b7da9203, coding-e4908d0c)
+    against main *after* smaller branches land to minimise conflict surface.
+  - Run full test suite after each batch of merges to catch import breakage from concurrent
+    __init__.py edits.
+  - Use `git rerere` for changelog and debt-tracker docs (append-only conflicts).

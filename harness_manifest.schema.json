@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness-skills/schemas/harness_manifest.schema.json",
+  "title": "HarnessManifest",
+  "description": "Index of everything harness:create generated — detected stack, domain boundaries, and all written artifact paths.  Downstream tools and agents can validate manifest fragments independently against this schema.",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "detected_stack", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version for forward-compatibility checks.",
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of when the manifest was written."
+    },
+    "git_sha": {
+      "type": ["string", "null"],
+      "description": "Short git SHA at generation time, or null when git is unavailable."
+    },
+    "git_branch": {
+      "type": ["string", "null"],
+      "description": "Active git branch at generation time, or null when git is unavailable."
+    },
+    "harness_version": {
+      "type": ["string", "null"],
+      "description": "Version string of the harness-skills package that generated this manifest."
+    },
+    "project_root": {
+      "type": ["string", "null"],
+      "description": "Absolute filesystem path of the project root at generation time."
+    },
+    "detected_stack": {
+      "$ref": "#/$defs/DetectedStack"
+    },
+    "domains": {
+      "type": "array",
+      "description": "Detected subsystem / domain boundaries (e.g. ['auth', 'billing']).",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "All files written during harness creation, in generation order.",
+      "items": { "$ref": "#/$defs/GeneratedArtifact" }
+    },
+    "manifest_path": {
+      "type": ["string", "null"],
+      "description": "Repo-relative path to this harness_manifest.json file."
+    },
+    "schema_path": {
+      "type": ["string", "null"],
+      "description": "Repo-relative path to harness_manifest.schema.json placed alongside the manifest."
+    },
+    "symbols_index_path": {
+      "type": ["string", "null"],
+      "description": "Repo-relative path to harness_symbols.json, if generated."
+    }
+  },
+  "$defs": {
+    "DetectedStack": {
+      "type": "object",
+      "description": "Technology stack inferred from project indicator files.",
+      "required": ["primary_language", "project_structure"],
+      "additionalProperties": false,
+      "properties": {
+        "primary_language": {
+          "type": "string",
+          "description": "Dominant language detected (e.g. 'python', 'node', 'go', 'rust')."
+        },
+        "secondary_languages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Additional languages present in the repo.",
+          "default": []
+        },
+        "framework": {
+          "type": ["string", "null"],
+          "description": "Primary application framework (e.g. 'fastapi', 'django', 'nextjs')."
+        },
+        "project_structure": {
+          "type": "string",
+          "enum": ["monorepo", "polyrepo", "single-app"],
+          "description": "High-level repository layout."
+        },
+        "test_framework": {
+          "type": ["string", "null"],
+          "description": "Test runner detected (e.g. 'pytest', 'jest', 'vitest')."
+        },
+        "ci_platform": {
+          "type": ["string", "null"],
+          "description": "CI platform detected (e.g. 'github-actions', 'gitlab-ci', 'circleci')."
+        },
+        "database": {
+          "type": ["string", "null"],
+          "description": "Primary database technology detected (e.g. 'postgres', 'sqlite')."
+        },
+        "api_style": {
+          "type": ["string", "null"],
+          "description": "API paradigm detected (e.g. 'rest', 'graphql', 'grpc')."
+        }
+      }
+    },
+    "GeneratedArtifact": {
+      "type": "object",
+      "description": "A single file written (or skipped) during harness generation.",
+      "required": ["artifact_path", "artifact_type"],
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "type": "string",
+          "description": "Repo-relative path of the generated file."
+        },
+        "artifact_type": {
+          "type": "string",
+          "description": "Category of the artifact.",
+          "enum": [
+            "AGENTS.md",
+            "ARCHITECTURE.md",
+            "PRINCIPLES.md",
+            "EVALUATION.md",
+            "harness.config.yaml",
+            "schema",
+            "ci_pipeline",
+            "other"
+          ]
+        },
+        "token_count": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Approximate LLM token count of the written file, or null if not measured."
+        },
+        "overwritten": {
+          "type": "boolean",
+          "description": "True when a prior version of this file was replaced.",
+          "default": false
+        }
+      }
+    }
+  }
+}

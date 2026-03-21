@@ -1,0 +1,177 @@
+# .github/workflows/security-gate.yml
+# Security Check Gate
+# Runs three sub-gates on every pull request and blocks on any error-severity finding:
+#   1. secrets      — detects committed secrets / credentials
+#   2. dependencies — flags packages with known CVEs
+#   3. input-validation — verifies untrusted input is sanitised before use
+# Exit codes: 0 = all gates passed, 1 = gate failures, 2 = internal error.
+name: Security Check Gate
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  security-gate:
+    name: Security Gates (secrets · deps · input-validation)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history required for secret-scanning across all commits in the PR
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # ── Gate 1: Secret Scanning ──────────────────────────────────────────────
+      - name: Secret scanning
+        id: secrets
+        run: |
+          set +e
+          result=$(uv run harness evaluate \
+            --gate secrets \
+            --fail-on error \
+            --format json 2>&1)
+          exit_code=$?
+          echo "$result" | tee secret-scan-report.json
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "passed=$(echo "$result" | jq -r '.passed // false')" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      # ── Gate 2: Dependency Vulnerability Audit ───────────────────────────────
+      - name: Dependency vulnerability audit
+        id: dependencies
+        if: always()
+        run: |
+          set +e
+          result=$(uv run harness evaluate \
+            --gate dependencies \
+            --fail-on error \
+            --format json 2>&1)
+          exit_code=$?
+          echo "$result" | tee dependency-audit-report.json
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "passed=$(echo "$result" | jq -r '.passed // false')" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      # ── Gate 3: Input Validation Verification ───────────────────────────────
+      - name: Input validation verification
+        id: input_validation
+        if: always()
+        run: |
+          set +e
+          result=$(uv run harness evaluate \
+            --gate input-validation \
+            --fail-on error \
+            --format json 2>&1)
+          exit_code=$?
+          echo "$result" | tee input-validation-report.json
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "passed=$(echo "$result" | jq -r '.passed // false')" >> "$GITHUB_OUTPUT"
+          exit $exit_code
+
+      # ── Summarize all three gates ────────────────────────────────────────────
+      - name: Summarize security gate results
+        if: always()
+        run: |
+          declare -A GATE_LABELS=(
+            [secret-scan-report.json]="Secret Scanning"
+            [dependency-audit-report.json]="Dependency Vulnerability Audit"
+            [input-validation-report.json]="Input Validation Verification"
+          )
+
+          overall_passed=true
+          summary_lines=()
+
+          for report in secret-scan-report.json dependency-audit-report.json input-validation-report.json; do
+            label="${GATE_LABELS[$report]}"
+            if [ ! -f "$report" ]; then
+              summary_lines+=("| $label | ⚠️ report missing | — | — |")
+              overall_passed=false
+              continue
+            fi
+
+            gate_passed=$(jq -r '.passed // false' "$report")
+            passed_gates=$(jq -r '.summary.passed_gates // "?"' "$report")
+            total_gates=$(jq -r '.summary.total_gates // "?"' "$report")
+            blocking=$(jq -r '.summary.blocking_failures // "?"' "$report")
+
+            if [ "$gate_passed" = "true" ]; then
+              icon="✅"
+            else
+              icon="❌"
+              overall_passed=false
+            fi
+
+            summary_lines+=("| $icon $label | $gate_passed | $passed_gates/$total_gates | $blocking |")
+          done
+
+          if [ "$overall_passed" = "true" ]; then
+            headline="All security gates passed"
+            top_icon="✅"
+          else
+            headline="Security gate FAILED — PR blocked"
+            top_icon="❌"
+          fi
+
+          {
+            echo "## $top_icon Security Check Gate — $headline"
+            echo ""
+            echo "| Gate | Passed | Sub-gates | Blocking failures |"
+            echo "|------|--------|-----------|-------------------|"
+            for line in "${summary_lines[@]}"; do
+              echo "$line"
+            done
+            echo ""
+
+            # Per-gate blocking failure details
+            for report in secret-scan-report.json dependency-audit-report.json input-validation-report.json; do
+              label="${GATE_LABELS[$report]}"
+              [ ! -f "$report" ] && continue
+              count=$(jq '[.failures[] | select(.severity == "error")] | length' "$report" 2>/dev/null || echo 0)
+              if [ "$count" -gt 0 ]; then
+                echo "### ❌ $label — Blocking Findings"
+                echo ""
+                jq -r '
+                  .failures[] | select(.severity == "error") |
+                  "- **\(.message)**" +
+                  (if .file_path then
+                    " — `\(.file_path)" +
+                    (if .line_number then ":\(.line_number)" else "" end) + "`"
+                  else "" end) +
+                  (if .cve then "\n  > 🔗 CVE: `\(.cve)`" else "" end) +
+                  (if .suggestion then "\n  > 💡 \(.suggestion)" else "" end)
+                ' "$report"
+                echo ""
+              fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Fail the step (and thus the job) if any gate failed
+          if [ "$overall_passed" != "true" ]; then
+            exit 1
+          fi
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-gate-reports
+          path: |
+            secret-scan-report.json
+            dependency-audit-report.json
+            input-validation-report.json
+          retention-days: 30

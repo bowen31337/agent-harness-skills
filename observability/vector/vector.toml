@@ -1,0 +1,95 @@
+# vector.toml — file-based log collector for local dev
+# Watches log files, parses them, enriches with metadata, ships to Loki.
+
+# ── Global ────────────────────────────────────────────────────────────────────
+[api]
+enabled = true
+address  = "0.0.0.0:8686"
+
+# ── Sources ───────────────────────────────────────────────────────────────────
+
+# Plain text / unstructured logs (app.log, worker.log, …)
+[sources.file_plain]
+type              = "file"
+include           = ["/var/log/app/*.log"]
+exclude           = ["/var/log/app/*.gz"]
+read_from         = "beginning"
+# Annotate which file the line came from
+file_key          = "source_file"
+host_key          = "host"
+
+# JSON-structured logs (e.g. from pino, winston json, structlog)
+[sources.file_json]
+type              = "file"
+include           = ["/var/log/app/*.jsonl", "/var/log/app/*.ndjson"]
+read_from         = "beginning"
+file_key          = "source_file"
+host_key          = "host"
+
+# ── Transforms ────────────────────────────────────────────────────────────────
+
+# Parse plain logs: extract level + timestamp with a flexible regex
+[transforms.parse_plain]
+type   = "remap"
+inputs = ["file_plain"]
+source = '''
+  # Try common log patterns; fall back gracefully
+  parsed, err = parse_regex(.message, r'(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)\s+(?P<level>DEBUG|INFO|WARN|WARNING|ERROR|FATAL|CRITICAL)\s+(?P<body>.+)')
+  if err == null {
+    .timestamp = parsed.timestamp
+    .level     = downcase(parsed.level)
+    .message   = parsed.body
+  } else {
+    .level = "info"
+  }
+  # Label for Loki stream selector
+  .service = basename(string!(.source_file), ".log")
+  .env     = get_env_var("APP_ENV") ?? "local"
+'''
+
+# Parse JSON-structured logs
+[transforms.parse_json_logs]
+type   = "remap"
+inputs = ["file_json"]
+source = '''
+  parsed, err = parse_json(.message)
+  if err == null {
+    . = merge(., parsed)
+  }
+  # Normalize common field names
+  .level   = downcase(string(.level ?? .severity ?? .lvl ?? "info"))
+  .message = string(.message ?? .msg ?? .text ?? "")
+  .service = string(.service ?? .app ?? basename(string!(.source_file), ".jsonl"))
+  .env     = get_env_var("APP_ENV") ?? "local"
+'''
+
+# ── Sinks ─────────────────────────────────────────────────────────────────────
+
+# Ship to Loki (inside Docker network)
+[sinks.loki]
+type              = "loki"
+inputs            = ["parse_plain", "parse_json_logs"]
+endpoint          = "http://loki:3100"
+encoding.codec    = "json"
+
+  # Loki stream labels (low-cardinality only!)
+  [sinks.loki.labels]
+  service = "{{ service }}"
+  level   = "{{ level }}"
+  env     = "{{ env }}"
+  host    = "{{ host }}"
+
+  [sinks.loki.batch]
+  max_bytes    = 1_048_576   # 1 MiB
+  timeout_secs = 5
+
+  [sinks.loki.buffer]
+  type      = "disk"
+  max_size  = 268_435_456   # 256 MiB
+  when_full = "drop_newest"
+
+# Also echo to stdout while developing
+[sinks.console]
+type              = "console"
+inputs            = ["parse_plain", "parse_json_logs"]
+encoding.codec    = "json"

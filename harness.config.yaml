@@ -1,0 +1,412 @@
+# harness.config.yaml
+# Progressive complexity profiles for the Harness Agent SDK
+# Choose a profile that matches your team's maturity and needs.
+# Profiles: starter | standard | advanced
+
+# ---------------------------------------------------------------------------
+# HARNESS METADATA — auto-updated by /harness:update (do not edit manually)
+# ---------------------------------------------------------------------------
+updated_at: "2026-03-20T00:00:00Z"
+
+stack:
+  languages: [python]
+  python_version: "3.12"
+  frameworks: [claude-agent-sdk, playwright, pydantic]
+  libraries: [requests, beautifulsoup4, lxml, anyio]
+  test_runners: [pytest, pytest-playwright]
+  build_tools: []
+  ci: [gitlab-ci, github-actions]
+
+agents_md_files:
+  - ./AGENTS.md
+
+skill_count: 19
+
+# ---------------------------------------------------------------------------
+# ACTIVE PROFILE — change this value to switch between profiles
+# ---------------------------------------------------------------------------
+active_profile: starter
+
+# ===========================================================================
+# PROFILE: starter
+# Focus   : Essential gates + documentation only
+# Best for: New projects, proof-of-concepts, or teams onboarding to Harness
+# ===========================================================================
+profiles:
+  starter:
+    description: >
+      Enables only the essential quality gates (regression, coverage, docs
+      freshness, lint) and auto-generates baseline Markdown documentation.
+      Ideal for teams getting started with Harness — all other gates are
+      off so the signal-to-noise ratio stays low.
+
+    gates:
+      # Each gate: enabled/fail_on_error + gate-specific thresholds.
+      # Set enabled: false to skip; fail_on_error: false for advisory mode.
+
+      regression:                       # Run the test suite (pytest / jest)
+        enabled: true
+        fail_on_error: true
+        timeout_seconds: 120            # max wall-clock seconds for the full suite
+        extra_args: []                  # e.g. ['--tb=short', '-x']
+
+      coverage:                         # Enforce minimum line-coverage %
+        enabled: true
+        fail_on_error: true
+        threshold: 80                   # % minimum project-wide line coverage
+                                        # tool: auto-detected from project files
+        branch_coverage: false          # measure condition coverage too (pytest-cov >= 4)
+        exclude_patterns: []            # e.g. ['tests/', 'migrations/']
+
+      security:                         # pip-audit CVEs + bandit static analysis
+        enabled: false
+
+      performance:                      # Time .harness-perf.sh vs. budget_ms
+        enabled: false
+
+      architecture:                     # Import layer-violation detection (AST)
+        enabled: false
+
+      principles:                       # Scan for coding-principle violations
+        enabled: false
+
+      docs_freshness:                   # Flag stale harness-generated artifacts
+        enabled: true
+        fail_on_error: true
+        max_staleness_days: 30          # flag docs older than this many days
+        tracked_files:
+          - AGENTS.md
+
+      types:                            # Static type checking (mypy / tsc --noEmit)
+        enabled: false
+
+      lint:                             # Linting (ruff / eslint / golangci-lint)
+        enabled: true
+        fail_on_error: false            # advisory warnings — non-blocking by default
+        autofix: false                  # attempt ruff --fix / eslint --fix before reporting
+        select: []                      # empty = tool defaults
+        ignore: []                      # e.g. ['E501'] for line-length
+
+      # ── Custom plugin gates ─────────────────────────────────────────────
+      # Each entry runs a shell command; exit code 0=pass, non-zero=fail.
+      # Required: gate_id, gate_name, command
+      # Optional: timeout_seconds (60), fail_on_error (true), severity (error), env ({})
+      #
+      # Example:
+      #   plugins:
+      #     - gate_id: check_migrations
+      #       gate_name: "DB Migration Safety"
+      #       command: "python scripts/check_migrations.py"
+      #       timeout_seconds: 30
+      #       fail_on_error: true
+      plugins: []                       # replace [] with gate definitions
+
+    documentation:
+      auto_generate: true
+      formats:
+        - markdown
+      include_changelog: true
+      include_api_summary: false
+      include_dependency_graph: false
+      include_architecture_diagrams: false
+      publish_to_portal: false
+
+    architecture:
+      enforcement: false
+
+    telemetry:
+      enabled: false
+
+    notifications:
+      on_failure: true
+      on_success: false
+      on_degraded: false
+      channels:
+        - type: email
+
+    multi_agent:
+      coordination: false
+
+  # =========================================================================
+  # PROFILE: standard
+  # Focus   : Everything in starter + architecture enforcement
+  # Best for: Growing teams shipping production workloads
+  # =========================================================================
+  standard:
+    description: >
+      Builds on starter by raising the coverage bar, enabling security
+      scanning, static type checking, principles enforcement, and full
+      architecture gate. Documentation output is expanded to HTML with an
+      API summary and dependency graph. Telemetry and multi-agent
+      coordination remain off — add them when you're ready for advanced.
+
+    gates:
+      # Each gate: enabled/fail_on_error + gate-specific thresholds.
+      # Set enabled: false to skip; fail_on_error: false for advisory mode.
+
+      regression:                       # Run the test suite (pytest / jest)
+        enabled: true
+        fail_on_error: true
+        timeout_seconds: 300            # max wall-clock seconds for the full suite
+        extra_args: []                  # e.g. ['--tb=short', '-x']
+
+      coverage:                         # Enforce minimum line-coverage %
+        enabled: true
+        fail_on_error: true
+        threshold: 80                   # % minimum project-wide line coverage
+                                        # tool: auto-detected from project files
+        branch_coverage: true           # measure condition coverage too (pytest-cov >= 4)
+        exclude_patterns: []            # e.g. ['tests/', 'migrations/']
+
+      security:                         # pip-audit CVEs + bandit static analysis
+        enabled: true
+        fail_on_error: true
+        severity_threshold: HIGH        # CRITICAL | HIGH | MEDIUM | LOW
+        scan_dependencies: true         # run pip-audit / npm audit
+        scan_secrets: false             # detect hardcoded API keys / tokens
+        ignore_ids: []                  # e.g. ['CVE-2023-12345', 'B101']
+
+      performance:                      # Time .harness-perf.sh vs. budget_ms
+        enabled: false
+        # Requires .harness-perf.sh benchmark script
+        fail_on_error: false
+        budget_ms: 500                  # P95 response-time ceiling in ms
+        regression_threshold_pct: 20   # max % degradation vs. baseline
+
+      architecture:                     # Import layer-violation detection (AST)
+        enabled: true
+        fail_on_error: true
+        rules:
+          - no_circular_dependencies
+          - enforce_layer_boundaries
+          - require_interface_contracts
+        layer_order: [domain, application, infrastructure, presentation]
+        report_only: false              # set true to warn without failing
+
+      principles:                       # Scan for coding-principle violations
+        enabled: true
+        fail_on_error: false
+        # advisory warnings — non-blocking by default
+        principles_file: .harness-principles.md
+        rules:
+          - no_god_objects
+          - single_responsibility
+          - dependency_injection
+
+      docs_freshness:                   # Flag stale harness-generated artifacts
+        enabled: true
+        fail_on_error: true
+        max_staleness_days: 14          # flag docs older than this many days
+        tracked_files:
+          - AGENTS.md
+          - docs/architecture.md
+
+      types:                            # Static type checking (mypy / tsc --noEmit)
+        enabled: true
+        fail_on_error: true
+        strict: false
+        # set strict: true for mypy --strict / pyright strict
+        ignore_errors: []               # e.g. ['misc', 'import-untyped']
+
+      lint:                             # Linting (ruff / eslint / golangci-lint)
+        enabled: true
+        fail_on_error: true
+        autofix: false                  # attempt ruff --fix / eslint --fix before reporting
+        select: []                      # empty = tool defaults
+        ignore: []                      # e.g. ['E501'] for line-length
+
+      # ── Custom plugin gates (see starter profile for full schema docs) ──
+      plugins: []                       # replace [] with gate definitions
+
+    documentation:
+      auto_generate: true
+      formats:
+        - markdown
+        - html
+      include_changelog: true
+      include_api_summary: true
+      include_dependency_graph: true
+      include_architecture_diagrams: false
+      publish_to_portal: false
+
+    architecture:
+      enforcement: true
+      rules:
+        - no_circular_dependencies
+        - enforce_layer_boundaries
+        - require_interface_contracts
+      fail_on_violation: true
+
+    telemetry:
+      enabled: false
+
+    notifications:
+      on_failure: true
+      on_success: true
+      on_degraded: false
+      channels:
+        - type: email
+        - type: slack
+
+    multi_agent:
+      coordination: false
+
+  # =========================================================================
+  # PROFILE: advanced
+  # Focus   : All features — telemetry, full gates, multi-agent coordination
+  # Best for: Mature engineering orgs with complex, distributed systems
+  # =========================================================================
+  advanced:
+    description: >
+      Unlocks every Harness feature: comprehensive quality gates with strict
+      thresholds, full OpenTelemetry pipeline, multi-agent coordination via
+      Redis, compliance scanning, and deep architecture observability.
+      Every gate is enabled; telemetry exports to both OTLP and Prometheus.
+
+    gates:
+      # Each gate: enabled/fail_on_error + gate-specific thresholds.
+      # Set enabled: false to skip; fail_on_error: false for advisory mode.
+
+      regression:                       # Run the test suite (pytest / jest)
+        enabled: true
+        fail_on_error: true
+        timeout_seconds: 600            # max wall-clock seconds for the full suite
+        extra_args: []                  # e.g. ['--tb=short', '-x']
+
+      coverage:                         # Enforce minimum line-coverage %
+        enabled: true
+        fail_on_error: true
+        threshold: 90                   # % minimum project-wide line coverage
+                                        # tool: auto-detected from project files
+        branch_coverage: true           # measure condition coverage too (pytest-cov >= 4)
+        exclude_patterns: []            # e.g. ['tests/', 'migrations/']
+
+      security:                         # pip-audit CVEs + bandit static analysis
+        enabled: true
+        fail_on_error: true
+        severity_threshold: MEDIUM      # CRITICAL | HIGH | MEDIUM | LOW
+        scan_dependencies: true         # run pip-audit / npm audit
+        scan_secrets: true              # detect hardcoded API keys / tokens
+        ignore_ids: []                  # e.g. ['CVE-2023-12345', 'B101']
+
+      performance:                      # Time .harness-perf.sh vs. budget_ms
+        enabled: true
+        fail_on_error: true
+        budget_ms: 200                  # P95 response-time ceiling in ms
+        regression_threshold_pct: 10   # max % degradation vs. baseline
+
+      architecture:                     # Import layer-violation detection (AST)
+        enabled: true
+        fail_on_error: true
+        rules:
+          - no_circular_dependencies
+          - enforce_layer_boundaries
+          - require_interface_contracts
+          - enforce_naming_conventions
+          - max_component_coupling: 5
+        layer_order: [domain, application, infrastructure, presentation]
+        report_only: false              # set true to warn without failing
+
+      principles:                       # Scan for coding-principle violations
+        enabled: true
+        fail_on_error: true
+        principles_file: .harness-principles.md
+        rules:
+          - no_god_objects
+          - single_responsibility
+          - dependency_injection
+          - no_primitive_obsession
+          - immutable_value_objects
+
+      docs_freshness:                   # Flag stale harness-generated artifacts
+        enabled: true
+        fail_on_error: true
+        max_staleness_days: 7           # flag docs older than this many days
+        tracked_files:
+          - AGENTS.md
+          - docs/architecture.md
+          - docs/api-reference.md
+          - docs/runbook.md
+
+      types:                            # Static type checking (mypy / tsc --noEmit)
+        enabled: true
+        fail_on_error: true
+        strict: true
+        # strict: true = mypy --strict / pyright strict
+        ignore_errors: []               # e.g. ['misc', 'import-untyped']
+
+      lint:                             # Linting (ruff / eslint / golangci-lint)
+        enabled: true
+        fail_on_error: true
+        autofix: false                  # attempt ruff --fix / eslint --fix before reporting
+        select: []                      # empty = tool defaults
+        ignore: []                      # e.g. ['E501'] for line-length
+
+      # ── Compliance gate (advanced only) ────────────────────────────────
+      compliance:
+        enabled: true
+        fail_on_error: true
+        standards:
+          - SOC2
+          - PCI-DSS
+
+      # ── Custom plugin gates (see starter profile for full schema docs) ──
+      plugins: []                       # replace [] with gate definitions
+
+    documentation:
+      auto_generate: true
+      formats:
+        - markdown
+        - html
+        - pdf
+      include_changelog: true
+      include_api_summary: true
+      include_dependency_graph: true
+      include_architecture_diagrams: true
+      publish_to_portal: true
+
+    architecture:
+      enforcement: true
+      rules:
+        - no_circular_dependencies
+        - enforce_layer_boundaries
+        - require_interface_contracts
+        - enforce_naming_conventions
+        - max_component_coupling: 5
+      fail_on_violation: true
+      report_only_mode: false           # set true to warn without failing
+
+    telemetry:
+      enabled: true
+      collection:
+        metrics: true
+        traces: true
+        logs: true
+      exporters:
+        - type: otlp
+          endpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT}"
+        - type: prometheus
+          port: 9090
+      sampling_rate: 1.0               # 0.0–1.0; 1.0 = 100 %
+      retention_days: 90
+
+    notifications:
+      on_failure: true
+      on_success: true
+      on_degraded: true
+      channels:
+        - type: email
+        - type: slack
+        - type: pagerduty
+
+    multi_agent:
+      coordination: true
+      strategy: consensus              # consensus | leader_follower | round_robin
+      max_agents: 10
+      heartbeat_interval_seconds: 15
+      failover:
+        enabled: true
+        timeout_seconds: 30
+      shared_state:
+        backend: redis
+        connection_string: "${REDIS_CONNECTION_STRING}"

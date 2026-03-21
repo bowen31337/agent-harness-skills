@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "agent-harness-skills"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk",
+    "anyio",
+    "pydantic>=2.0",
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "lxml>=5.2.0",
+    "playwright",
+    "pytest-playwright",
+    "jsonschema>=4.18",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4.0",
+    "pytest>=8.0",
+    "pre-commit>=3.7",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — linter + formatter
+# https://docs.astral.sh/ruff/
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+# Directories ruff should never touch
+exclude = [
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".git",
+    "*.egg-info",
+    "dist",
+    "build",
+    "observability",          # third-party grafana/loki config dirs
+]
+
+[tool.ruff.lint]
+# Rule sets enabled:
+#   E/W  – pycodestyle errors & warnings
+#   F    – Pyflakes (undefined names, unused imports, …)
+#   I    – isort (import ordering)
+#   N    – pep8-naming  ← enforces class/function/variable naming conventions
+#   UP   – pyupgrade    ← modernise syntax for Python 3.12
+#   B    – flake8-bugbear
+#   SIM  – flake8-simplify
+#   PTH  – flake8-use-pathlib
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "PTH"]
+
+ignore = [
+    # Allow long lines when they contain a URL
+    "E501",
+    # `assert` is fine in tests
+    "B011",
+    # Allow `*` imports in __init__ re-export files
+    "F401",
+]
+
+# Per-file rule overrides
+[tool.ruff.lint.per-file-ignores]
+# Test files: relax naming rules (fixture functions, parametrize ids, etc.)
+"tests/**/*.py"     = ["N802", "N803", "N806"]
+"test_*.py"         = ["N802", "N803", "N806"]
+# Example files are allowed to be more permissive
+"*_example.py"      = ["N802", "E402"]
+# CLI entry-points that shadow builtins
+"harness_skills/cli/*.py" = ["N802"]
+
+[tool.ruff.lint.pep8-naming]
+# Allow these patterns as "class-like" names that may use PascalCase
+classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.model_validator"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["harness_skills", "harness_dashboard", "log_format_linter", "dom_snapshot_utility"]
+force-sort-within-sections = true
+
+[tool.ruff.format]
+# Use double quotes (PEP 8 default)
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

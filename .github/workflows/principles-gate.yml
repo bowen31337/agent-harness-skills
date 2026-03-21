@@ -1,0 +1,148 @@
+# .github/workflows/principles-gate.yml
+# Golden Principles Compliance Gate
+#
+# Runs the principle violation scanner on every pull request and fails on any
+# `blocking` severity violation, preventing merge until all are resolved.
+#
+# Exit codes: 0 = passed, 1 = blocking violations found, 2 = internal error.
+
+name: Principles Compliance Gate
+
+on:
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  principles-gate:
+    name: Golden Principles Compliance Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # ── Principles Scanner ─────────────────────────────────────────────────
+      - name: Run principles violation scanner
+        id: principles
+        run: |
+          set +e
+          uv run python scripts/check_principles.py \
+            --path . \
+            --format json \
+            --output principles-report.json \
+            --skill check-code
+          exit_code=$?
+
+          # Also emit human-readable output to the log
+          uv run python scripts/check_principles.py \
+            --path . \
+            --show-suggestions \
+            --skill check-code || true
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+
+          passed=$(python3 -c \
+            "import json; r=json.load(open('principles-report.json')); print(str(r.get('passed', False)).lower())" \
+            2>/dev/null || echo "false")
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+
+          exit $exit_code
+
+      # ── GitHub Step Summary ────────────────────────────────────────────────
+      - name: Write step summary
+        if: always()
+        run: |
+          if [ ! -f principles-report.json ]; then
+            echo "## ⚠️ Principles Gate — report missing" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          passed=$(python3 -c \
+            "import json; r=json.load(open('principles-report.json')); print(r.get('passed', False))" \
+            2>/dev/null)
+
+          blocking=$(python3 -c \
+            "import json; r=json.load(open('principles-report.json')); print(r.get('summary',{}).get('blocking_failures',0))" \
+            2>/dev/null || echo "?")
+
+          suggestions=$(python3 -c \
+            "import json; r=json.load(open('principles-report.json')); print(r.get('summary',{}).get('suggestions',0))" \
+            2>/dev/null || echo "?")
+
+          principles_loaded=$(python3 -c \
+            "import json; r=json.load(open('principles-report.json')); print(r.get('summary',{}).get('principles_loaded',0))" \
+            2>/dev/null || echo "?")
+
+          if [ "$passed" = "True" ]; then
+            icon="✅"
+            headline="All principle gates passed"
+          else
+            icon="❌"
+            headline="Principle gate FAILED — PR blocked"
+          fi
+
+          {
+            echo "## $icon Principles Compliance Gate — $headline"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Principles loaded | $principles_loaded |"
+            echo "| 🔴 Blocking violations | $blocking |"
+            echo "| 🟡 Suggestions | $suggestions |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Detail blocking violations
+          python3 - <<'PYEOF' >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          import json, sys
+          try:
+              r = json.load(open("principles-report.json"))
+          except Exception:
+              sys.exit(0)
+          failures = r.get("failures", [])
+          if not failures:
+              print("_No blocking violations detected._")
+              sys.exit(0)
+          print("### 🔴 Blocking Violations\n")
+          for f in failures:
+              pid = f.get("principle_id", "?")
+              cat = f.get("category", "").upper()
+              msg = f.get("message", "")
+              loc = f.get("file_path", "")
+              ln  = f.get("line_number")
+              sug = f.get("suggestion", "")
+              loc_str = f" — `{loc}" + (f":{ln}" if ln else "") + "`" if loc else ""
+              print(f"- **[{pid}] {cat}**{loc_str}")
+              print(f"  > {msg}")
+              if sug:
+                  print(f"  > 💡 {sug}")
+              print()
+          PYEOF
+
+          if [ "$passed" != "True" ]; then
+            exit 1
+          fi
+
+      # ── Upload report artifact ─────────────────────────────────────────────
+      - name: Upload principles report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: principles-gate-report
+          path: principles-report.json
+          retention-days: 30

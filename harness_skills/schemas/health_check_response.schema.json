@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harness-skills/schemas/health_check_response.schema.json",
+  "title": "HealthCheckResponse",
+  "description": "Canonical JSON body returned by any harness-managed application's health endpoint. Agents poll this endpoint using HealthCheckSpec (harness_skills.boot) to verify an isolated instance is alive and ready before sending test traffic.",
+  "type": "object",
+  "required": ["status", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "status": {
+      "type": "string",
+      "description": "Coarse health verdict. 'healthy' means all checks passed and the instance is ready to serve traffic. 'degraded' means the instance is running but one or more non-critical checks failed — agents should proceed with caution. 'unhealthy' means a critical subsystem is down — agents must not send test traffic and should trigger a re-boot or alert.",
+      "enum": ["healthy", "degraded", "unhealthy"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp of when this response was generated. Agents use this to detect stale cached responses."
+    },
+    "version": {
+      "type": ["string", "null"],
+      "description": "Application version string (semver, git SHA, or build tag). Agents use this to confirm the expected code revision is running after a deploy.",
+      "examples": ["1.4.2", "abc1234", "2026.03.20-rc1"]
+    },
+    "uptime_s": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Seconds the process has been running. Useful for detecting unexpected restarts."
+    },
+    "checks": {
+      "type": "array",
+      "description": "Ordered list of individual subsystem checks. At least one check should be present. Agents iterate this list to identify which specific subsystem is failing before deciding on a recovery action.",
+      "items": { "$ref": "#/$defs/CheckResult" },
+      "minItems": 0
+    },
+    "instance": {
+      "$ref": "#/$defs/InstanceInfo"
+    }
+  },
+  "$defs": {
+    "CheckStatus": {
+      "type": "string",
+      "enum": ["pass", "fail", "warn"],
+      "description": "pass = subsystem is healthy; fail = subsystem is down or unreachable; warn = subsystem is degraded but not completely unavailable."
+    },
+    "CheckResult": {
+      "type": "object",
+      "description": "Result of probing one subsystem (database, cache, external API, queue, etc.).",
+      "required": ["name", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Short identifier for this check. Agents match on this field when diagnosing failures.",
+          "examples": ["database", "redis", "migrations", "disk", "external_api"]
+        },
+        "status": { "$ref": "#/$defs/CheckStatus" },
+        "latency_ms": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Round-trip latency to probe this subsystem in milliseconds. null when the check did not involve a remote call."
+        },
+        "message": {
+          "type": ["string", "null"],
+          "description": "Human- and agent-readable detail. On failure: concrete error message. On pass: optional diagnostic note (e.g. 'pool_size=10/20'). Agents surface this when deciding whether to retry or escalate."
+        },
+        "error_code": {
+          "type": ["string", "null"],
+          "description": "Machine-readable error code for automated remediation routing (e.g. 'DB_CONNECTION_REFUSED', 'MIGRATION_PENDING', 'DISK_FULL'). null on pass or when no code is defined."
+        }
+      }
+    },
+    "InstanceInfo": {
+      "type": "object",
+      "description": "Metadata about the running instance. Agents use this to correlate a health response with the correct worktree when multiple isolated instances are running concurrently.",
+      "additionalProperties": false,
+      "properties": {
+        "worktree_id": {
+          "type": ["string", "null"],
+          "description": "Harness worktree ID injected at boot (mirrors BootConfig.worktree_id). Agents validate this matches the expected worktree before accepting the health response."
+        },
+        "port": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "TCP port this instance is bound to (mirrors IsolationConfig.port)."
+        },
+        "pid": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "OS process ID. Agents can cross-check this against the PID returned in BootResult."
+        },
+        "git_sha": {
+          "type": ["string", "null"],
+          "description": "Full or abbreviated git commit SHA of the running code. Agents use this to verify the expected revision was deployed."
+        },
+        "git_branch": {
+          "type": ["string", "null"],
+          "description": "Git branch name at build / launch time."
+        },
+        "db_schema": {
+          "type": ["string", "null"],
+          "description": "Active database schema or SQLite file path used by this instance (mirrors IsolationConfig.db_schema / db_file). Helps agents confirm the correct isolated DB is in use."
+        },
+        "environment": {
+          "type": ["string", "null"],
+          "description": "Runtime environment name (e.g. 'test', 'staging', 'production'). Agents assert this is never 'production' during automated testing.",
+          "examples": ["test", "ci", "staging", "production"]
+        }
+      }
+    }
+  }
+}

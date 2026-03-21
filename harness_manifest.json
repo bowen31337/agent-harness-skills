@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-03-20T00:00:00Z",
+  "git_sha": "9a43bb1",
+  "git_branch": "main",
+  "harness_version": null,
+  "project_root": "/Users/bowenli/projects/claw-forge-test/agent-harness-skills",
+  "detected_stack": {
+    "primary_language": "python",
+    "secondary_languages": [],
+    "framework": "claude-agent-sdk",
+    "project_structure": "single-app",
+    "test_framework": "pytest",
+    "ci_platform": "github-actions",
+    "database": null,
+    "api_style": null
+  },
+  "domains": [
+    "gates",
+    "generators",
+    "models",
+    "plugins",
+    "cli",
+    "schemas",
+    "browser"
+  ],
+  "artifacts": [
+    {
+      "artifact_path": "harness.config.yaml",
+      "artifact_type": "harness.config.yaml",
+      "token_count": null,
+      "overwritten": true
+    },
+    {
+      "artifact_path": "AGENTS.md",
+      "artifact_type": "AGENTS.md",
+      "token_count": null,
+      "overwritten": false
+    },
+    {
+      "artifact_path": "ARCHITECTURE.md",
+      "artifact_type": "ARCHITECTURE.md",
+      "token_count": null,
+      "overwritten": false
+    },
+    {
+      "artifact_path": "PRINCIPLES.md",
+      "artifact_type": "PRINCIPLES.md",
+      "token_count": null,
+      "overwritten": false
+    },
+    {
+      "artifact_path": "EVALUATION.md",
+      "artifact_type": "EVALUATION.md",
+      "token_count": null,
+      "overwritten": false
+    },
+    {
+      "artifact_path": "harness_manifest.schema.json",
+      "artifact_type": "schema",
+      "token_count": null,
+      "overwritten": true
+    },
+    {
+      "artifact_path": "harness_manifest.json",
+      "artifact_type": "schema",
+      "token_count": null,
+      "overwritten": true
+    }
+  ],
+  "manifest_path": "harness_manifest.json",
+  "schema_path": "harness_manifest.schema.json",
+  "symbols_index_path": null
+}

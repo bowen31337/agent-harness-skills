@@ -1,0 +1,864 @@
+# .claude/principles.yaml
+# Project-specific golden rules enforced by check-code and review-pr.
+# Edit this file directly or run /define-principles to use the interactive prompt.
+#
+# Convention: Plan-to-PR Traceability
+# Every PR must reference the execution plan that produced it, ensuring full
+# forward and backward traceability between planning artifacts and merged code.
+#
+# Convention: No Magic Numbers / No Hardcoded Strings
+# All literal numeric values and string literals that carry configuration or
+# domain meaning must be extracted to named constants or a config layer.
+# Constant extraction rules:
+#   • Pure constants (domain limits, fixed multipliers): src/<pkg>/constants.py,
+#     using UPPER_SNAKE_CASE names grouped by logical section with a one-line comment.
+#   • Runtime-configurable values (timeouts, URLs, feature flags): read from env
+#     vars via a config object (e.g. src/config.py) — never inline.
+#   • Test-only sentinel values: define at the top of the test file or in a
+#     shared tests/constants.py; never repeat the same literal twice.
+#
+# Convention: Import Ordering & Grouping
+# Detected from the most common patterns across tests/ and src/ (10+ files).
+# Group order (isort-compatible): future → stdlib → third-party → first-party.
+# Each group is separated by exactly one blank line; imports within each group
+# are sorted alphabetically. `from __future__ import annotations` is always
+# the first import in every Python module. Intra-package references use
+# relative imports (from .module import …).
+#
+# Convention: Naming (derived from full codebase style scan, 20+ files)
+# Functions/methods: snake_case. Private: _snake_case.
+# Variables: snake_case (descriptive, no single-letter names outside loop indices).
+# Classes: PascalCase. Test classes: TestPascalCase.
+# Files: snake_case.py. Directories: snake_case/.
+# Module-level constants: _UPPER_SNAKE_CASE (private) or UPPER_SNAKE_CASE (public).
+# Enum members: UPPER_SNAKE_CASE.
+# Pydantic / ORM model fields: snake_case.
+version: "1.0"
+principles:
+  - id: "P001"
+    category: "traceability"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Every PR description must include a `Plan:` field linking to the execution
+      plan that produced it (e.g. `Plan: plans/feat-login-v2.md` or a plan URL/ID).
+
+  - id: "P002"
+    category: "traceability"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Execution plans must be committed to the `plans/` directory before a PR is
+      opened, so the referenced plan is always resolvable in version history.
+
+  - id: "P003"
+    category: "traceability"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      The plan reference must appear as a structured field at the top of the PR
+      body using the exact format `Plan: <path-or-url>` so it is machine-parseable
+      by automated review tooling.
+
+  - id: "P004"
+    category: "traceability"
+    severity: "suggestion"
+    applies_to: ["review-pr"]
+    rule: >
+      If a PR deviates from its source plan (scope change, dropped tasks, or added
+      tasks), a `Deviations:` section must be included in the PR body explaining
+      each delta with a one-line rationale.
+
+  - id: "P005"
+    category: "traceability"
+    severity: "blocking"
+    applies_to: ["review-pr"]
+    rule: >
+      A PR must not be merged if its `Plan:` reference resolves to a plan with
+      `status: draft`; only plans with `status: approved` may back a merged PR.
+
+  - id: "P006"
+    category: "ci"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      The CI pipeline must include a principles compliance gate step that runs
+      the violation scanner (`scripts/check_principles.py`) and exits non-zero
+      on any `blocking` severity violation, preventing merge until all blocking
+      violations are resolved.
+
+  - id: "P007"
+    category: "testing"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Every test must follow the Arrange-Act-Assert (AAA) structure: set up
+      preconditions first, perform exactly one action, then assert outcomes —
+      with a blank line separating each phase to make the boundary visually clear.
+
+  - id: "P008"
+    category: "testing"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Test function names must follow the pattern
+      `test_<unit>_<scenario>_<expected_outcome>` (e.g.
+      `test_login_with_expired_token_returns_401`) so the failure message alone
+      communicates what broke and why it matters.
+
+  - id: "P009"
+    category: "testing"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Fixtures must be scoped as narrowly as possible (`function` > `class` >
+      `module` > `session`); shared fixtures that mutate state must live in
+      `conftest.py` and be explicitly reset between tests to prevent order-
+      dependent failures.
+
+  - id: "P010"
+    category: "testing"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Mocks must only be applied at the boundary of the unit under test (e.g.
+      patch the HTTP client, not internal helpers); mocking internal
+      implementation details is forbidden as it couples tests to structure
+      rather than behaviour.
+
+  - id: "P011"
+    category: "style"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      No magic numbers: every numeric literal that carries domain or configuration
+      meaning must be extracted to a named constant in UPPER_SNAKE_CASE.
+      Pure domain constants (e.g. MAX_RETRY_ATTEMPTS, DEFAULT_PAGE_SIZE) belong in
+      `src/<pkg>/constants.py`, grouped by logical section with a one-line comment.
+      Runtime-tunable values (timeouts, batch sizes, rate limits) must be read from
+      a config object or environment variable — never inlined.
+      Exemptions: trivially obvious values such as 0, 1, and -1 used in arithmetic
+      or index arithmetic do not require extraction.
+
+  - id: "P012"
+    category: "style"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      No hardcoded strings: string literals that represent configuration (URLs,
+      hostnames, file paths, queue names, feature-flag keys, error-code strings)
+      must not appear inline in business logic or test assertions.
+      Config strings (base URLs, external service addresses, environment names)
+      must be sourced from environment variables via `src/config.py` using a
+      typed config object (e.g. Pydantic BaseSettings).
+      Shared string constants (status codes, event names, header keys) must be
+      declared as module-level constants in `src/<pkg>/constants.py` or, for
+      closed sets, as a `StrEnum`.
+      Test-only sentinel strings (fixture values, stub responses) must be defined
+      at the top of the test file or in `tests/constants.py`; no string literal
+      may appear in more than one test without being extracted.
+
+  - id: "P013"
+    category: "style"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Imports must follow the four-group isort order — future, stdlib,
+      third-party, first-party — with exactly one blank line between each group
+      and no blank lines within a group.
+      `from __future__ import annotations` must appear as the very first import
+      in every Python module.
+      Imports within each group must be sorted alphabetically (`import a` before
+      `import b`; `from a import x` before `from b import y`).
+      Intra-package references must use relative imports
+      (`from .module import Thing`) rather than absolute paths that repeat the
+      package name.
+      Detected from the prevailing pattern across 10+ files in `tests/` and
+      `src/`; enforced by isort with profile `black` (or equivalent ruff
+      `[tool.ruff.lint.isort]` config).
+
+  - id: "P014"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All Python functions and methods must use `snake_case`.
+      Private/internal helpers (not part of the public API of a module or class)
+      must be prefixed with a single underscore: `_snake_case`.
+      Double-underscore dunder names (`__init__`, `__repr__`) are exempt.
+      Detected as the universal convention across harness_skills/, skills/,
+      and all supporting packages.
+
+  - id: "P015"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All local variables and function parameters must use `snake_case` with
+      descriptive names. Single-letter names are forbidden outside trivial
+      loop counters (`i`, `j`, `k`) and well-known mathematical variables.
+      Examples of compliant names: `agent_id`, `coverage_pct`, `gate_pass_rate`.
+      Examples of violations: `x`, `tmp`, `d`, `obj` used as general-purpose
+      variable names in business logic.
+
+  - id: "P016"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All class names must use `PascalCase` (UpperCamelCase) — no underscores,
+      no leading lowercase letters.
+      Test classes must begin with the prefix `Test` followed by the name of
+      the subject under test in PascalCase (e.g. `TestTaskLockModel`,
+      `TestDetectFramework`).
+      Dataclasses, Pydantic models, Enums, and Protocols follow the same
+      PascalCase rule.
+
+  - id: "P017"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All Python source files must use `snake_case.py` filenames (all lowercase,
+      words separated by underscores). No hyphens, no camelCase, no PascalCase
+      in file names.
+      All directories that are Python packages or logical groupings must also
+      use `snake_case` (e.g. `harness_skills/`, `dom_snapshot_utility/`,
+      `log_format_linter/`).
+
+  - id: "P018"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Module-level constants must use `UPPER_SNAKE_CASE`.
+      Constants private to a module (not exported as part of its public API)
+      must additionally carry a leading underscore: `_UPPER_SNAKE_CASE`
+      (e.g. `_TRACE_ID_RE`, `_DEFAULT_LOCKS_DIR`, `_HOT_PERCENTILE`).
+      Constants that are part of a module's public interface omit the leading
+      underscore (e.g. `MAX_RETRY_ATTEMPTS`, `DEFAULT_PAGE_SIZE`).
+      Naming a constant in `lower_snake_case` or `camelCase` is a violation
+      regardless of its scope.
+
+  - id: "P019"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All members of `Enum` and `StrEnum` subclasses must use `UPPER_SNAKE_CASE`.
+      Multi-word enum values must be separated by underscores, not hyphens or
+      camelCase (e.g. `UNIT_TESTS`, `COVERAGE_REPORT`, `TIME_TO_MERGE`).
+      The enum class name itself must follow the PascalCase rule (P016).
+
+  - id: "P020"
+    category: "naming"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All Pydantic model fields and ORM column names must use `snake_case`.
+      This applies to `BaseModel`, `BaseSettings`, `dataclass`, and any ORM
+      mapper (e.g. SQLAlchemy `Column` definitions).
+      Pydantic `Field(alias=...)` may be used to expose a camelCase JSON key,
+      but the Python attribute name must still be `snake_case`.
+      Examples of compliant field names: `pr_id`, `time_to_merge_hours`,
+      `gate_pass_rate`, `created_at`, `artifact_count`.
+
+  - id: "P024"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All I/O-bound operations must be implemented as coroutines using
+      `async`/`await` — never using blocking calls inside a coroutine.
+      Prohibited blocking calls inside `async def` functions include:
+        • `time.sleep()` — use `await asyncio.sleep()` instead,
+        • `requests.get/post/…` — use `await httpx.AsyncClient.*` instead,
+        • `open()` / synchronous file I/O in hot paths — use `anyio.Path` or
+          `asyncio.to_thread(…)` to offload to a thread executor,
+        • Any function that does CPU-heavy work without yielding — offload with
+          `await asyncio.to_thread(fn, *args)`.
+      Detected runtime: asyncio + anyio. Blocking calls stall the entire event
+      loop and degrade all concurrently running coroutines.
+
+  - id: "P025"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All mutable state shared between coroutines within the same process must
+      be protected by an `asyncio.Lock`.
+      The lock must be acquired using the async context-manager form
+      (`async with self._lock:`) — never `lock.acquire()` / `lock.release()`
+      directly, as that pattern is error-prone under exceptions.
+      Locks must be instance-level attributes initialised in `__init__` (e.g.
+      `self._lock = asyncio.Lock()`); module-level lock singletons are
+      forbidden because they cannot be safely reset between tests.
+      Detected example: `PlanRegistry._lock` in `stale_plan_detector.py`.
+
+  - id: "P026"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Background async sweep/poll loops must implement graceful shutdown using
+      the `asyncio.Event` + `asyncio.wait_for(asyncio.shield(event.wait()), timeout=…)`
+      pattern.
+      Required structure:
+        1. `self._stop_event = asyncio.Event()` in `__init__`.
+        2. Loop condition: `while not self._stop_event.is_set(): …`.
+        3. Delay via: `await asyncio.wait_for(asyncio.shield(self._stop_event.wait()), timeout=interval)`,
+           catching `asyncio.TimeoutError` to continue the loop.
+        4. A synchronous `stop()` method that calls `self._stop_event.set()`.
+      Using `asyncio.sleep()` in a bare loop without an event is forbidden
+      because it cannot be interrupted promptly on shutdown.
+      Detected example: `StaleDetector.run()` in `stale_plan_detector.py`.
+
+  - id: "P027"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Inter-process / multi-agent coordination must use file-system locks, not
+      in-process threading primitives.
+      Two approved patterns (both already present in this codebase):
+        • **Atomic file creation**: `open(path, O_CREAT | O_EXCL | O_WRONLY)`
+          for exclusive task acquisition (see `task_lock.py`).
+        • **Advisory file lock**: `fcntl.flock(fd, fcntl.LOCK_EX)` inside a
+          `try/finally` that always calls `fcntl.LOCK_UN` (see `shared_state.py`).
+      `threading.Lock`, `threading.RLock`, and `multiprocessing.Lock` must NOT
+      be used for cross-agent coordination; they cannot span separate OS
+      processes launched independently.
+      Lock files must be cleaned up on process exit (register via `atexit` or
+      a `finally` block); stale lock detection must use a TTL-based sweeper.
+
+  - id: "P028"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Network I/O must be performed through `httpx.AsyncClient` used as an
+      async context manager (`async with httpx.AsyncClient(timeout=…) as client:`).
+      The `timeout` parameter must always be set explicitly — never rely on the
+      default (which is no timeout); recommended maximum is `30.0` seconds for
+      user-facing calls and `5.0` seconds for internal health checks.
+      Creating a new `AsyncClient` per request is acceptable for low-frequency
+      calls; for high-frequency calls a shared client instance (stored as an
+      instance attribute) must be used and closed in a matching `aclose()` or
+      async-context-manager teardown.
+      The synchronous `requests` library must not be used in async code paths.
+      Detected example: `fetch_from_state_service()` in `coordinate.py`.
+
+  - id: "P029"
+    category: "concurrency"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Agent SDK sessions (`ClaudeSDKClient` / `query()`) must always be driven
+      from an async context; the top-level sync-to-async bridge must use
+      `anyio.run(main)` — never `asyncio.run()` — so that the anyio backend
+      (asyncio or trio) is selected consistently and SDK internals that depend
+      on anyio primitives work correctly.
+      CLI entry points that call agent logic must follow this pattern:
+        ```python
+        import anyio
+
+        async def main() -> None:
+            …
+
+        if __name__ == "__main__":
+            anyio.run(main)
+        ```
+      Detected examples: `error_query_agent.py`, `stale_plan_detector.py`,
+      `examples/handoff_example.py`.
+
+  - id: "P030"
+    category: "concurrency"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Synchronous Playwright (`sync_playwright()`) is permitted only inside
+      test files (`tests/`) and test-support helpers (`agent_driver.py`).
+      Production code and skill implementations must never call synchronous
+      Playwright APIs because they block the event loop for the duration of
+      every browser call.
+      If browser automation is required in async production code, use
+      `async_playwright()` with the async Playwright API, or wrap the
+      synchronous calls with `await asyncio.to_thread(…)` as a last resort.
+      Detected usage: `tests/browser/agent_driver.py` (compliant — test-only).
+
+  - id: "P021"
+    category: "error-handling"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All application errors must be raised as structured exception classes that
+      inherit from a common base (e.g. `AppError` or `HarnessError`), never as
+      bare `Exception` or `RuntimeError`.
+      Each structured error class must carry at least three fields:
+        • `code` — a machine-readable error code string (see P022),
+        • `message` — a human-readable description of what went wrong,
+        • `context` — an optional dict of key/value pairs providing diagnostic
+          detail (e.g. task_id, file path, HTTP status).
+      Structured error classes must be defined in `src/<pkg>/errors.py` (or
+      `harness_skills/errors.py` for shared harness errors) and re-exported
+      from the package's `__init__.py` so callers import from a stable path.
+      Catching and re-raising as a bare string message (e.g.
+      `raise Exception(str(e))`) is forbidden; always wrap in the appropriate
+      structured type and preserve the original cause via `raise ... from e`.
+
+  - id: "P022"
+    category: "error-handling"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Every error code must follow the format `<DOMAIN>_<NOUN>_<VERB>` in
+      `UPPER_SNAKE_CASE` (e.g. `HARNESS_TASK_NOT_FOUND`, `BROWSER_PAGE_LOAD_FAILED`,
+      `COVERAGE_GATE_THRESHOLD_EXCEEDED`).
+      Error codes must be declared as members of a `StrEnum` named `ErrorCode`
+      (or a domain-scoped subclass, e.g. `HarnessErrorCode`) in
+      `src/<pkg>/error_codes.py`.
+      No error code string may be inlined as a raw string literal anywhere in
+      business logic or test assertions — always reference the `ErrorCode` member.
+      Codes must be stable across releases; once assigned, a code may be
+      deprecated but never renamed or reused for a different condition.
+      New domains must be documented in `docs/error_codes.md` with a one-line
+      description of each code, the conditions that trigger it, and the
+      recommended remediation action.
+
+  - id: "P023"
+    category: "error-handling"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      All log statements must use the structured logging format defined in
+      `src/log_config.py` (or equivalent bootstrap module).
+      Every log call must be emitted through the module-level logger obtained via
+      `logger = logging.getLogger(__name__)` — never `print()`, `sys.stdout.write()`,
+      or a logger obtained with a hardcoded name string outside the bootstrap module.
+      Log records must include the following fields in every message:
+        • `level`    — standard Python level (DEBUG, INFO, WARNING, ERROR, CRITICAL),
+        • `ts`       — ISO-8601 UTC timestamp (`%Y-%m-%dT%H:%M:%S.%fZ`),
+        • `logger`   — fully-qualified module name (`__name__`),
+        • `msg`      — human-readable description in lowercase imperative mood
+                       (e.g. "task lock acquired", "coverage gate failed"),
+        • `trace_id` — request/task trace identifier propagated from context,
+        • `error_code` — included on WARNING and above; must reference an
+                         `ErrorCode` member (see P022), never a raw string.
+      Structured fields beyond the above must be passed as keyword arguments to
+      the `extra={}` parameter, not interpolated into the message string, so
+      they are machine-parseable by log aggregators (e.g. Datadog, CloudWatch).
+      Log levels must be chosen according to operational impact:
+        DEBUG  — internal state useful during development only,
+        INFO   — normal lifecycle events (start, complete, skip),
+        WARNING — recoverable anomalies that may indicate a problem,
+        ERROR  — failures that abort the current operation but not the process,
+        CRITICAL — failures that require immediate operator intervention.
+
+  - id: "P031"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Data validation must occur exclusively at system boundaries — API request
+      handlers (e.g. FastAPI route functions, CLI argument parsers) and external
+      service adapters (e.g. HTTP client wrappers, message-queue consumers) —
+      never inside domain services, use-case classes, or repository methods.
+      Approved boundary validation patterns:
+        • Pydantic `BaseModel` or `dataclass` with field validators on incoming
+          request/response schemas, parsed at the route or adapter layer before
+          any business logic is invoked.
+        • FastAPI dependency injection (`Depends(…)`) used to validate and
+          transform request data before it reaches a service function.
+        • Explicit adapter methods (e.g. `ExternalServiceClient.parse_response()`)
+          that validate and normalise the raw payload before returning a typed
+          domain object to the caller.
+      Prohibited patterns:
+        • Calling `isinstance()`, raising `ValueError`, or applying field-level
+          checks inside domain service methods, use-case classes, or repository
+          implementations — these layers must receive already-validated objects.
+        • Duplicating the same validation logic at multiple layers; validation
+          rules must live in one place (the boundary schema) and be reused.
+        • Accessing raw `dict` fields with `.get()` and defensive `None` checks
+          inside business logic — parse the dict into a typed schema at the
+          boundary instead.
+      Rationale: validation at the boundary keeps domain logic pure and testable,
+      prevents defensive clutter from spreading through the codebase, and ensures
+      that any invalid input is rejected at the earliest possible point with a
+      clear, user-facing error message.
+
+  - id: "P032"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Before writing a new helper function or utility class, check whether an
+      equivalent already exists in the shared packages below and use it instead.
+      Hand-rolling a duplicate is a blocking violation.
+
+      Canonical shared utilities in this codebase:
+
+      LOGGING
+        • harness_skills/logging_config.py
+          — `get_logger(domain)` → DomainLogger with debug/info/warn/error/fatal
+          — `set_trace_id()` context manager for W3C trace propagation
+          — `configure()` for global handler / formatter setup
+          Do NOT call `logging.getLogger()` directly or use `print()` for
+          diagnostic output; always go through DomainLogger.
+
+      STRUCTURED MODELS & ENUMS
+        • harness_skills/models/base.py  (re-exported from harness_skills/models/)
+          — Status, Severity, FreshnessScore enums
+          — GateResult, Violation, HarnessResponse, ArtifactFreshness,
+            FileLocation, TaskInfo, AgentConflict Pydantic models
+          Do NOT define local Status/Severity enums or ad-hoc result dicts;
+          import the canonical types from harness_skills.models.
+
+      INTER-AGENT COORDINATION & LOCKING
+        • harness_skills/task_lock.py
+          — TaskLock model + TaskLockProtocol.acquire() / release() / extend()
+          — Atomic file-creation locking with auto-expiry TTL
+        • skills/shared_state.py
+          — SharedState.publish() / query() / list() / dump()
+          — Cross-agent intermediate-result sharing
+          Do NOT implement custom file-based lock files or ad-hoc JSON state
+          files; use TaskLockProtocol and SharedState.
+
+      AGENT HAND-OFF & RESUME
+        • harness_skills/handoff.py
+          — HandoffProtocol.ending_agent_options() / resuming_agent_options()
+          — SearchHints model for file paths, grep patterns, symbols
+        • harness_skills/resume.py
+          — load_plan_state(), resume_agent_options(), format_resume_context(),
+            build_resume_prompt()
+        • skills/write_handoff.py
+          — CLI for writing structured session summaries with search hints
+          Do NOT write ad-hoc handoff notes as free-form strings; use the
+          structured HandoffProtocol and resume helpers.
+
+      PERFORMANCE MEASUREMENT
+        • harness_skills/performance_hooks.py
+          — PerformanceTracker with hooks(), get_startup_duration_ms(),
+            get_response_times(), get_peak_memory_bytes(), summary()
+          Do NOT instrument timing with manual time.perf_counter() bookkeeping;
+          use PerformanceTracker and attach its hooks() to the SDK session.
+
+      ERROR AGGREGATION & ANALYSIS
+        • harness_skills/error_aggregation.py
+          — aggregate_errors(), top_errors(), errors_by_domain()
+          — load_errors_from_log() for NDJSON log parsing
+          Do NOT write ad-hoc log-scanning loops; use the aggregation API.
+
+      STALE PLAN DETECTION
+        • harness_skills/stale_plan_detector.py
+          — detect_stale_plan() / PlanTask model
+          Do NOT reimplement staleness checks; call detect_stale_plan().
+
+      TELEMETRY & EFFECTIVENESS STATS
+        • harness_skills/telemetry_reporter.py — CLI report generation
+        • harness_skills/effectiveness_stats.py
+          — compute_artifact_stats(), compute_all_stats(),
+            compute_correlation_matrix(), stats_to_json_summary()
+          Do NOT compute gate-effectiveness metrics inline; use these functions.
+
+      PLUGIN GATES
+        • harness_skills/plugins/loader.py  — load_plugin_gates(profile)
+        • harness_skills/plugins/runner.py  — run_plugin_gates(gates)
+        • harness_skills/plugins/gate_plugin.py — PluginGateConfig / PluginGateRunner
+          Do NOT shell out to quality-check commands directly; define a
+          PluginGateConfig and run it through run_plugin_gates().
+
+      CONFIG GENERATION
+        • harness_skills/generators/config_generator.py
+          — generate_gate_config(), write_harness_config()
+          Do NOT hand-craft harness.config.yaml strings; use the generator.
+
+      BROWSER / PLAYWRIGHT TEST HELPERS  (test files only — see P030)
+        • tests/browser/agent_driver.py   — AgentDriver context manager
+        • tests/browser/screenshot_helper.py
+          — capture_screenshot(page, label), visit_and_capture(page, url, label)
+          Do NOT duplicate browser-launch or screenshot boilerplate in new tests;
+          use AgentDriver and screenshot_helper.
+
+      BOOT & ENVIRONMENT ISOLATION
+        • harness_skills/boot.py
+          — generate_boot_script(), generate_health_check_spec(),
+            boot_instance(), DatabaseIsolation enum
+          Do NOT write bespoke per-worktree setup scripts; use boot.py helpers.
+
+      If a needed capability is genuinely absent from the list above, add it to
+      the appropriate shared module and document it here before using it
+      elsewhere — do not let the duplicate exist even temporarily.
+
+# ── Module Boundaries (generated by /module-boundaries) ────────────────────
+# IDs MB001–MB999. Re-running /module-boundaries updates these in-place.
+
+  - id: "MB001"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills (root package): __all__ = [] is now declared in __init__.py.
+      The root package intentionally re-exports no symbols; each sub-package
+      (models, generators, plugins, gates, cli) manages its own surface.
+      Callers must import from the appropriate sub-package root, never from
+      harness_skills.<submodule> directly.
+      Never import private symbols (leading-underscore names) from any submodule.
+      Do not add public symbols to the root __all__ without first confirming no
+      more-specific sub-package is the right home.
+
+  - id: "MB002"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/cli: __all__ = ["cli", "PipelineGroup"] is now declared.
+      All imports from outside harness_skills/cli/ must go through
+      harness_skills.cli (the subpackage root), never from
+      harness_skills.cli.<module> directly.
+      The private function `_emit` in harness_skills/cli/observe.py must not
+      be imported by any file outside the cli subpackage; the test in
+      tests/test_models/test_observe.py:232 that does so must be refactored.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB003"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/gates: __all__ is now declared, listing:
+        CoverageGate, DocsFreshnessGate, DocsGateConfig,
+        EvaluationSummary, GateEvaluator, GateFailure, GateOutcome,
+        HarnessConfigLoader, run_gates.
+      All imports from outside harness_skills/gates/ must go through
+      harness_skills.gates — never from harness_skills.gates.<module> directly.
+      DEEP IMPORT VIOLATIONS in tests (bypass __init__):
+        tests/gates/test_runner_plugin_integration.py:20 — imports GateEvaluator,
+        run_gates, EvaluationSummary from harness_skills.gates.runner directly;
+        must use `from harness_skills.gates import GateEvaluator, run_gates, EvaluationSummary`.
+      PRIVATE SYMBOL VIOLATIONS in tests (leading-underscore names):
+        tests/gates/test_coverage.py imports _detect_format, _parse_json,
+        _parse_lcov, _parse_xml, _ParseError from harness_skills.gates.coverage.
+        tests/gates/test_docs_freshness.py imports _extract_file_refs,
+        _looks_like_file_path, _parse_generated_at from gates.docs_freshness.
+        These tests must be refactored to avoid testing private implementation
+        details; test only the public gate interface (CoverageGate.run(), etc.).
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB004"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/generators: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside harness_skills/generators/ must go through
+      harness_skills.generators (the subpackage root) — never from
+      harness_skills.generators.<module> directly (e.g.
+      harness_skills.generators.evaluation, harness_skills.generators.manifest_generator,
+      harness_skills.generators.config_generator).
+      Open violations (as of 2026-03-20):
+        harness_skills/cli/evaluate.py:40 — deep import from generators.evaluation.
+        harness_skills/cli/create.py:40 — deep import from generators.config_generator.
+        harness_skills/cli/manifest.py:118 — deep import from generators.manifest_generator (inline import).
+        harness_skills/generators/config_generator.py:31 — deep import from models.gate_configs (cross-domain, see MB005).
+        tests/test_generators/test_evaluation.py:20 — deep import from generators.evaluation.
+        tests/test_generators/test_manifest_generator.py:21 — deep import from generators.manifest_generator.
+        tests/test_cli/test_manifest_cmd.py:23 — deep import from generators.manifest_generator.
+      Note: generate_manifest, write_manifest_pair, generate_gate_config, write_harness_config
+      are not yet re-exported from harness_skills/generators/__init__.py; add them to __all__
+      as a prerequisite for fixing the above violations.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB005"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/models: __all__ is declared and the boundary is EXPLICIT.
+      gate_configs symbols (CoverageGateConfig, RegressionGateConfig, etc.) are
+      now included in __all__ and re-exported from harness_skills/models/__init__.py.
+      All imports from outside harness_skills/models/ must go through
+      harness_skills.models — never from harness_skills.models.<module> directly.
+      Open violations (still importing sub-modules):
+        harness_skills/stale_plan_detector.py → from harness_skills.models.base / .stale
+        harness_skills/cli/status.py → from harness_skills.models.base / .status
+        harness_skills/cli/observe.py:62 → from harness_skills.models.observe (bypass __init__)
+        harness_skills/plugins/gate_plugin.py → from harness_skills.models.base
+        harness_skills/plugins/runner.py → from harness_skills.models.base
+        harness_skills/telemetry_reporter.py → from harness_skills.models.base / .telemetry
+        harness_skills/gates/coverage.py → from harness_skills.models.gate_configs
+        harness_skills/gates/runner.py → from harness_skills.models.gate_configs / .base
+        harness_skills/generators/config_generator.py → from harness_skills.models.gate_configs
+        tests/* — multiple test files importing sub-modules directly.
+      Each of these must be migrated to `from harness_skills.models import X`.
+      Never add new `from harness_skills.models.<module>` imports outside the package.
+
+  - id: "MB006"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/plugins: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside harness_skills/plugins/ must go through
+      harness_skills.plugins (the subpackage root) — never from
+      harness_skills.plugins.<module> directly (e.g.
+      harness_skills.plugins.gate_plugin, harness_skills.plugins.loader,
+      harness_skills.plugins.runner).
+      The private function `_record_telemetry` in plugins/runner.py must not be
+      imported by any file outside the plugins subpackage
+      (tests/plugins/test_runner.py:12 currently does this — must be fixed).
+      All other test violations must be migrated to the public __init__ surface.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB007"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_skills/utils: __all__ = [] is now declared (previously empty file).
+      No public symbols are currently exported; the package is for internal helpers.
+      When adding a utility that needs to be shared across sub-packages, add it to
+      __all__ with a one-line docstring and update this principle.
+      Do not import from harness_skills.utils.<module> outside the utils package.
+
+  - id: "MB008"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      harness_dashboard: __all__ is now declared, listing:
+        compute_scores, render_dashboard, generate_dataset,
+        ArtifactType, HarnessRecord, PRRecord.
+      All imports from outside harness_dashboard/ must go through
+      harness_dashboard (the package root) — never from
+      harness_dashboard.<module> directly.
+      Open violations that must be migrated:
+        tests/test_scorer.py:18,24 → from harness_dashboard import compute_scores, …
+        tests/test_scorer.py:102 → from harness_dashboard import … (private _tier still forbidden)
+        tests/test_data_generator.py:19-20 → from harness_dashboard import generate_dataset, …
+      Never add new `from harness_dashboard.<module>` imports outside the package.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB009"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      dom_snapshot_utility: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside dom_snapshot_utility/ must go through
+      dom_snapshot_utility (the package root) — never from
+      dom_snapshot_utility.snapshot directly.
+      Open violation: tests/test_dom_snapshot.py:24 must be migrated to
+      `from dom_snapshot_utility import DOMSnapshot, snapshot_from_html, ...`.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+  - id: "MB010"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      log_format_linter: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside log_format_linter/ must go through
+      log_format_linter (the package root) — never from
+      log_format_linter.cli directly.
+      Open violation: tests/test_log_format_linter.py:25 must be migrated.
+      To fix: expose `main` from log_format_linter/__init__.py and update the
+      test to `from log_format_linter import main as cli_main`.
+      Never weaken __all__ by removing symbols without a deprecation cycle.
+
+# ── Providers Pattern — cross-cutting concerns (generated by /module-boundaries) ──
+# IDs MB011–MB014. Re-running /module-boundaries updates these in-place.
+
+  - id: "MB011"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      LOGGING PROVIDER — all production code must obtain loggers exclusively via
+      `from harness_skills.logging_config import get_logger` followed by
+      `logger = get_logger("<domain>")`. Calling `logging.getLogger()` directly
+      in domain code is forbidden; it bypasses trace-ID injection, domain-field
+      tagging, and the structured JSON formatter configured by `configure()`.
+      The only permitted direct use of `logging.getLogger()` is inside
+      harness_skills/logging_config.py itself (the provider implementation).
+      Open violations that must be migrated:
+        stale_plan_detector.py:44          → log = logging.getLogger("stale_detector")
+        harness_skills/plugins/loader.py:8 → logger = logging.getLogger("harness_skills.plugins.loader")
+        harness_skills/plugins/runner.py:7 → logger = logging.getLogger("harness_skills.plugins.runner")
+      Migration: replace with `from harness_skills.logging_config import get_logger`
+      and `logger = get_logger("<domain>")` at module level.
+      `print()` and `sys.stdout.write()` for diagnostic output are equally forbidden
+      (see P023).
+
+  - id: "MB012"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      CONFIG PROVIDER — all code that reads harness.config.yaml must do so
+      exclusively through `HarnessConfigLoader` (re-exported from
+      harness_skills.gates). Domain code must never open harness.config.yaml
+      directly via `open()`, `yaml.safe_load()`, `pathlib.Path.read_text()`, or
+      any equivalent raw-file read. `HarnessConfigLoader` is the single config
+      boundary that validates the YAML schema, resolves the active profile, merges
+      profile defaults with gate-level overrides, and returns strongly-typed
+      `GateConfig` objects.
+      Correct usage:
+        from harness_skills.gates import HarnessConfigLoader
+        loader = HarnessConfigLoader("harness.config.yaml")
+        cfg = loader.get_gate_config("coverage")
+      Forbidden:
+        import yaml; yaml.safe_load(open("harness.config.yaml"))
+        pathlib.Path("harness.config.yaml").read_text()
+      Test helpers that write harness.config.yaml to tmp_path and then pass the
+      path to HarnessConfigLoader are compliant — the file write is setup, not
+      a boundary bypass.
+
+  - id: "MB013"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      SECRETS / AUTH PROVIDER — direct `os.environ.get()` / `os.getenv()` calls
+      for sensitive values (API keys, tokens, credentials, secrets) are permitted
+      only in designated bootstrap or top-level entry-point modules:
+        • harness_skills/logging_config.py  — reads LOG_LEVEL only
+        • harness_skills/boot.py            — reads ANTHROPIC_API_KEY, env setup
+        • Top-level scripts (checkpoint_agent.py, harness_status.py, etc.)
+      All domain packages and sub-packages must receive credentials as constructor
+      arguments or function parameters — never call os.environ inline inside a
+      domain service, gate, plugin, or model.
+      This keeps the credential surface auditable, allows tests to inject mock
+      values without monkey-patching the environment, and prevents API keys from
+      leaking into log records via accidental string interpolation.
+      Open violations that must be refactored:
+        harness_skills/stale_plan_detector.py:284
+          → os.environ.get("ANTHROPIC_API_KEY") inside domain class method;
+            accept api_key as a constructor parameter instead.
+        harness_skills/plugins/gate_plugin.py:61
+          → {**os.environ, **expanded_env} merges entire environment into
+            subprocess env inside the gate class; move env preparation to
+            the CLI/entry-point layer and pass the merged dict in.
+      Exception: `os.environ.copy()` in harness_skills/boot.py (boot isolation)
+      is compliant because boot.py is an explicitly designated bootstrap module.
+
+  - id: "MB014"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      PROVIDERS PATTERN (general rule) — the three cross-cutting concerns below
+      must be accessed only through their designated provider. No domain package
+      may bypass a provider by importing the underlying library or mechanism
+      directly. This rule supersedes and extends P032 for these three concerns.
+
+      Cross-cutting concern  | Canonical provider                          | Forbidden direct access
+      -----------------------|---------------------------------------------|----------------------------------------
+      Structured logging     | harness_skills.logging_config.get_logger()  | logging.getLogger(), print()
+      Harness config         | harness_skills.gates.HarnessConfigLoader    | open(), yaml.safe_load(), Path.read_text()
+      API secrets / auth     | constructor/parameter injection from boot   | os.environ.get("KEY") in domain code
+
+      When a new cross-cutting concern is introduced (e.g. feature flags, metrics
+      sink, distributed tracing context), a provider module must be created first
+      and this principle updated before any domain code uses the new capability.
+      Do not let a second implementation of any provider accumulate — consolidate
+      into the single provider immediately.

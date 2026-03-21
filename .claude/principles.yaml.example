@@ -1,0 +1,52 @@
+# .claude/principles.yaml
+# Project-specific golden rules enforced by /check-code and /review-pr.
+#
+# HOW TO USE:
+#   Interactive:  run /define-principles  (guided prompt)
+#   Config file:  copy this file to .claude/principles.yaml and edit directly
+#
+# SCHEMA:
+#   id          — stable identifier (never reuse a deleted ID)
+#   category    — free-form label (architecture, testing, security, style, …)
+#   severity    — "blocking" (🔴 must fix) | "suggestion" (🟡 nice to have)
+#   applies_to  — list of skills that enforce this rule:
+#                   "review-pr", "check-code", or both
+#   rule        — the golden rule, written in imperative mood
+
+version: "1.0"
+principles:
+  - id: "P001"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: "All database queries must go through the repository layer — no raw SQL in service or view code"
+
+  - id: "P002"
+    category: "testing"
+    severity: "blocking"
+    applies_to: ["review-pr"]
+    rule: "Every public API endpoint must have at least one integration test covering the happy path"
+
+  - id: "P003"
+    category: "error-handling"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: "Never swallow exceptions silently — all except blocks must log or re-raise"
+
+  - id: "P004"
+    category: "security"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: "All secrets and credentials must be loaded from environment variables, never hardcoded"
+
+  - id: "P005"
+    category: "style"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: "Prefer dataclasses or Pydantic models over plain dicts for structured data passed between functions"
+
+  - id: "P006"
+    category: "naming"
+    severity: "suggestion"
+    applies_to: ["review-pr"]
+    rule: "Boolean variables and functions should be prefixed with is_, has_, can_, or should_"

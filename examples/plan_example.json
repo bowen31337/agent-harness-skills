@@ -1,0 +1,42 @@
+[
+  {
+    "task_id": "t1",
+    "title": "Scaffold authentication module",
+    "status": "in_progress",
+    "assigned_agent": "agent-alpha",
+    "last_updated": "2026-03-13T05:00:00Z",
+    "depends_on": []
+  },
+  {
+    "task_id": "t2",
+    "title": "Write unit tests for auth",
+    "status": "pending",
+    "assigned_agent": "agent-beta",
+    "last_updated": "2026-03-13T04:00:00Z",
+    "depends_on": ["t1"]
+  },
+  {
+    "task_id": "t3",
+    "title": "Integrate billing API",
+    "status": "blocked",
+    "assigned_agent": "agent-gamma",
+    "last_updated": "2026-03-13T01:00:00Z",
+    "depends_on": ["t1"]
+  },
+  {
+    "task_id": "t4",
+    "title": "Deploy to staging",
+    "status": "pending",
+    "assigned_agent": null,
+    "last_updated": "2026-03-13T06:30:00Z",
+    "depends_on": ["t2", "t3"]
+  },
+  {
+    "task_id": "t5",
+    "title": "Write API documentation",
+    "status": "completed",
+    "assigned_agent": "agent-delta",
+    "last_updated": "2026-03-13T06:00:00Z",
+    "depends_on": []
+  }
+]

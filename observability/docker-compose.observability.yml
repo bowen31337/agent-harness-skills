@@ -1,0 +1,73 @@
+# Lightweight Local Dev Observability Stack
+# File-based log collection: Vector → Loki → Grafana
+#
+# Usage:
+#   docker compose -f docker-compose.observability.yml up -d
+#
+# Grafana UI: http://localhost:3000  (admin / admin)
+# Loki API:   http://localhost:3100
+# Vector API: http://localhost:8686
+
+version: "3.9"
+
+networks:
+  obs-net:
+    driver: bridge
+
+volumes:
+  loki-data:
+  grafana-data:
+
+services:
+
+  # ── Vector: file-based log collector & transformer ─────────────────────────
+  vector:
+    image: timberio/vector:0.38.0-distroless-libc
+    container_name: obs-vector
+    restart: unless-stopped
+    volumes:
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      # Mount the host log directory (configure LOG_DIR below)
+      - ${LOG_DIR:-./logs}:/var/log/app:ro
+    environment:
+      - VECTOR_LOG=info
+    ports:
+      - "8686:8686"   # Vector API / health
+    networks:
+      - obs-net
+    depends_on:
+      - loki
+
+  # ── Grafana Loki: log aggregation backend ──────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.6
+    container_name: obs-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yaml
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - obs-net
+
+  # ── Grafana: log viewer UI ─────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: obs-grafana
+    restart: unless-stopped
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=false
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - obs-net
+    depends_on:
+      - loki

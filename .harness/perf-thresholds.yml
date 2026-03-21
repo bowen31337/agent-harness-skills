@@ -1,0 +1,103 @@
+# .harness/perf-thresholds.yml
+# Performance benchmark gate — configurable thresholds.
+# Used by: harness evaluate --gate performance --thresholds .harness/perf-thresholds.yml
+#
+# All duration values are in milliseconds (ms).
+# Set `enabled: false` on any rule to disable it without deleting it.
+
+version: 1
+
+# ── Global defaults ──────────────────────────────────────────────────────────
+defaults:
+  # Hard-fail the gate when ANY rule is breached
+  fail_on_breach: true
+  # Report percentile used when aggregating repeated measurements
+  percentile: p99
+
+# ── Rules ────────────────────────────────────────────────────────────────────
+rules:
+
+  # API endpoint latency ─────────────────────────────────────────────────────
+  - id: api_endpoint_latency
+    description: "No HTTP API endpoint may exceed 500 ms at p99"
+    enabled: true
+    selector:
+      type: http_endpoint        # matches spans tagged with span.kind=server
+    threshold:
+      metric: duration_ms
+      operator: lte              # ≤ threshold → pass
+      value: 500                 # ms
+    severity: error              # error = blocks PR; warning = annotates only
+    suggestion: >
+      Profile the endpoint with `uv run harness bench --endpoint <path>`.
+      Common causes: N+1 queries, missing DB index, synchronous I/O in async path.
+
+  # Individual span latency ──────────────────────────────────────────────────
+  - id: span_latency
+    description: "No individual trace span may exceed 2 000 ms at p99"
+    enabled: true
+    selector:
+      type: span                 # matches any OpenTelemetry span
+    threshold:
+      metric: duration_ms
+      operator: lte
+      value: 2000                # ms
+    severity: error
+    suggestion: >
+      Inspect the slow span in the trace report (`evaluation-report.json`).
+      Consider adding a timeout, offloading to a background task, or caching.
+
+  # Database query latency ───────────────────────────────────────────────────
+  - id: db_query_latency
+    description: "No individual DB query span may exceed 200 ms at p99"
+    enabled: true
+    selector:
+      type: db_query             # matches spans tagged with db.system
+    threshold:
+      metric: duration_ms
+      operator: lte
+      value: 200                 # ms
+    severity: warning            # warning = annotates PR but does not block
+    suggestion: >
+      Run EXPLAIN ANALYZE on the slow query. Add an index or rewrite
+      to avoid a sequential scan.
+
+  # External HTTP call latency ───────────────────────────────────────────────
+  - id: external_http_latency
+    description: "Outbound HTTP calls to external services must complete within 1 000 ms"
+    enabled: true
+    selector:
+      type: http_client          # matches spans tagged with span.kind=client
+    threshold:
+      metric: duration_ms
+      operator: lte
+      value: 1000                # ms
+    severity: warning
+    suggestion: >
+      Add a timeout to your HTTP client (e.g. httpx timeout=1.0).
+      Consider circuit-breaking or caching for non-critical external calls.
+
+  # End-to-end request p95 budget ────────────────────────────────────────────
+  - id: e2e_p95_budget
+    description: "95th-percentile end-to-end request duration must stay under 300 ms"
+    enabled: true
+    selector:
+      type: http_endpoint
+    threshold:
+      metric: duration_ms
+      percentile: p95            # overrides the global default for this rule
+      operator: lte
+      value: 300                 # ms
+    severity: warning
+    suggestion: >
+      Check for outlier requests inflating the p95. Use `harness bench --percentiles`
+      to break down the distribution.
+
+# ── Baseline comparison (optional) ───────────────────────────────────────────
+# When a baseline artifact is available from main/master, the gate will also
+# report relative regressions.  Set `enabled: false` to skip.
+baseline:
+  enabled: true
+  # Maximum allowed regression vs. baseline before a warning fires
+  regression_threshold_pct: 10   # e.g. 10 % slower than baseline → warning
+  severity: warning
