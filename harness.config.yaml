@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 # HARNESS METADATA — auto-updated by /harness:update (do not edit manually)
 # ---------------------------------------------------------------------------
-updated_at: "2026-03-20T00:00:00Z"
+updated_at: "2026-03-21T00:00:00Z"
 
 stack:
   languages: [python]

@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-03-20T00:00:00Z",
-  "git_sha": "9a43bb1",
-  "git_branch": "main",
+  "generated_at": "2026-03-21T00:00:00Z",
+  "git_sha": "593a28d",
+  "git_branch": "feat/skill-invocatio-skill-generates-a-harness-config-yaml-w",
   "harness_version": null,
   "project_root": "/Users/bowenli/projects/claw-forge-test/agent-harness-skills",
   "detected_stack": {
