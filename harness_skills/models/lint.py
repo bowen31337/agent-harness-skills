@@ -15,6 +15,7 @@ class LintResponse(HarnessResponse):
     """
 
     command: str = "harness lint"
+    passed: bool = True
 
     total_violations: int = Field(ge=0, default=0)
     critical_count: int = Field(ge=0, default=0)
