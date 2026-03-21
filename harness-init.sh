@@ -436,7 +436,7 @@ No Claude Code IDE extension required.
 
 ## Quick start
 
-```bash
+\`\`\`bash
 # 1. Activate the virtual environment
 source .venv/bin/activate
 
@@ -448,11 +448,11 @@ export ANTHROPIC_API_KEY="sk-ant-..."
 
 # Or directly:
 python src/agent.py --tools Read,Glob,Grep "Find all TODO comments"
-```
+\`\`\`
 
 ## Options
 
-```
+\`\`\`
 usage: agent.py [-h] [--tools TOOLS] [--cwd CWD] [--max-turns N]
                 [--model MODEL] [--permission-mode MODE]
                 [--system-prompt TEXT] [--verbose]
@@ -469,7 +469,7 @@ options:
   --permission-mode     default | plan | acceptEdits | dontAsk
   --system-prompt TEXT  Custom system prompt
   --verbose / -v        Print all message types
-```
+\`\`\`
 
 ## Available tools
 
