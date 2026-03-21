@@ -265,7 +265,7 @@ def generate_gate_config(
     """
     if profile not in _VALID_PROFILES:
         raise ValueError(
-            "Unknown profile " + repr(profile) + ". Valid: " + str(sorted(_VALID_PROFILES))
+            f"Unknown profile {profile!r}. Valid: {sorted(_VALID_PROFILES)}"
         )
 
     defaults = PROFILE_GATE_DEFAULTS[profile]
