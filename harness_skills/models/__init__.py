@@ -9,6 +9,7 @@ from harness_skills.models.context import (
     ContextManifest, ContextManifestFile, ContextStats, SearchPattern, SkipEntry,
 )
 from harness_skills.models.observe import LogEntry, ObserveResponse
+<<<<<<< HEAD
 from harness_skills.models.lock import (
     LockAcquireRequest, LockExtendRequest, LockReleaseRequest,
     LockRecord, LockStateResponse, LockOperationResponse, LockListResponse,
@@ -19,6 +20,14 @@ from harness_skills.models.stale import (
 from harness_skills.task_lock import (
     TaskLock, TaskLockProtocol, LockConflictError, LockNotOwnedError,
 )
+||||||| 0e893bd
+=======
+from harness_skills.models.errors import (
+    ErrorGroupResponse,
+    DomainOverview,
+    ErrorAggregationResponse,
+)
+>>>>>>> feat/observability-a-skill-generates-an-error-aggregation-vi
 
 __all__ = [
     # base
@@ -32,6 +41,7 @@ __all__ = [
     "ContextManifest", "ContextManifestFile", "ContextStats", "SearchPattern", "SkipEntry",
     # observe
     "LogEntry", "ObserveResponse",
+<<<<<<< HEAD
     # lock (models)
     "LockAcquireRequest", "LockExtendRequest", "LockReleaseRequest",
     "LockRecord", "LockStateResponse", "LockOperationResponse", "LockListResponse",
@@ -39,4 +49,9 @@ __all__ = [
     "ArtifactResult", "ArtifactStaleness", "StaleTask", "StalePlanSummary", "StalePlanResponse",
     # task lock
     "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
+||||||| 0e893bd
+=======
+    # errors
+    "ErrorGroupResponse", "DomainOverview", "ErrorAggregationResponse",
+>>>>>>> feat/observability-a-skill-generates-an-error-aggregation-vi
 ]
