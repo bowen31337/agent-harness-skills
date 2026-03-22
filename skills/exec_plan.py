@@ -25,16 +25,34 @@ Usage (CLI)
   # Show a text dependency graph
   python skills/exec_plan.py graph --plan PLAN-001
 
+<<<<<<< HEAD
   # Print context assembly hints for a plan or task
   python skills/exec_plan.py context --plan PLAN-001
   python skills/exec_plan.py context --plan PLAN-001 --task TASK-002
 
+||||||| 0e893bd
+=======
+  # Link a PR URL back to the plan (run immediately after gh pr create)
+  python skills/exec_plan.py link-pr --plan PLAN-001 --pr-url https://github.com/org/repo/pull/42 \
+      --pr-number 42 --agent coding-03abe8fb --tasks TASK-003 TASK-004
+
+  # Verify every task has at least one linked PR
+  python skills/exec_plan.py verify-prs --plan PLAN-001
+
+>>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
 Programmatic use
 ----------------
   from skills.exec_plan import ExecPlan
   plan = ExecPlan.load("PLAN-001")
   plan.claim("TASK-003", agent="coding-03abe8fb")
   plan.mark_done("TASK-003", agent="coding-03abe8fb")
+  plan.link_pr(
+      pr_url="https://github.com/org/repo/pull/42",
+      pr_number=42,
+      agent="coding-03abe8fb",
+      tasks_addressed=["TASK-003", "TASK-004"],
+  )
+  ok, gaps = plan.verify_prs()
   for task in plan.ready_tasks():
       print(task["id"], task["title"])
 """
@@ -269,6 +287,98 @@ class ExecPlan:
         self._touch()
         self._save()
         print(f"[exec-plan] {task_id} lock released by {agent}")
+
+    # ------------------------------------------------------------------
+    # Plan-to-PR traceability
+    # ------------------------------------------------------------------
+
+    def link_pr(
+        self,
+        pr_url: str,
+        pr_number: int,
+        agent: str,
+        tasks_addressed: list[str],
+    ) -> None:
+        """Record a PR URL in the plan's linked_prs list.
+
+        Call this immediately after ``gh pr create`` returns the PR URL so that
+        the plan file always reflects the current traceability state.
+
+        Args:
+            pr_url: Full GitHub/GitLab PR URL returned by ``gh pr create``.
+            pr_number: Integer PR number (extracted from the URL or passed explicitly).
+            agent: Agent ID that opened the PR (e.g. ``coding-03abe8fb``).
+            tasks_addressed: List of task IDs (e.g. ``["TASK-003", "TASK-004"]``)
+                closed by this PR.
+        """
+        if "linked_prs" not in self._data.get("plan", {}):
+            self._data.setdefault("plan", {})["linked_prs"] = []
+
+        # Deduplicate: skip if this PR number is already recorded.
+        existing_numbers = {
+            entry.get("pr_number") for entry in (self._data["plan"]["linked_prs"] or [])
+        }
+        if pr_number in existing_numbers:
+            print(f"[exec-plan] PR #{pr_number} already linked to {self.plan_id} — skipped.")
+            return
+
+        entry: dict[str, Any] = {
+            "pr_url": pr_url,
+            "pr_number": pr_number,
+            "opened_at": _now(),
+            "opened_by": agent,
+            "tasks_addressed": list(tasks_addressed),
+        }
+        self._data["plan"]["linked_prs"].append(entry)
+        self._touch()
+        self._save()
+        print(
+            f"[exec-plan] Linked PR #{pr_number} → {self.plan_id} "
+            f"(tasks: {', '.join(tasks_addressed)})"
+        )
+
+    def verify_prs(self) -> tuple[bool, list[str]]:
+        """Check that every non-skipped task has at least one linked PR.
+
+        Returns:
+            A ``(ok, gaps)`` tuple where ``ok`` is True when all tasks are
+            covered and ``gaps`` is the list of task IDs that have no linked PR.
+        """
+        linked_prs: list[dict] = self._data.get("plan", {}).get("linked_prs") or []
+
+        # Build a set of all task IDs mentioned across all linked PRs.
+        covered: set[str] = set()
+        for pr in linked_prs:
+            for task_id in pr.get("tasks_addressed") or []:
+                covered.add(task_id)
+
+        gaps: list[str] = []
+        print(f"[exec-plan] {self.plan_id} traceability check")
+        for task in self._tasks():
+            tid = task["id"]
+            if task.get("status") == "skipped":
+                print(f"  ⏭  {tid} — skipped (excluded from check)")
+                continue
+            if tid in covered:
+                # Find which PR covers it for a friendly display.
+                covering_prs = [
+                    f"PR #{pr['pr_number']}"
+                    for pr in linked_prs
+                    if tid in (pr.get("tasks_addressed") or [])
+                ]
+                print(f"  ✅ {tid} — covered by {', '.join(covering_prs)}")
+            else:
+                print(f"  ❌ {tid} — no linked PR found")
+                gaps.append(tid)
+
+        if gaps:
+            print(
+                f"\n{len(gaps)} task(s) missing a PR link. "
+                "Open PRs or run `link-pr` for completed tasks."
+            )
+        else:
+            print(f"\nAll {len(self._tasks())} tasks have a linked PR.")
+        return (not gaps), gaps
 
     # ------------------------------------------------------------------
     # Query helpers
@@ -545,11 +655,36 @@ def _build_parser() -> argparse.ArgumentParser:
     graph_p = sub.add_parser("graph", help="Print the dependency graph")
     graph_p.add_argument("--plan", required=True)
 
+<<<<<<< HEAD
     # context
     ctx_p = sub.add_parser("context", help="Print context assembly hints for a plan or task")
     ctx_p.add_argument("--plan", required=True)
     ctx_p.add_argument("--task", default=None, help="Task ID (e.g. TASK-001); omit for plan-level context")
 
+||||||| 0e893bd
+=======
+    # link-pr
+    link_p = sub.add_parser(
+        "link-pr",
+        help="Record a PR URL in the plan's linked_prs list (run after gh pr create)",
+    )
+    link_p.add_argument("--plan", required=True, help="Plan ID (e.g. PLAN-001)")
+    link_p.add_argument("--pr-url", dest="pr_url", required=True,
+                        help="Full PR URL returned by gh pr create")
+    link_p.add_argument("--pr-number", dest="pr_number", required=True, type=int,
+                        help="Integer PR number")
+    link_p.add_argument("--agent", required=True, help="Agent ID that opened the PR")
+    link_p.add_argument("--tasks", nargs="+", required=True, metavar="TASK_ID",
+                        help="Task IDs addressed by this PR (e.g. TASK-003 TASK-004)")
+
+    # verify-prs
+    verify_p = sub.add_parser(
+        "verify-prs",
+        help="Check that every task has at least one linked PR",
+    )
+    verify_p.add_argument("--plan", required=True, help="Plan ID (e.g. PLAN-001)")
+
+>>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
     return p
 
 
@@ -590,10 +725,29 @@ def main(argv: list[str] | None = None) -> None:
         plan = ExecPlan.load(args.plan)
         print(plan.dependency_graph())
 
+<<<<<<< HEAD
     elif args.command == "context":
         plan = ExecPlan.load(args.plan)
         plan.print_context(task_id=args.task)
 
+||||||| 0e893bd
+=======
+    elif args.command == "link-pr":
+        plan = ExecPlan.load(args.plan)
+        plan.link_pr(
+            pr_url=args.pr_url,
+            pr_number=args.pr_number,
+            agent=args.agent,
+            tasks_addressed=args.tasks,
+        )
+
+    elif args.command == "verify-prs":
+        plan = ExecPlan.load(args.plan)
+        ok, _gaps = plan.verify_prs()
+        if not ok:
+            sys.exit(1)
+
+>>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
     else:
         parser.print_help()
         sys.exit(1)
