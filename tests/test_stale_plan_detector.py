@@ -205,3 +205,144 @@ class TestResponseSchema:
     def test_command_field(self) -> None:
         resp = _detect([], threshold_seconds=_THRESHOLD)
         assert resp.command == "harness detect-stale"
+
+
+# ── Artifact freshness tests ────────────────────────────────────────────────────
+
+
+import textwrap
+from datetime import date
+from pathlib import Path
+
+import pytest
+
+from harness_skills.stale_plan_detector import scan_artifact_freshness
+
+_TODAY = date(2026, 3, 22)
+_THRESHOLD_DAYS = 30
+
+
+def _write_artifact(tmp_path: Path, filename: str, last_updated: str | None) -> Path:
+    """Write a fake artifact file with the harness front-matter block."""
+    p = tmp_path / filename
+    if last_updated is None:
+        # File exists but has no last_updated field
+        p.write_text("# Some artifact\n\nNo front-matter here.\n")
+    else:
+        p.write_text(
+            textwrap.dedent(f"""\
+                # {filename}
+
+                <!-- harness:auto-generated — do not edit this block manually -->
+                last_updated: {last_updated}
+                head: abc1234
+                <!-- end harness:auto-generated -->
+
+                Body content here.
+            """)
+        )
+    return p
+
+
+class TestArtifactFreshness:
+    """Unit tests for scan_artifact_freshness()."""
+
+    def test_all_fresh_artifacts(self, tmp_path: Path) -> None:
+        for name in ("AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md"):
+            _write_artifact(tmp_path, name, "2026-03-20")  # 2 days old
+
+        result = scan_artifact_freshness(
+            threshold_days=_THRESHOLD_DAYS, base_dir=tmp_path, today=_TODAY
+        )
+        assert result.stale_artifacts == 0
+        assert result.missing_artifacts == 0
+        assert all(r.severity == "healthy" for r in result.results if r.file in
+                   ("AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md"))
+
+    def test_missing_artifact_is_error(self, tmp_path: Path) -> None:
+        # Write only 3 of 4
+        for name in ("AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md"):
+            _write_artifact(tmp_path, name, "2026-03-20")
+        # EVALUATION.md is absent
+
+        result = scan_artifact_freshness(
+            threshold_days=_THRESHOLD_DAYS, base_dir=tmp_path, today=_TODAY
+        )
+        eval_result = next(r for r in result.results if r.file == "EVALUATION.md")
+        assert eval_result.severity == "ERROR"
+        assert result.missing_artifacts >= 1
+
+    def test_artifact_without_timestamp_is_warning(self, tmp_path: Path) -> None:
+        _write_artifact(tmp_path, "AGENTS.md", None)  # no last_updated
+
+        result = scan_artifact_freshness(
+            threshold_days=_THRESHOLD_DAYS, base_dir=tmp_path, today=_TODAY
+        )
+        agents_result = next(r for r in result.results if r.file == "AGENTS.md")
+        assert agents_result.severity == "WARNING"
+        assert agents_result.last_updated is None
+
+    @pytest.mark.parametrize(
+        "age_days, expected_severity",
+        [
+            (15, "healthy"),    # ≤ threshold
+            (31, "INFO"),       # threshold < age ≤ 2×
+            (65, "WARNING"),    # 2× < age ≤ 4×
+            (125, "CRITICAL"),  # > 4×
+        ],
+    )
+    def test_severity_thresholds(
+        self, tmp_path: Path, age_days: int, expected_severity: str
+    ) -> None:
+        last_updated = (_TODAY - __import__("datetime").timedelta(days=age_days)).isoformat()
+        _write_artifact(tmp_path, "AGENTS.md", last_updated)
+        # Provide the other three so they don't add noise
+        for name in ("ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md"):
+            _write_artifact(tmp_path, name, "2026-03-22")  # 0 days old
+
+        result = scan_artifact_freshness(
+            threshold_days=_THRESHOLD_DAYS, base_dir=tmp_path, today=_TODAY
+        )
+        agents_result = next(r for r in result.results if r.file == "AGENTS.md")
+        assert agents_result.severity == expected_severity
+        assert agents_result.age_days == age_days
+
+    def test_skip_artifacts_returns_none(self) -> None:
+        resp = _detect([], threshold_seconds=_THRESHOLD, skip_artifacts=True)
+        assert resp.artifact_staleness is None
+
+    def test_artifact_staleness_included_by_default(self, tmp_path: Path) -> None:
+        """artifact_staleness is populated by default (even if all files missing)."""
+        resp = detect_stale_plan(
+            [],
+            skip_llm=True,
+            now=_FROZEN_NOW,
+            artifact_base_dir=tmp_path,
+            today=_TODAY,
+        )
+        assert resp.artifact_staleness is not None
+        assert resp.artifact_staleness.threshold_days == 30
+
+    def test_artifact_staleness_threshold_respected(self, tmp_path: Path) -> None:
+        last_updated = "2026-03-01"  # 21 days old
+        _write_artifact(tmp_path, "AGENTS.md", last_updated)
+        for name in ("ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md"):
+            _write_artifact(tmp_path, name, "2026-03-22")
+
+        # With threshold=30 days → 21 days is healthy
+        result_healthy = scan_artifact_freshness(
+            threshold_days=30, base_dir=tmp_path, today=_TODAY
+        )
+        agents = next(r for r in result_healthy.results if r.file == "AGENTS.md")
+        assert agents.severity == "healthy"
+
+        # With threshold=10 days → 21 days is WARNING (between 2× and 4×)
+        result_stale = scan_artifact_freshness(
+            threshold_days=10, base_dir=tmp_path, today=_TODAY
+        )
+        agents2 = next(r for r in result_stale.results if r.file == "AGENTS.md")
+        assert agents2.severity == "WARNING"
+
+
+# Re-import detect_stale_plan for the new tests that call it directly
+from harness_skills.stale_plan_detector import detect_stale_plan  # noqa: E402

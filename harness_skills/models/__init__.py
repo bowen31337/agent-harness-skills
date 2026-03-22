@@ -9,10 +9,17 @@ from harness_skills.models.context import (
     ContextManifest, ContextManifestFile, ContextStats, SearchPattern, SkipEntry,
 )
 from harness_skills.models.observe import LogEntry, ObserveResponse
+<<<<<<< HEAD
 from harness_skills.models.lock import (
     LockAcquireRequest, LockExtendRequest, LockReleaseRequest,
     LockRecord, LockStateResponse, LockOperationResponse, LockListResponse,
 )
+||||||| 0e893bd
+=======
+from harness_skills.task_lock import (
+    TaskLock, TaskLockProtocol, LockConflictError, LockNotOwnedError,
+)
+>>>>>>> feat/execution-plans-skill-generates-a-task-lock-protocol-wh
 
 __all__ = [
     # base
@@ -26,7 +33,13 @@ __all__ = [
     "ContextManifest", "ContextManifestFile", "ContextStats", "SearchPattern", "SkipEntry",
     # observe
     "LogEntry", "ObserveResponse",
+<<<<<<< HEAD
     # lock
     "LockAcquireRequest", "LockExtendRequest", "LockReleaseRequest",
     "LockRecord", "LockStateResponse", "LockOperationResponse", "LockListResponse",
+||||||| 0e893bd
+=======
+    # task lock
+    "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
+>>>>>>> feat/execution-plans-skill-generates-a-task-lock-protocol-wh
 ]
