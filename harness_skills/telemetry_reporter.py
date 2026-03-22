@@ -32,7 +32,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 import click
+import yaml
 
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -395,14 +397,7 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
     show_default=True,
     help="Path to the harness-telemetry.json file to analyse.",
 )
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["table", "json"]),
-    default="table",
-    show_default=True,
-    help="Output format.",
-)
+@output_format_option()
 @click.option(
     "--min-reads",
     default=0,
@@ -417,17 +412,26 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
 )
 def telemetry_cmd(
     telemetry_file: str,
-    output_format: str,
+    output_format: Optional[str],
     min_reads: int,
     top_n: Optional[int],
 ) -> None:
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
+    fmt = resolve_output_format(output_format)
     path = Path(telemetry_file)
     report = build_report(path, min_reads=min_reads, top_n=top_n)
 
-    if output_format == "json":
+    if fmt == "json":
         click.echo(report.model_dump_json(indent=2))
+        return
+
+    if fmt == "yaml":
+        data = json.loads(report.model_dump_json())
+        click.echo(
+            yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True),
+            nl=False,
+        )
         return
 
     # Table output

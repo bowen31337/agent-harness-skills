@@ -59,6 +59,7 @@ from typing import Optional
 import click
 from pydantic import ValidationError
 
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.models.observe import LogEntry, ObserveResponse
 
 # ---------------------------------------------------------------------------
@@ -416,16 +417,12 @@ def _tail_file(
         "(like tail -f).  Use --no-follow to print and exit."
     ),
 )
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["pretty", "json"], case_sensitive=False),
-    default="pretty",
-    show_default=True,
-    help=(
-        "Output format.  "
-        "'pretty' = ANSI-coloured human-readable lines; "
-        "'json' = raw NDJSON (one object per line, suitable for jq)."
+@output_format_option(
+    choices=("json", "table"),
+    help_extra=(
+        "For observe, 'table' emits ANSI-coloured human-readable lines; "
+        "'json' emits raw NDJSON (one object per line, suitable for jq).  "
+        "yaml is not supported for streaming log output."
     ),
 )
 @click.option(
@@ -441,7 +438,7 @@ def observe_cmd(
     min_level_name: str,
     lines: int,
     follow: bool,
-    output_format: str,
+    output_format: Optional[str],
     no_color: bool,
 ) -> None:
     """Tail structured NDJSON logs in real time, filtered by domain or trace_id.
@@ -482,10 +479,14 @@ def observe_cmd(
     """
     path      = Path(log_file)
     min_level = _LEVEL_ORDER.get(min_level_name.upper(), 0)
+    # Map the standardised --output-format to internal "pretty"/"json" names.
+    # "table" → human-readable pretty output; "json" → raw NDJSON
+    fmt = resolve_output_format(output_format)
+    internal_format = "json" if fmt == "json" else "pretty"
     # Enable colour only for pretty mode on a real TTY unless suppressed
     color     = (
         not no_color
-        and output_format == "pretty"
+        and internal_format == "pretty"
         and sys.stdout.isatty()
     )
 
@@ -496,7 +497,7 @@ def observe_cmd(
         domain=domain,
         trace_id=trace_id,
         min_level=min_level,
-        output_format=output_format,
+        output_format=internal_format,
         color=color,
     )
 

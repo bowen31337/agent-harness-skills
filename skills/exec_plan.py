@@ -25,6 +25,10 @@ Usage (CLI)
   # Show a text dependency graph
   python skills/exec_plan.py graph --plan PLAN-001
 
+  # Print context assembly hints for a plan or task
+  python skills/exec_plan.py context --plan PLAN-001
+  python skills/exec_plan.py context --plan PLAN-001 --task TASK-002
+
 Programmatic use
 ----------------
   from skills.exec_plan import ExecPlan
@@ -147,6 +151,11 @@ class ExecPlan:
                 "started_at": None,
                 "completed_at": None,
                 "notes": "",
+                "context": {
+                    "grep_patterns": [],
+                    "glob_patterns": [],
+                    "symbol_refs": [],
+                },
             }
         ]
         instance._data["coordination"] = {
@@ -154,6 +163,13 @@ class ExecPlan:
             "hotspot_files": [],
             "merge_order": [],
             "post_merge_checklist": [],
+        }
+        instance._data["context_assembly"] = {
+            "grep_patterns": [],
+            "glob_patterns": [],
+            "symbol_refs": [],
+            "key_files": [],
+            "rationale": "",
         }
         instance._save()
         print(f"[exec-plan] Initialised {plan_id} → {dest}")
@@ -283,6 +299,61 @@ class ExecPlan:
             lines.append(f"Ready to start ({len(ready)}): " + ", ".join(t["id"] for t in ready))
         return "\n".join(lines)
 
+    def print_context(self, task_id: str | None = None) -> None:
+        """Print context assembly hints for the plan or a specific task."""
+        if task_id:
+            task = self._get_task(task_id)
+            ctx = task.get("context") or {}
+            header = f"# Context assembly — {task_id}: {task['title']}"
+        else:
+            ctx = self._data.get("context_assembly") or {}
+            header = f"# Context assembly — {self.plan_id}: {self._data['plan']['title']}"
+
+        lines = [header, ""]
+
+        grep = ctx.get("grep_patterns") or []
+        if grep:
+            lines.append("## Grep patterns")
+            for p in grep:
+                lines.append(f"  {p}")
+            lines.append("")
+
+        globs = ctx.get("glob_patterns") or []
+        if globs:
+            lines.append("## Glob patterns")
+            for g in globs:
+                lines.append(f"  {g}")
+            lines.append("")
+
+        symbols = ctx.get("symbol_refs") or []
+        if symbols:
+            lines.append("## Symbol references")
+            for s in symbols:
+                lines.append(f"  {s}")
+            lines.append("")
+
+        if not task_id:
+            key_files = ctx.get("key_files") or []
+            if key_files:
+                lines.append("## Key files")
+                for kf in key_files:
+                    if isinstance(kf, dict):
+                        lines.append(f"  {kf.get('path', '?')} — {kf.get('reason', '')}")
+                    else:
+                        lines.append(f"  {kf}")
+                lines.append("")
+
+            rationale = ctx.get("rationale") or ""
+            if rationale:
+                lines.append("## Rationale")
+                lines.append(f"  {rationale}")
+                lines.append("")
+
+        if not (grep or globs or symbols):
+            lines.append("(no context assembly hints defined yet)")
+
+        print("\n".join(lines))
+
     def dependency_graph(self) -> str:
         """Return a text representation of the dependency graph."""
         tasks = {t["id"]: t for t in self._tasks()}
@@ -371,7 +442,7 @@ def _next_plan_id() -> str:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="exec_plan",
-        description="Create and manage execution plans in docs/exec-plans/",
+        description="Create and manage execution plans in docs/exec-plans/. Commands: init, claim, done, release, ready, status, graph, context.",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -412,6 +483,11 @@ def _build_parser() -> argparse.ArgumentParser:
     graph_p = sub.add_parser("graph", help="Print the dependency graph")
     graph_p.add_argument("--plan", required=True)
 
+    # context
+    ctx_p = sub.add_parser("context", help="Print context assembly hints for a plan or task")
+    ctx_p.add_argument("--plan", required=True)
+    ctx_p.add_argument("--task", default=None, help="Task ID (e.g. TASK-001); omit for plan-level context")
+
     return p
 
 
@@ -451,6 +527,10 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "graph":
         plan = ExecPlan.load(args.plan)
         print(plan.dependency_graph())
+
+    elif args.command == "context":
+        plan = ExecPlan.load(args.plan)
+        plan.print_context(task_id=args.task)
 
     else:
         parser.print_help()

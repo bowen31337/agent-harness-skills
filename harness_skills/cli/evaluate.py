@@ -37,6 +37,7 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.generators.evaluation import (
     GateConfig,
     GateId,
@@ -49,17 +50,10 @@ from harness_skills.generators.evaluation import (
 
 
 @click.command("evaluate")
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["json", "yaml", "table"], case_sensitive=False),
-    default="table",
-    show_default=True,
-    help=(
-        "Output format.  "
-        "json: agent-parseable, conforms to evaluation_report.schema.json.  "
-        "yaml: same data as YAML, human-friendly and still machine-parseable.  "
-        "table: rich ASCII table for interactive terminal use."
+@output_format_option(
+    help_extra=(
+        "json output conforms to evaluation_report.schema.json.  "
+        "table renders a rich ASCII table for interactive terminal use."
     ),
 )
 @click.option(
@@ -93,7 +87,7 @@ from harness_skills.generators.evaluation import (
 @click.pass_context
 def evaluate_cmd(
     ctx: click.Context,
-    output_format: str,
+    output_format: Optional[str],
     selected_gates: tuple[str, ...],
     project_root: Path,
     coverage_threshold: float,
@@ -123,6 +117,7 @@ def evaluate_cmd(
         print('passed:', r['passed'])
         "
     """
+    fmt = resolve_output_format(output_format)
     config = GateConfig(
         coverage_threshold=coverage_threshold,
         max_staleness_days=max_staleness_days,
@@ -134,9 +129,9 @@ def evaluate_cmd(
 
     report = run_all_gates(project_root=project_root, config=config, gates=gates)
 
-    if output_format == "json":
+    if fmt == "json":
         click.echo(format_report(report))
-    elif output_format == "yaml":
+    elif fmt == "yaml":
         click.echo(_format_yaml_report(report))
     else:
         _print_table_report(report)

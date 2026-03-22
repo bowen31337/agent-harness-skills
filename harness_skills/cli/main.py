@@ -15,6 +15,7 @@ from typing import Any
 
 import click
 
+from harness_skills.cli.completion_report import completion_report_cmd
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
 from harness_skills.cli.lint import lint_cmd
@@ -62,7 +63,7 @@ class PipelineGroup(click.Group):
     ::
 
         # Single command (normal behaviour)
-        harness evaluate --format json
+        harness evaluate --output-format json
 
         # Pipeline (composition) — equivalent to: harness create && harness lint
         harness create --then lint --then evaluate
@@ -137,6 +138,7 @@ def cli() -> None:
     """
 
 
+cli.add_command(completion_report_cmd)
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
 cli.add_command(lint_cmd)

@@ -61,6 +61,13 @@ tasks:
     started_at: null
     completed_at: null
     notes: ""
+    # Context assembly hints for this specific task (subset of plan-level context).
+    # Fill in so agents assigned to this task can locate the relevant code
+    # without reading the whole codebase.
+    context:
+      grep_patterns: []    # task-specific search patterns
+      glob_patterns: []    # task-specific file globs
+      symbol_refs: []      # task-specific symbol names
 
   - id: TASK-002
     title: "<second task — runs in parallel with TASK-001>"
@@ -73,6 +80,10 @@ tasks:
     started_at: null
     completed_at: null
     notes: ""
+    context:
+      grep_patterns: []    # task-specific search patterns
+      glob_patterns: []    # task-specific file globs
+      symbol_refs: []      # task-specific symbol names
 
   - id: TASK-003
     title: "<third task — waits for TASK-001 and TASK-002>"
@@ -87,6 +98,10 @@ tasks:
     started_at: null
     completed_at: null
     notes: ""
+    context:
+      grep_patterns: []    # task-specific search patterns
+      glob_patterns: []    # task-specific file globs
+      symbol_refs: []      # task-specific symbol names
 
   - id: TASK-004
     title: "<fourth task — independent branch>"
@@ -99,6 +114,10 @@ tasks:
     started_at: null
     completed_at: null
     notes: ""
+    context:
+      grep_patterns: []    # task-specific search patterns
+      glob_patterns: []    # task-specific file globs
+      symbol_refs: []      # task-specific symbol names
 
   - id: TASK-005
     title: "<fifth task — final gate, waits for TASK-003 and TASK-004>"
@@ -113,6 +132,10 @@ tasks:
     started_at: null
     completed_at: null
     notes: ""
+    context:
+      grep_patterns: []    # task-specific search patterns
+      glob_patterns: []    # task-specific file globs
+      symbol_refs: []      # task-specific symbol names
 
 # ---------------------------------------------------------------------------
 # Multi-agent coordination notes
@@ -122,3 +145,36 @@ coordination:
   hotspot_files: []          # list file paths that multiple tasks will touch
   merge_order: []            # suggested agent merge sequence for hotspots
   post_merge_checklist: []   # steps to run after all tasks complete
+
+# ---------------------------------------------------------------------------
+# Context assembly
+# ---------------------------------------------------------------------------
+# This section gives agents a map — not the territory — so they can rebuild
+# their working context from scratch using Grep, Glob, and Read tools.
+#
+#   grep_patterns  — regex strings (grep -E compatible) for finding key symbols,
+#                    class/function names, config keys, import paths, etc.
+#   glob_patterns  — file-path globs (e.g. src/auth/**/*.py) for Glob tool
+#   symbol_refs    — bare symbol names to search for: class names, function
+#                    names, constants, CLI flags, env-var names
+#   key_files      — specific file paths most relevant to this plan, ordered
+#                    by importance; listed as path: "…"  reason: "…" pairs
+#   rationale      — one sentence explaining why these patterns are the right
+#                    entry points for this plan
+# ---------------------------------------------------------------------------
+context_assembly:
+  grep_patterns:
+    - "<ClassName|function_name>"      # e.g. "class AuthService"
+    - "<CONSTANT_NAME>"                # e.g. "JWT_SECRET"
+    - "<import path>"                  # e.g. "from auth import"
+  glob_patterns:
+    - "src/<domain>/**/*.py"           # e.g. "src/auth/**/*.py"
+    - "tests/**/test_<domain>*.py"     # e.g. "tests/**/test_auth*.py"
+  symbol_refs:
+    - "<ClassName>"
+    - "<function_name>"
+    - "<CONSTANT_NAME>"
+  key_files:
+    - path: "<relative/path/to/entry.py>"
+      reason: "<why this file matters>"
+  rationale: "<one sentence: why these patterns are the right entry points>"
