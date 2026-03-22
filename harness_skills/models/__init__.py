@@ -13,6 +13,9 @@ from harness_skills.models.lock import (
     LockAcquireRequest, LockExtendRequest, LockReleaseRequest,
     LockRecord, LockStateResponse, LockOperationResponse, LockListResponse,
 )
+from harness_skills.models.stale import (
+    ArtifactResult, ArtifactStaleness, StaleTask, StalePlanSummary, StalePlanResponse,
+)
 from harness_skills.task_lock import (
     TaskLock, TaskLockProtocol, LockConflictError, LockNotOwnedError,
 )
@@ -32,6 +35,8 @@ __all__ = [
     # lock (models)
     "LockAcquireRequest", "LockExtendRequest", "LockReleaseRequest",
     "LockRecord", "LockStateResponse", "LockOperationResponse", "LockListResponse",
+    # stale plan detection
+    "ArtifactResult", "ArtifactStaleness", "StaleTask", "StalePlanSummary", "StalePlanResponse",
     # task lock
     "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
 ]
