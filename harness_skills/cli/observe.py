@@ -60,11 +60,16 @@ import click
 from pydantic import ValidationError
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 ||||||| 9c7e5db
 =======
 from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.models.observe import LogEntry, ObserveResponse
 
 # ---------------------------------------------------------------------------

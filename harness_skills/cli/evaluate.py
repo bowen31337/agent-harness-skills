@@ -38,11 +38,16 @@ from rich.console import Console
 from rich.table import Table
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 ||||||| 9c7e5db
 =======
 from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.generators.evaluation import (
     GateConfig,
     GateId,
@@ -123,11 +128,16 @@ def evaluate_cmd(
         "
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
     fmt = resolve_output_format(output_format)
 ||||||| 9c7e5db
 =======
     verbosity = get_verbosity(ctx)
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+    fmt = resolve_output_format(output_format)
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     config = GateConfig(
         coverage_threshold=coverage_threshold,
         max_staleness_days=max_staleness_days,
@@ -154,6 +164,7 @@ def evaluate_cmd(
     report = run_all_gates(project_root=project_root, config=config, gates=gates)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if fmt == "json":
 ||||||| 9c7e5db
     if output_format == "json":
@@ -161,7 +172,13 @@ def evaluate_cmd(
     if output_format == "json":
         # Machine-parseable — always emitted regardless of verbosity.
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+    if output_format == "json":
+=======
+    if fmt == "json":
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(format_report(report))
+<<<<<<< HEAD
 <<<<<<< HEAD
     elif fmt == "yaml":
 ||||||| 9c7e5db
@@ -170,6 +187,11 @@ def evaluate_cmd(
     elif output_format == "yaml":
         # Machine-parseable — always emitted regardless of verbosity.
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+    elif output_format == "yaml":
+=======
+    elif fmt == "yaml":
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(_format_yaml_report(report))
     else:
         _print_table_report(report, verbosity=verbosity)

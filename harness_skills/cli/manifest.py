@@ -29,11 +29,18 @@ from pathlib import Path
 from typing import Optional
 
 import click
+<<<<<<< HEAD
 import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 
 from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+||||||| 9c7e5db
+=======
+import yaml
+
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +110,7 @@ def validate_cmd(
         harness manifest validate --output-format yaml
     """
 <<<<<<< HEAD
+<<<<<<< HEAD
     # --json flag is a deprecated alias for --output-format json
     if output_json_flag and output_format is None:
         output_format = "json"
@@ -114,6 +122,15 @@ def validate_cmd(
     verbosity = get_verbosity(ctx)
 
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+    # --json flag is a deprecated alias for --output-format json
+    if output_json_flag and output_format is None:
+        output_format = "json"
+
+    fmt = resolve_output_format(output_format)
+
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     # ------------------------------------------------------------------
     # 1. Read the file
     # ------------------------------------------------------------------
@@ -158,6 +175,7 @@ def validate_cmd(
     errors = validate_manifest(data)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if fmt in ("json", "yaml"):
 ||||||| 9c7e5db
     if output_json:
@@ -165,6 +183,11 @@ def validate_cmd(
     if output_json:
         # JSON output is always machine-parseable — always emitted.
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+    if output_json:
+=======
+    if fmt in ("json", "yaml"):
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         result = {
             "valid": len(errors) == 0,
             "path": str(path),

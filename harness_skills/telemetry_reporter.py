@@ -35,11 +35,16 @@ import click
 import yaml
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 ||||||| 9c7e5db
 =======
 from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -426,11 +431,16 @@ def telemetry_cmd(
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     fmt = resolve_output_format(output_format)
 ||||||| 9c7e5db
 =======
     verbosity = get_verbosity(ctx)
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+=======
+    fmt = resolve_output_format(output_format)
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     path = Path(telemetry_file)
 
     vecho(
@@ -442,6 +452,7 @@ def telemetry_cmd(
     report = build_report(path, min_reads=min_reads, top_n=top_n)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     if fmt == "json":
 ||||||| 9c7e5db
     if output_format == "json":
@@ -449,9 +460,15 @@ def telemetry_cmd(
     if output_format == "json":
         # Machine-parseable — always emitted.
 >>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
+||||||| 9c7e5db
+    if output_format == "json":
+=======
+    if fmt == "json":
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(report.model_dump_json(indent=2))
         return
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     if fmt == "yaml":
         data = json.loads(report.model_dump_json())
@@ -461,6 +478,17 @@ def telemetry_cmd(
         )
         return
 
+||||||| 9c7e5db
+=======
+    if fmt == "yaml":
+        data = json.loads(report.model_dump_json())
+        click.echo(
+            yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True),
+            nl=False,
+        )
+        return
+
+>>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     # Table output
     click.echo(render_report(report))
     click.echo("")
