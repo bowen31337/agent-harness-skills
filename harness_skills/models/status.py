@@ -31,6 +31,7 @@ TaskStatus = Literal["pending", "running", "done", "blocked", "skipped"]
 PlanStatusValue = Literal["pending", "running", "done", "blocked", "cancelled"]
 LockStatus = Literal["unlocked", "locked", "done"]
 Priority = Literal["critical", "high", "medium", "low"]
+DepState = Literal["ready", "waiting", "running", "done", "skipped", "blocked"]
 
 
 class TaskDetail(BaseModel):
@@ -74,6 +75,15 @@ class TaskDetail(BaseModel):
     description: Optional[str] = Field(
         default=None,
         description="Extended description of what the task involves.",
+    )
+    dep_state: Optional[DepState] = Field(
+        default=None,
+        description=(
+            "Computed dependency state: 'ready' (all deps done or no deps), "
+            "'waiting' (one or more deps not yet done), or mirrors the task "
+            "status for running/done/blocked/skipped tasks. "
+            "Populated by the CLI layer before rendering; null in raw YAML/JSON data."
+        ),
     )
 
 

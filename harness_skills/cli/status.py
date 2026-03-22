@@ -57,6 +57,7 @@ from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.models.base import Status
 from harness_skills.models.status import (
     DashboardSummary,
+    DepState,
     PlanSnapshot,
     PlanStatusValue,
     StatusDashboardResponse,
@@ -338,11 +339,117 @@ def _format_yaml_output(response: StatusDashboardResponse) -> str:
     return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
+<<<<<<< HEAD
 def _print_table_output(
     response: StatusDashboardResponse,
     *,
     verbosity: str = VerbosityLevel.normal,
 ) -> None:
+||||||| 0e893bd
+def _print_table_output(response: StatusDashboardResponse) -> None:
+=======
+_DEP_STATE_ICON: dict[str, str] = {
+    "ready":   "🟢",
+    "waiting": "⏳",
+    "running": "🔵",
+    "done":    "✅",
+    "blocked": "🔴",
+    "skipped": "⏭️",
+}
+
+
+def _unmet_deps(task: TaskDetail, tasks_by_id: dict[str, TaskDetail]) -> list[str]:
+    """Return the list of dep IDs that are not yet done.
+
+    A dep ID that is not present in *tasks_by_id* is treated as unmet — a dangling
+    reference should never silently unblock a task.
+    """
+    return [
+        dep_id
+        for dep_id in task.depends_on
+        if tasks_by_id.get(dep_id) is None
+        or tasks_by_id[dep_id].status != "done"
+    ]
+
+
+def _compute_dep_state(
+    task: TaskDetail,
+    tasks_by_id: dict[str, TaskDetail],
+) -> DepState:
+    """Return the computed dependency state for *task*.
+
+    Priority order:
+      done / skipped / running / blocked → mirrors the task's own status
+      pending with unmet deps            → "waiting"
+      pending with all deps done (or none) → "ready"
+    """
+    if task.status in ("done", "skipped", "running", "blocked"):
+        return task.status  # type: ignore[return-value]
+    # task.status == "pending"
+    unmet = _unmet_deps(task, tasks_by_id)
+    return "waiting" if unmet else "ready"
+
+
+def _render_dep_graph(plan: PlanSnapshot, console: Console) -> None:
+    """Render a Rich ASCII dependency tree for *plan*.
+
+    Each node is labelled with its dep-state icon.  Nodes that appear in more
+    than one branch of the tree (diamond deps) are rendered once in full and
+    then shown as a back-reference (``↩ TASK-NNN (already shown)``).
+
+    The function is a no-op when no task in *plan* has ``depends_on`` entries.
+    """
+    tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
+
+    console.print(f"\n[bold dim]  Dependency graph — {plan.plan_id}[/bold dim]")
+
+    # roots: tasks that declare no upstream dependencies
+    roots = [t for t in plan.tasks if not t.depends_on]
+    visited: set[str] = set()
+
+    def _render_node(task_id: str, indent: int = 0) -> None:
+        prefix = "    " + "  " * indent
+        if task_id in visited:
+            console.print(f"{prefix}[dim]↩ {task_id} (already shown)[/dim]")
+            return
+        visited.add(task_id)
+        t = tasks_by_id.get(task_id)
+        if t is None:
+            console.print(f"{prefix}[red]? {task_id} (unknown task)[/red]")
+            return
+        state: DepState = t.dep_state or _compute_dep_state(t, tasks_by_id)
+        icon = _DEP_STATE_ICON.get(state, "?")
+        if state == "waiting":
+            blockers = _unmet_deps(t, tasks_by_id)
+            blocker_str = ", ".join(blockers)
+            console.print(
+                f"{prefix}{icon} [bold]{task_id}[/bold]: {t.title}"
+                f"  [dim](waiting on: {blocker_str})[/dim]"
+            )
+        else:
+            console.print(f"{prefix}{icon} [bold]{task_id}[/bold]: {t.title}")
+        # children: tasks that list task_id in their depends_on
+        children = [c for c in plan.tasks if task_id in (c.depends_on or [])]
+        for child in children:
+            _render_node(child.task_id, indent + 1)
+
+    for root in roots:
+        _render_node(root.task_id)
+
+    # Handle tasks not reachable from roots (e.g. dependency cycles)
+    unreached = [t for t in plan.tasks if t.task_id not in visited]
+    if unreached:
+        console.print("    [dim](unreachable — possible cycle):[/dim]")
+        for t in unreached:
+            state = t.dep_state or _compute_dep_state(t, tasks_by_id)
+            icon = _DEP_STATE_ICON.get(state, "?")
+            console.print(f"    {icon} [bold]{t.task_id}[/bold]: {t.title}")
+
+    console.print()
+
+
+def _print_table_output(response: StatusDashboardResponse) -> None:
+>>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
     console = Console()
     s = response.summary
 
@@ -425,6 +532,7 @@ def _print_table_output(
         if not plan.tasks:
             continue
 
+<<<<<<< HEAD
         if at_least(verbosity, VerbosityLevel.normal):
             console.print()
             status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
@@ -432,6 +540,23 @@ def _print_table_output(
                 f"[bold]{plan.plan_id}[/bold] — {plan.title}"
                 f"  [[{status_style}]{plan.status}[/{status_style}]]"
             )
+||||||| 0e893bd
+        console.print()
+        status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
+        console.print(
+            f"[bold]{plan.plan_id}[/bold] — {plan.title}"
+            f"  [[{status_style}]{plan.status}[/{status_style}]]"
+        )
+=======
+        tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
+
+        console.print()
+        status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
+        console.print(
+            f"[bold]{plan.plan_id}[/bold] — {plan.title}"
+            f"  [[{status_style}]{plan.status}[/{status_style}]]"
+        )
+>>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
 
         task_table = Table(
             box=box.SIMPLE,
@@ -442,26 +567,46 @@ def _print_table_output(
         task_table.add_column("",         min_width=3)   # icon
         task_table.add_column("Task ID",  min_width=10)
         task_table.add_column("Title",    min_width=28)
-        task_table.add_column("Status",   min_width=9)
+        task_table.add_column("Status",   min_width=12)
         task_table.add_column("Priority", min_width=9)
         task_table.add_column("Agent",    min_width=14)
-        task_table.add_column("Deps",     min_width=12)
+        task_table.add_column("Deps",     min_width=14)
 
         for task in plan.tasks:
-            icon         = _TASK_STATUS_ICON.get(task.status, "?")
-            prio_style   = _PRIORITY_STYLE.get(task.priority, "")
-            prio_label   = (
+            icon       = _TASK_STATUS_ICON.get(task.status, "?")
+            prio_style = _PRIORITY_STYLE.get(task.priority, "")
+            prio_label = (
                 f"[{prio_style}]{task.priority}[/{prio_style}]"
                 if prio_style else task.priority
             )
-            agent_label  = task.assigned_agent or "[dim]—[/dim]"
-            deps_label   = ", ".join(task.depends_on) if task.depends_on else "[dim]—[/dim]"
+            agent_label = task.assigned_agent or "[dim]—[/dim]"
+
+            # For pending tasks, surface dep state instead of bare "pending"
+            if task.status == "pending" and task.dep_state == "ready":
+                status_label = "🟢 ready"
+            elif task.status == "pending" and task.dep_state == "waiting":
+                status_label = "⏳ waiting"
+            else:
+                status_label = task.status
+
+            # Annotate each dep ID with a done (✅) or pending (⬜) indicator
+            if task.depends_on:
+                dep_parts = []
+                for dep_id in task.depends_on:
+                    dep_task = tasks_by_id.get(dep_id)
+                    if dep_task and dep_task.status == "done":
+                        dep_parts.append(f"✅{dep_id}")
+                    else:
+                        dep_parts.append(f"⬜{dep_id}")
+                deps_label = ", ".join(dep_parts)
+            else:
+                deps_label = "[dim]—[/dim]"
 
             task_table.add_row(
                 icon,
                 task.task_id,
                 task.title,
-                task.status,
+                status_label,
                 prio_label,
                 agent_label,
                 deps_label,
@@ -469,8 +614,18 @@ def _print_table_output(
 
         console.print(task_table)
 
+<<<<<<< HEAD
     if at_least(verbosity, VerbosityLevel.normal):
         console.print()
+||||||| 0e893bd
+    console.print()
+=======
+        # Render the dependency graph when any task in this plan has deps
+        if any(t.depends_on for t in plan.tasks):
+            _render_dep_graph(plan, console)
+
+    console.print()
+>>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
 
 
 # ---------------------------------------------------------------------------
@@ -681,6 +836,12 @@ def status_cmd(
 
     end_ms = int(time.monotonic() * 1000)
     response.duration_ms = end_ms - start_ms
+
+    # ── 6b. Populate dep_state on all tasks (all output formats) ──────────────
+    for plan in response.plans:
+        _tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
+        for task in plan.tasks:
+            task.dep_state = _compute_dep_state(task, _tasks_by_id)
 
     # ── 7. Emit output ────────────────────────────────────────────────────────
     if fmt == "json":

@@ -86,6 +86,15 @@ _LOCK_ICON = {
     "done":     "✅",
 }
 
+_DEP_STATE_ICON = {
+    "ready":   "🟢",
+    "waiting": "⏳",
+    "running": "🔵",
+    "done":    "✅",
+    "blocked": "🔴",
+    "skipped": "⏭️",
+}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -275,19 +284,28 @@ class ExecPlan:
         ]
 
     def status_table(self) -> str:
-        """Return a formatted status table as a string."""
+        """Return a formatted status table as a string (includes Dep State column)."""
         lines = [
             f"# Plan: {self._data['plan']['id']} — {self._data['plan']['title']}",
             f"# Status: {self._data['plan']['status']}  |  "
             f"Updated: {self._data['plan'].get('updated_at', '?')}",
             "",
-            f"{'ID':<12} {'Status':<10} {'Lock':<10} {'Agent':<24} {'Priority':<10} Title",
-            "-" * 90,
+            f"{'ID':<12} {'Status':<10} {'Dep State':<22} {'Lock':<10} "
+            f"{'Agent':<24} {'Priority':<10} Title",
+            "-" * 110,
         ]
         for t in self._tasks():
+            dep_state = self._dep_state(t)
+            dep_icon  = _DEP_STATE_ICON.get(dep_state, "")
+            if dep_state == "waiting":
+                blockers = self._blocked_by(t)
+                dep_label = f"{dep_icon} waiting({','.join(blockers)})"
+            else:
+                dep_label = f"{dep_icon} {dep_state}"
             lines.append(
                 f"{t['id']:<12} "
                 f"{_STATUS_ICON.get(t['status'], t['status']):<10} "
+                f"{dep_label:<22} "
                 f"{_LOCK_ICON.get(t['lock_status'], t['lock_status']):<10} "
                 f"{(t.get('assigned_agent') or '—'):<24} "
                 f"{t.get('priority', 'medium'):<10} "
@@ -355,9 +373,23 @@ class ExecPlan:
         print("\n".join(lines))
 
     def dependency_graph(self) -> str:
-        """Return a text representation of the dependency graph."""
+        """Return a text representation of the dependency graph with dep-state labels.
+
+        Each node is labelled with its computed dependency state:
+          🟢 ready   — task is pending with all upstream deps done (or no deps)
+          ⏳ waiting — task is pending but one or more deps are not done yet
+          🔵 running — task is currently running
+          ✅ done    — task is complete
+          🔴 blocked — task is explicitly blocked
+          ⏭️  skipped — task was skipped
+        """
         tasks = {t["id"]: t for t in self._tasks()}
-        lines = ["Dependency graph (→ means 'required by'):", ""]
+        lines = [
+            f"Dependency graph — {self._data['plan']['id']}: "
+            f"{self._data['plan']['title']}",
+            "(→ means 'unblocks')",
+            "",
+        ]
 
         # Find roots (tasks with no dependencies)
         roots = [t for t in self._tasks() if not t.get("depends_on")]
@@ -369,9 +401,17 @@ class ExecPlan:
                 return
             visited.add(task_id)
             t = tasks.get(task_id, {})
-            icon = _STATUS_ICON.get(t.get("status", "pending"), "?")
-            lines.append("  " * indent + f"{icon} {task_id}: {t.get('title', '?')}")
-            # find tasks that depend on this one
+            dep_state = self._dep_state(t) if t else "pending"
+            icon = _DEP_STATE_ICON.get(dep_state, "?")
+            if dep_state == "waiting":
+                blockers = self._blocked_by(t)
+                suffix = f"  ⏳ waiting({', '.join(blockers)})"
+            elif dep_state == "ready":
+                suffix = "  🟢 ready"
+            else:
+                suffix = ""
+            lines.append("  " * indent + f"{icon} {task_id}: {t.get('title', '?')}{suffix}")
+            # find tasks that depend on this one (children in the unblocking direction)
             children = [
                 c for c in self._tasks()
                 if task_id in (c.get("depends_on") or [])
@@ -381,6 +421,15 @@ class ExecPlan:
 
         for root in roots:
             _render(root["id"])
+
+        # Surface unreachable tasks (e.g. dependency cycles)
+        unreached = [t for t in self._tasks() if t["id"] not in visited]
+        if unreached:
+            lines.append("")
+            lines.append("(unreachable — possible cycle):")
+            for t in unreached:
+                icon = _DEP_STATE_ICON.get(self._dep_state(t), "?")
+                lines.append(f"  {icon} {t['id']}: {t.get('title', '?')}")
 
         return "\n".join(lines)
 
@@ -405,6 +454,19 @@ class ExecPlan:
             dep for dep in dep_ids
             if tasks_by_id.get(dep, {}).get("status") != "done"
         ]
+
+    def _dep_state(self, task: dict) -> str:
+        """Return the computed dependency state string for *task*.
+
+        Returns:
+          'ready'   — pending with all upstream deps done (or no deps)
+          'waiting' — pending with one or more unmet deps
+          otherwise — mirrors the task's own status ('running', 'done', etc.)
+        """
+        status = task.get("status", "pending")
+        if status != "pending":
+            return status
+        return "waiting" if self._blocked_by(task) else "ready"
 
     def _maybe_close_plan(self) -> None:
         all_done = all(
