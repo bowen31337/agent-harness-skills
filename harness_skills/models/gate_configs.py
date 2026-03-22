@@ -4,6 +4,7 @@ harness_skills/models/gate_configs.py
 Pydantic configuration models for all evaluation gates.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 Each gate configuration class is a plain Python dataclass — intentionally
 lightweight so gate modules can be imported without pulling in Pydantic.
 <<<<<<< HEAD
@@ -66,10 +67,19 @@ common ``enabled`` and ``fail_on_error`` flags understood by the gate runner.
 Using Pydantic ``BaseModel`` gives us ``model_dump()`` / ``model_validate()``
 for free, which the runner uses to merge YAML overrides onto profile defaults.
 >>>>>>> feat/evaluation-gate-skill-generates-a-documentation-freshne
+||||||| 0e893bd
+Each gate configuration class is a plain Python dataclass — intentionally
+lightweight so gate modules can be imported without pulling in Pydantic.
+=======
+Each gate configuration class extends :class:`BaseGateConfig` so that gate
+runners can rely on a common interface (``enabled``, ``fail_on_error``) and use
+Pydantic's ``model_dump()`` / ``model_validate()`` for YAML-override merging.
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
 """
 
 from __future__ import annotations
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -217,6 +227,37 @@ class BaseGateConfig:
     def model_dump(self) -> dict[str, object]:
         """Return the config fields as a plain dictionary."""
         return dataclasses.asdict(self)  # type: ignore[call-overload]
+||||||| 0e893bd
+from dataclasses import dataclass, field
+=======
+from pydantic import BaseModel, Field
+
+
+# ---------------------------------------------------------------------------
+# Base
+# ---------------------------------------------------------------------------
+
+
+class BaseGateConfig(BaseModel):
+    """Shared base for all gate configuration classes.
+
+    Attributes
+    ----------
+    enabled:
+        When ``False`` the gate is skipped entirely (no check, no failure).
+        Defaults to ``True``.
+    fail_on_error:
+        When ``True`` (the default), *error*-severity violations cause the
+        gate to return a failing result and exit non-zero.  Setting this to
+        ``False`` downgrades all violations to *warnings* so the build
+        continues regardless.
+    """
+
+    enabled: bool = True
+    fail_on_error: bool = True
+
+    model_config = {"extra": "ignore"}
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +265,7 @@ class BaseGateConfig:
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class DocsFreshnessGateConfig(BaseGateConfig):
@@ -246,6 +288,12 @@ class DocsFreshnessGateConfig:
 =======
 class DocsFreshnessGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+@dataclass
+class DocsFreshnessGateConfig:
+=======
+class DocsFreshnessGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the documentation-freshness gate.
 
     Attributes
@@ -268,6 +316,7 @@ class DocsFreshnessGateConfig(BaseGateConfig):
     enabled: bool = True
     max_staleness_days: int = 30
 <<<<<<< HEAD
+<<<<<<< HEAD
     tracked_files: list[str] = field(default_factory=lambda: ["AGENTS.md"])
 ||||||| 0e893bd
     fail_on_error: bool = True
@@ -275,6 +324,12 @@ class DocsFreshnessGateConfig(BaseGateConfig):
 =======
     tracked_files: list[str] = Field(default_factory=lambda: ["AGENTS.md"])
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+    fail_on_error: bool = True
+    tracked_files: list[str] = field(default_factory=lambda: ["AGENTS.md"])
+=======
+    tracked_files: list[str] = Field(default_factory=lambda: ["AGENTS.md"])
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +337,7 @@ class DocsFreshnessGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class CoverageGateConfig(BaseGateConfig):
@@ -304,6 +360,12 @@ class CoverageGateConfig:
 =======
 class CoverageGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+@dataclass
+class CoverageGateConfig:
+=======
+class CoverageGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the code-coverage gate.
 
     Attributes
@@ -319,6 +381,7 @@ class CoverageGateConfig(BaseGateConfig):
         between 0 and 100 (default: **90.0**).  PRs whose overall coverage
         falls below this bar are blocked when ``fail_on_error=True``.
 <<<<<<< HEAD
+<<<<<<< HEAD
 ||||||| 0e893bd
     fail_on_error:
         When ``True`` (the default), a below-threshold result causes the
@@ -330,6 +393,14 @@ class CoverageGateConfig(BaseGateConfig):
         When ``True``, also enforce branch/condition coverage in addition to
         line coverage.  Requires ``pytest-cov >= 4``.  Default: ``False``.
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+    fail_on_error:
+        When ``True`` (the default), a below-threshold result causes the
+        gate to return ``passed=False`` and exit with a non-zero code.
+        Setting this to ``False`` emits a *warning* violation but still
+        allows the build to continue.
+=======
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     coverage_file:
         Path to the coverage report, either absolute or relative to the
         repository root passed to :meth:`~CoverageGate.run`.
@@ -339,6 +410,7 @@ class CoverageGateConfig(BaseGateConfig):
         format from the file extension: ``.xml`` → xml, ``.json`` → json,
         ``.info`` / ``.out`` / ``.lcov`` → lcov.  Pass ``"xml"``,
         ``"json"``, or ``"lcov"`` to override auto-detection.
+<<<<<<< HEAD
 <<<<<<< HEAD
     branch_coverage:
         When ``True``, measure branch (condition) coverage in addition to
@@ -356,18 +428,34 @@ class CoverageGateConfig(BaseGateConfig):
         List of path patterns to exclude from coverage measurement.
         E.g. ``["tests/", "migrations/"]``.
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+=======
+    branch_coverage:
+        When ``True``, collect and enforce branch coverage in addition to
+        line coverage (used by the runner's inline pytest integration).
+        Defaults to ``False``.
+    exclude_patterns:
+        Glob patterns passed as ``--omit`` arguments to coverage.py when
+        running the inline pytest gate.  Defaults to empty (no exclusions).
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """
 
     enabled: bool = True
     threshold: float = 90.0
+<<<<<<< HEAD
 <<<<<<< HEAD
 ||||||| 0e893bd
     fail_on_error: bool = True
 =======
     branch_coverage: bool = False
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+    fail_on_error: bool = True
+=======
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     coverage_file: str = "coverage.xml"
     report_format: str = "auto"
+<<<<<<< HEAD
 <<<<<<< HEAD
     branch_coverage: bool = False
     exclude_patterns: list[str] = field(default_factory=list)
@@ -375,6 +463,11 @@ class CoverageGateConfig(BaseGateConfig):
 =======
     exclude_patterns: list[str] = Field(default_factory=list)
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+=======
+    branch_coverage: bool = False
+    exclude_patterns: list[str] = Field(default_factory=list)
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
 
 
 # ---------------------------------------------------------------------------
@@ -382,6 +475,7 @@ class CoverageGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class RegressionGateConfig(BaseGateConfig):
@@ -419,6 +513,12 @@ class RegressionGateConfig:
 =======
 class RegressionGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class RegressionGateConfig:
+=======
+class RegressionGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the regression (test-suite) gate."""
 
     timeout_seconds: int = 300
@@ -430,6 +530,7 @@ class RegressionGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class SecurityGateConfig(BaseGateConfig):
@@ -475,6 +576,12 @@ class SecurityGateConfig:
 =======
 class SecurityGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class SecurityGateConfig:
+=======
+class SecurityGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the security-scan gate (pip-audit / npm audit / bandit)."""
 
     severity_threshold: str = "HIGH"   # CRITICAL | HIGH | MEDIUM | LOW
@@ -488,6 +595,7 @@ class SecurityGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class PerformanceGateConfig(BaseGateConfig):
@@ -508,12 +616,19 @@ class PerformanceGateConfig:
 =======
 class PerformanceGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+@dataclass
+class PerformanceGateConfig:
+=======
+class PerformanceGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the performance-benchmark gate."""
 =======
 class PerformanceGateConfig(BaseGateConfig):
     """Configuration for the performance-benchmark gate."""
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     Attributes
     ----------
@@ -579,6 +694,12 @@ class PerformanceGateConfig(BaseGateConfig):
 =======
     enabled: bool = False  # off by default — requires .harness-perf.sh
 >>>>>>> feat/evaluation-gate-skill-generates-a-documentation-freshne
+||||||| 0e893bd
+    enabled: bool = False
+    fail_on_error: bool = True
+=======
+    enabled: bool = False   # off by default; opt-in per profile
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
 
@@ -588,6 +709,7 @@ class PerformanceGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class ArchitectureGateConfig(BaseGateConfig):
@@ -629,8 +751,15 @@ class ArchitectureGateConfig:
 =======
 class ArchitectureGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class ArchitectureGateConfig:
+=======
+class ArchitectureGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the architecture (import-layer) gate."""
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     rules: list[str] = field(default_factory=lambda: [
 ||||||| 0e893bd
@@ -646,6 +775,29 @@ class ArchitectureGateConfig(BaseGateConfig):
     layer_order: list[str] = Field(default_factory=lambda: [
         "models", "repositories", "services", "api",
     ])
+||||||| 0e893bd
+    enabled: bool = True
+    fail_on_error: bool = True
+    rules: list[str] = field(default_factory=lambda: [
+        "no_circular_dependencies",
+        "enforce_layer_boundaries",
+    ])
+    layer_order: list[str] = field(default_factory=lambda: [
+        "models", "repositories", "services", "api",
+    ])
+=======
+    rules: list[str] = Field(
+        default_factory=lambda: [
+            "no_circular_dependencies",
+            "enforce_layer_boundaries",
+        ]
+    )
+    layer_order: list[str] = Field(
+        default_factory=lambda: [
+            "models", "repositories", "services", "api",
+        ]
+    )
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     report_only: bool = False
 
 
@@ -654,6 +806,7 @@ class ArchitectureGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class PrinciplesGateConfig(BaseGateConfig):
@@ -674,12 +827,19 @@ class PrinciplesGateConfig:
 =======
 class PrinciplesGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class PrinciplesGateConfig:
+=======
+class PrinciplesGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the golden-principles gate."""
 =======
 class PrinciplesGateConfig(BaseGateConfig):
     """Configuration for the golden-principles gate."""
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     Attributes
     ----------
@@ -702,6 +862,10 @@ class PrinciplesGateConfig(BaseGateConfig):
     enabled: bool = True
 =======
 >>>>>>> feat/evaluation-gate-skill-generates-a-documentation-freshne
+||||||| 0e893bd
+    enabled: bool = True
+=======
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     fail_on_error: bool = False   # advisory by default
 =======
     fail_on_error: bool = False   # advisory by default
@@ -715,6 +879,7 @@ class PrinciplesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class TypesGateConfig(BaseGateConfig):
@@ -752,6 +917,12 @@ class TypesGateConfig:
 =======
 class TypesGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class TypesGateConfig:
+=======
+class TypesGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the static type-checking gate (mypy / tsc / pyright)."""
 
     strict: bool = False
@@ -763,6 +934,7 @@ class TypesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 @dataclass
 class LintGateConfig(BaseGateConfig):
@@ -802,9 +974,16 @@ class LintGateConfig:
 =======
 class LintGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
+||||||| 0e893bd
+@dataclass
+class LintGateConfig:
+=======
+class LintGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     """Configuration for the linting gate (ruff / eslint / golangci-lint)."""
 
     autofix: bool = False
+<<<<<<< HEAD
     select: list[str] = Field(default_factory=list)
     ignore: list[str] = Field(default_factory=list)
 
@@ -884,6 +1063,33 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
     "types":         TypesGateConfig,
     "lint":          LintGateConfig,
 }
+||||||| 0e893bd
+    select: list[str] = field(default_factory=list)
+    ignore: list[str] = field(default_factory=list)
+=======
+    select: list[str] = Field(default_factory=list)
+    ignore: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Registry — maps gate IDs to their config classes
+# ---------------------------------------------------------------------------
+
+#: Canonical mapping from gate ID → config class.
+#: Used by :class:`~harness_skills.gates.runner.HarnessConfigLoader` to
+#: enumerate available built-in gates and instantiate their configs.
+GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
+    "regression":     RegressionGateConfig,
+    "coverage":       CoverageGateConfig,
+    "security":       SecurityGateConfig,
+    "performance":    PerformanceGateConfig,
+    "architecture":   ArchitectureGateConfig,
+    "principles":     PrinciplesGateConfig,
+    "docs_freshness": DocsFreshnessGateConfig,
+    "types":          TypesGateConfig,
+    "lint":           LintGateConfig,
+}
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
 
 
 # ---------------------------------------------------------------------------
@@ -892,8 +1098,15 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
 # and HarnessConfigLoader.
 # ---------------------------------------------------------------------------
 
+<<<<<<< HEAD
 PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
+||||||| 0e893bd
+PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
+=======
+PROFILE_GATE_DEFAULTS: dict[str, dict[str, BaseGateConfig]] = {
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     "starter": {
+<<<<<<< HEAD
 <<<<<<< HEAD
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
         "coverage":       CoverageGateConfig(threshold=60.0, fail_on_error=True),
@@ -934,7 +1147,25 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
 =======
         "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=False, fail_on_critical=True),
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+        "regression":    RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":      CoverageGateConfig(threshold=60.0, fail_on_error=True),
+        "security":      SecurityGateConfig(enabled=False),
+        "performance":   PerformanceGateConfig(enabled=False),
+        "architecture":  ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=False),
+=======
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=60.0, fail_on_error=True),
+        "security":       SecurityGateConfig(enabled=False),
+        "performance":    PerformanceGateConfig(enabled=False),
+        "architecture":   ArchitectureGateConfig(
+            enabled=False, fail_on_error=False, report_only=True
+        ),
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=False),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
+<<<<<<< HEAD
 <<<<<<< HEAD
         "types":         TypesGateConfig(enabled=False),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
@@ -957,8 +1188,16 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         "types":         TypesGateConfig(enabled=False),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+        "types":         TypesGateConfig(enabled=False),
+        "lint":          LintGateConfig(enabled=True, fail_on_error=True),
+=======
+        "types":          TypesGateConfig(enabled=False),
+        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     },
     "standard": {
+<<<<<<< HEAD
 <<<<<<< HEAD
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
         "coverage":       CoverageGateConfig(threshold=80.0, fail_on_error=True),
@@ -997,7 +1236,23 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
 =======
         "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True, fail_on_critical=True),
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+        "regression":    RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":      CoverageGateConfig(threshold=80.0, fail_on_error=True),
+        "security":      SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
+        "performance":   PerformanceGateConfig(enabled=False),
+        "architecture":  ArchitectureGateConfig(enabled=True, fail_on_error=True),
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True),
+=======
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=80.0, fail_on_error=True),
+        "security":       SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
+        "performance":    PerformanceGateConfig(enabled=False),
+        "architecture":   ArchitectureGateConfig(enabled=True, fail_on_error=True),
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
+<<<<<<< HEAD
 <<<<<<< HEAD
         "types":         TypesGateConfig(enabled=True, fail_on_error=True),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
@@ -1018,8 +1273,16 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         "types":         TypesGateConfig(enabled=True, fail_on_error=True),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+        "types":         TypesGateConfig(enabled=True, fail_on_error=True),
+        "lint":          LintGateConfig(enabled=True, fail_on_error=True),
+=======
+        "types":          TypesGateConfig(enabled=True, fail_on_error=True),
+        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     },
     "advanced": {
+<<<<<<< HEAD
 <<<<<<< HEAD
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
         "coverage":       CoverageGateConfig(threshold=90.0, fail_on_error=True),
@@ -1035,9 +1298,19 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         ),
         "security":      SecurityGateConfig(
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+        "regression":    RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":      CoverageGateConfig(threshold=90.0, fail_on_error=True),
+        "security":      SecurityGateConfig(
+=======
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=90.0, fail_on_error=True),
+        "security":       SecurityGateConfig(
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
             enabled=True, severity_threshold="MEDIUM",
             scan_dependencies=True, scan_secrets=True,
         ),
+<<<<<<< HEAD
 <<<<<<< HEAD
         "performance":    PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
         "architecture":   ArchitectureGateConfig(
@@ -1050,6 +1323,15 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         ),
         "architecture":  ArchitectureGateConfig(
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+        "performance":   PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
+        "architecture":  ArchitectureGateConfig(
+=======
+        "performance":    PerformanceGateConfig(
+            enabled=True, regression_threshold_pct=10.0
+        ),
+        "architecture":   ArchitectureGateConfig(
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
             enabled=True, fail_on_error=True,
             rules=[
                 "no_circular_dependencies",
@@ -1060,6 +1342,7 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         ),
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
 ||||||| 0e893bd
         "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True),
@@ -1068,7 +1351,13 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
             enabled=True, fail_on_error=True, fail_on_critical=True,
         ),
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True),
+=======
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
+<<<<<<< HEAD
         "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
 ||||||| 0e893bd
@@ -1094,5 +1383,14 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
             enabled=True, fail_on_error=True, autofix=False,
         ),
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+        "types":         TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
+        "lint":          LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
+=======
+        "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
+        "lint":           LintGateConfig(
+            enabled=True, fail_on_error=True, autofix=False
+        ),
+>>>>>>> feat/evaluation-gate-skill-generates-a-coverage-gate-with-co
     },
 }

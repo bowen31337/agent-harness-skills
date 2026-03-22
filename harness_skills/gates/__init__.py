@@ -7,6 +7,7 @@ Public API
     DocsGateConfig          — configuration for DocsFreshnessGate
     PrinciplesGate          — golden-principles compliance gate
     PrinciplesGateConfig    — configuration for PrinciplesGate
+    SecurityGate            — security check gate (secrets / deps / input-validation)
     EvaluationSummary       — aggregate outcome from run_gates()
     GateEvaluator           — orchestrates gate execution against a config
     GateFailure             — single gate failure descriptor
@@ -20,6 +21,7 @@ from harness_skills.gates.docs_freshness import DocsFreshnessGate
 from harness_skills.gates.docs_freshness import GateConfig as DocsGateConfig
 from harness_skills.gates.principles import PrinciplesGate
 from harness_skills.gates.principles import GateConfig as PrinciplesGateConfig
+from harness_skills.gates.security import SecurityGate
 from harness_skills.gates.runner import (
     EvaluationSummary,
     GateEvaluator,
@@ -38,6 +40,8 @@ __all__ = [
     # ── principles gate ──────────────────────────────────────────────────────
     "PrinciplesGate",
     "PrinciplesGateConfig",
+    # ── security gate ────────────────────────────────────────────────────────
+    "SecurityGate",
     # ── runner ──────────────────────────────────────────────────────────────
     "EvaluationSummary",
     "GateEvaluator",

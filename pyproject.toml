@@ -116,7 +116,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 # --browser chromium  targets Chromium for the tests/browser/ suite.
 # pytest-playwright picks this up automatically; non-browser tests ignore it.
-addopts = "-v --tb=short --browser chromium"
+addopts = "-v --tb=short"
 
 [tool.playwright]
 base_url = "http://localhost:3000"
