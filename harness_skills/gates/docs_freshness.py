@@ -32,7 +32,7 @@ _TRACKED_EXTENSIONS: frozenset[str] = frozenset({
     ".sh", ".bash", ".env", ".cfg", ".ini", ".xml", ".html", ".css", ".sql",
 })
 _GENERATED_AT_RE = re.compile(
-    r"(?:<!--\s*)?(?:>\s*)?generated_at\s*:\s*(?P<date>\d{4}-\d{2}-\d{2})",
+    r"(?:<!--\s*)?(?:>\s*)?(?:generated_at|last_updated)\s*:\s*(?P<date>\d{4}-\d{2}-\d{2})",
     re.IGNORECASE | re.MULTILINE,
 )
 _MD_LINK_RE  = re.compile(r"\[[^\]]*\]\((?P<path>[^)#?\s]+)\)")

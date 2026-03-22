@@ -127,7 +127,6 @@ the exact state at that point in time.
 
 ---
 
-<<<<<<< HEAD
 ## 2026-03-14 — `af3945f` — feat/coding-5378ef56
 
 > Run at 19:16:22  ·  Diffed from `280d7a4`
@@ -162,10 +161,6 @@ the exact state at that point in time.
 
 ---
 
-||||||| 09cbbc1
-=======
-<<<<<<< HEAD
->>>>>>> feat/coding-1b3aec6a
 ## 2026-03-14 — `280d7a4` — feat/coding-886b39ee
 
 > Run at 19:08:09  ·  Diffed from `d4656f1`
@@ -220,39 +215,6 @@ the exact state at that point in time.
 - `2e471bf` — coding(coding-e5f71cd2): completed
 
 ---
-
-||||||| 280d7a4
-=======
-## 2026-03-14 — `d4656f1` — feat/coding-e4908d0c
-
-> Run at 19:07:53  ·  Diffed from `74b33e7`
-
-### Skills  (14 total)
-
-- ✅ `harness-changelog.md` — Added
-
-### Config
-
-- 📝 `harness.config.yaml` — Modified  *(profiles: starter → standard → advanced)*
-
-### Docs
-
-- 📝 `docs/exec-plans/debt.md` — Modified
-- 📝 `docs/harness-changelog.md` — Modified
-
-### Spec
-
-- No spec changes
-
-### Commits
-
-- `d4656f1` — All CLI commands support a --output-format flag (json, yaml, table) defaulting to table for humans and json when stdout is not a TTY, enabling structured consumption by agents and scripts
-- `4481f54` — CLI commands support --verbosity levels (quiet, normal, verbose, debug) controlling output detail; quiet mode emits only machine-parseable results, verbose mode includes rationale and context
-- `2e471bf` — coding(coding-e5f71cd2): completed
-
----
-
->>>>>>> feat/coding-2b62ae0b
 ## 2026-03-13 — `74b33e7` — main
 
 > Run at 21:54:10  ·  Diffed from `e17a209`
