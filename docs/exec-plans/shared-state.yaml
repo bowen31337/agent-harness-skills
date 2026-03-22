@@ -1,3 +1,12 @@
+# docs/exec-plans/shared-state.yaml
+# Managed by /harness:shared-state — agents append to intermediate_results.
+# See .claude/commands/harness/shared-state.md for schema reference and usage.
+
+meta:
+  schema_version: "1"
+  initialized_at: '2026-03-14T19:11:16Z'
+  last_updated_at: '2026-03-14T19:11:16Z'
+
 snapshot:
   timestamp: '2026-03-14T19:11:16'
   agent_count: 109
