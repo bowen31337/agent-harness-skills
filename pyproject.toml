@@ -101,7 +101,15 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+<<<<<<< HEAD
 addopts = "-v --tb=short --browser chromium"
 
 [tool.playwright]
 base_url = "http://localhost:3000"
+||||||| 0e893bd
+addopts = "-v --tb=short"
+=======
+# --browser chromium  targets Chromium for the tests/browser/ suite.
+# pytest-playwright picks this up automatically; non-browser tests ignore it.
+addopts = "-v --tb=short --browser chromium"
+>>>>>>> feat/observability-a-skill-generates-browser-automation-inte

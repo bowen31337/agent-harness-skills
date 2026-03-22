@@ -70,6 +70,30 @@ BASE_URL=https://staging.example.com pytest tests/browser/ -v
 | `BASE_URL`       | `http://localhost:3000`   | Base URL for relative `goto()` calls     |
 | `SCREENSHOT_DIR` | `./screenshots`           | Directory where PNGs are saved           |
 
+### Recording video (for post-mortems)
+
+Pass `record_video=True` to `AgentDriver.launch()` to save a `.webm` session
+recording to `./videos/`:
+
+```python
+with AgentDriver.launch(record_video=True) as driver:
+    page = driver.new_page()
+    page.goto("/checkout")
+    driver.screenshot(page, "checkout")
+# video is written when the context closes (i.e. on __exit__)
+```
+
+### Failure screenshots (pytest-playwright)
+
+`tests/browser/conftest.py` registers an `autouse` fixture that captures a
+full-page PNG whenever a browser test fails.  Screenshots land in:
+
+```
+screenshots/failures/<test-nodeid>.png
+```
+
+Upload this directory as a CI artefact to inspect failures without re-running.
+
 ### Capturing screenshots from an agent task
 
 1. Start the dev server (if needed): `python -m uvicorn app:app --reload` or equivalent
