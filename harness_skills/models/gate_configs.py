@@ -80,11 +80,16 @@ from __future__ import annotations
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 import dataclasses
 ||||||| 0e893bd
 =======
 import dataclasses
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+=======
+import dataclasses
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
 from dataclasses import dataclass, field
 <<<<<<< HEAD
 from typing import Any
@@ -240,6 +245,23 @@ class BaseGateConfig:
 
 
 # ---------------------------------------------------------------------------
+# BaseGateConfig
+# ---------------------------------------------------------------------------
+
+
+class BaseGateConfig:
+    """Base class for all gate configuration dataclasses.
+
+    Provides :meth:`model_dump` so gate orchestration code can serialise
+    any config to a plain ``dict`` without importing Pydantic.
+    """
+
+    def model_dump(self) -> dict[str, object]:
+        """Return the config fields as a plain dictionary."""
+        return dataclasses.asdict(self)  # type: ignore[call-overload]
+
+
+# ---------------------------------------------------------------------------
 # DocsFreshnessGate
 # ---------------------------------------------------------------------------
 
@@ -257,6 +279,7 @@ class DocsFreshnessGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class DocsFreshnessGateConfig:
 =======
 class DocsFreshnessGateConfig(BaseGateConfig):
@@ -266,6 +289,11 @@ class DocsFreshnessGateConfig:
 =======
 class DocsFreshnessGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class DocsFreshnessGateConfig:
+=======
+class DocsFreshnessGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the documentation-freshness gate.
 
     Attributes
@@ -343,6 +371,7 @@ class CoverageGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class CoverageGateConfig:
 =======
 class CoverageGateConfig(BaseGateConfig):
@@ -352,6 +381,11 @@ class CoverageGateConfig:
 =======
 class CoverageGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class CoverageGateConfig:
+=======
+class CoverageGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the code-coverage gate.
 
     Attributes
@@ -483,6 +517,7 @@ class RegressionGateConfig(BaseGateConfig):
 class RegressionGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class RegressionGateConfig:
 =======
 class RegressionGateConfig(BaseGateConfig):
@@ -492,6 +527,11 @@ class RegressionGateConfig:
 =======
 class RegressionGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class RegressionGateConfig:
+=======
+class RegressionGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the regression (test-suite) gate."""
 =======
 class RegressionGateConfig(BaseGateConfig):
@@ -538,6 +578,7 @@ class SecurityGateConfig(BaseGateConfig):
 class SecurityGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class SecurityGateConfig:
 =======
 class SecurityGateConfig(BaseGateConfig):
@@ -547,6 +588,11 @@ class SecurityGateConfig:
 =======
 class SecurityGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class SecurityGateConfig:
+=======
+class SecurityGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the security-scan gate (pip-audit / npm audit / bandit)."""
 =======
 class SecurityGateConfig(BaseGateConfig):
@@ -575,6 +621,7 @@ class PerformanceGateConfig(BaseGateConfig):
 class PerformanceGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class PerformanceGateConfig:
 =======
 class PerformanceGateConfig(BaseGateConfig):
@@ -589,7 +636,15 @@ class PerformanceGateConfig(BaseGateConfig):
 class PerformanceGateConfig(BaseGateConfig):
     """Configuration for the performance-benchmark gate."""
 >>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
+||||||| 0e893bd
+class PerformanceGateConfig:
+    """Configuration for the performance-benchmark gate."""
+=======
+class PerformanceGateConfig(BaseGateConfig):
+    """Configuration for the performance-benchmark gate.
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     Attributes
     ----------
@@ -608,10 +663,61 @@ class PerformanceGateConfig(BaseGateConfig):
     enabled: bool = False
 ||||||| 0e893bd
     enabled: bool = False
+||||||| 0e893bd
+    enabled: bool = False
+=======
+    Attributes
+    ----------
+    enabled:
+        Whether the gate is active (default ``True``).  Set to ``False``
+        to skip the gate without removing its configuration.
+    fail_on_error:
+        When ``True`` (the default), *error*-severity violations cause the
+        gate to return ``passed=False`` and exit with a non-zero code.
+        Setting this to ``False`` downgrades all blocking violations to
+        *warnings* and lets the gate pass regardless.
+    thresholds_file:
+        Path to the YAML rules file that defines per-rule thresholds and
+        selectors (default: ``.harness/perf-thresholds.yml``).  Relative
+        paths are resolved against the ``repo_root`` passed to
+        :meth:`~harness_skills.gates.performance.PerformanceGate.run`.
+    spans_file:
+        Path to the JSON file containing span records collected by the
+        benchmark harness (default: ``perf-spans.json``).  Used only when
+        no ``spans`` argument is supplied directly to
+        :meth:`~harness_skills.gates.performance.PerformanceGate.run`.
+    baseline_file:
+        Optional path to a baseline spans JSON for regression comparison.
+        When empty (the default), regression checking is skipped even if
+        the thresholds YAML has ``baseline.enabled: true``.
+    output_file:
+        Optional path to write the ``perf-report.json`` output.  When
+        empty (the default), no file is written.
+    budget_ms:
+        Legacy single-threshold budget in milliseconds (retained for
+        backward compatibility).  Prefer using ``thresholds_file`` rules.
+    regression_threshold_pct:
+        Maximum acceptable performance regression vs. baseline as a
+        percentage (default: **10.0**).  Overridden by the
+        ``baseline.regression_threshold_pct`` field in the YAML when that
+        is present.
+    """
+
+    enabled: bool = True
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     fail_on_error: bool = True
+<<<<<<< HEAD
 =======
     enabled: bool = False  # off by default — requires .harness-perf.sh
 >>>>>>> feat/evaluation-gate-skill-generates-a-documentation-freshne
+||||||| 0e893bd
+=======
+    thresholds_file: str = ".harness/perf-thresholds.yml"
+    spans_file: str = "perf-spans.json"
+    baseline_file: str = ""
+    output_file: str = ""
+    # Legacy / simple threshold support
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
 
@@ -648,6 +754,7 @@ class ArchitectureGateConfig(BaseGateConfig):
 class ArchitectureGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class ArchitectureGateConfig:
 =======
 class ArchitectureGateConfig(BaseGateConfig):
@@ -657,6 +764,11 @@ class ArchitectureGateConfig:
 =======
 class ArchitectureGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class ArchitectureGateConfig:
+=======
+class ArchitectureGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the architecture (import-layer) gate."""
 =======
 class ArchitectureGateConfig(BaseGateConfig):
@@ -705,10 +817,16 @@ class PrinciplesGateConfig(BaseGateConfig):
 class PrinciplesGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class PrinciplesGateConfig:
 =======
 class PrinciplesGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-documentation-freshne
+||||||| 0e893bd
+class PrinciplesGateConfig:
+=======
+class PrinciplesGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the golden-principles gate."""
 =======
 class PrinciplesGateConfig(BaseGateConfig):
@@ -808,6 +926,7 @@ class TypesGateConfig(BaseGateConfig):
 class TypesGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class TypesGateConfig:
 =======
 class TypesGateConfig(BaseGateConfig):
@@ -817,6 +936,11 @@ class TypesGateConfig:
 =======
 class TypesGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class TypesGateConfig:
+=======
+class TypesGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the static type-checking gate (mypy / tsc / pyright)."""
 =======
 class TypesGateConfig(BaseGateConfig):
@@ -857,6 +981,7 @@ class LintGateConfig(BaseGateConfig):
 class LintGateConfig:
 ||||||| 0e893bd
 @dataclass
+<<<<<<< HEAD
 class LintGateConfig:
 =======
 class LintGateConfig(BaseGateConfig):
@@ -866,6 +991,11 @@ class LintGateConfig:
 =======
 class LintGateConfig(BaseGateConfig):
 >>>>>>> feat/evaluation-gate-skill-generates-a-golden-principles-com
+||||||| 0e893bd
+class LintGateConfig:
+=======
+class LintGateConfig(BaseGateConfig):
+>>>>>>> feat/evaluation-gate-skill-generates-a-performance-benchmark
     """Configuration for the linting gate (ruff / eslint / golangci-lint)."""
 =======
 class LintGateConfig(BaseGateConfig):
@@ -959,6 +1089,25 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
     "docs_freshness": DocsFreshnessGateConfig,
     "types":          TypesGateConfig,
     "lint":           LintGateConfig,
+}
+
+
+# ---------------------------------------------------------------------------
+# GATE_CONFIG_CLASSES
+# Ordered mapping of gate IDs → config class, used by the runner to iterate
+# built-in gates and by config_generator to produce YAML stanzas.
+# ---------------------------------------------------------------------------
+
+GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
+    "regression":    RegressionGateConfig,
+    "coverage":      CoverageGateConfig,
+    "security":      SecurityGateConfig,
+    "performance":   PerformanceGateConfig,
+    "architecture":  ArchitectureGateConfig,
+    "principles":    PrinciplesGateConfig,
+    "docs_freshness": DocsFreshnessGateConfig,
+    "types":         TypesGateConfig,
+    "lint":          LintGateConfig,
 }
 
 

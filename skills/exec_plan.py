@@ -25,13 +25,10 @@ Usage (CLI)
   # Show a text dependency graph
   python skills/exec_plan.py graph --plan PLAN-001
 
-<<<<<<< HEAD
   # Print context assembly hints for a plan or task
   python skills/exec_plan.py context --plan PLAN-001
   python skills/exec_plan.py context --plan PLAN-001 --task TASK-002
 
-||||||| 0e893bd
-=======
   # Link a PR URL back to the plan (run immediately after gh pr create)
   python skills/exec_plan.py link-pr --plan PLAN-001 --pr-url https://github.com/org/repo/pull/42 \
       --pr-number 42 --agent coding-03abe8fb --tasks TASK-003 TASK-004
@@ -39,7 +36,6 @@ Usage (CLI)
   # Verify every task has at least one linked PR
   python skills/exec_plan.py verify-prs --plan PLAN-001
 
->>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
 Programmatic use
 ----------------
   from skills.exec_plan import ExecPlan
@@ -710,14 +706,11 @@ def _build_parser() -> argparse.ArgumentParser:
     graph_p = sub.add_parser("graph", help="Print the dependency graph")
     graph_p.add_argument("--plan", required=True)
 
-<<<<<<< HEAD
     # context
     ctx_p = sub.add_parser("context", help="Print context assembly hints for a plan or task")
     ctx_p.add_argument("--plan", required=True)
     ctx_p.add_argument("--task", default=None, help="Task ID (e.g. TASK-001); omit for plan-level context")
 
-||||||| 0e893bd
-=======
     # link-pr
     link_p = sub.add_parser(
         "link-pr",
@@ -739,7 +732,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     verify_p.add_argument("--plan", required=True, help="Plan ID (e.g. PLAN-001)")
 
->>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
     return p
 
 
@@ -787,13 +779,10 @@ def main(argv: list[str] | None = None) -> None:
         plan = ExecPlan.load(args.plan)
         print(plan.dependency_graph())
 
-<<<<<<< HEAD
     elif args.command == "context":
         plan = ExecPlan.load(args.plan)
         plan.print_context(task_id=args.task)
 
-||||||| 0e893bd
-=======
     elif args.command == "link-pr":
         plan = ExecPlan.load(args.plan)
         plan.link_pr(
@@ -809,7 +798,6 @@ def main(argv: list[str] | None = None) -> None:
         if not ok:
             sys.exit(1)
 
->>>>>>> feat/execution-plans-skill-generates-a-plan-to-pr-linking-co
     else:
         parser.print_help()
         sys.exit(1)

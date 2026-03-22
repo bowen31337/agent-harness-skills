@@ -663,10 +663,11 @@ principles:
       harness_skills.generators.<module> directly (e.g.
       harness_skills.generators.evaluation, harness_skills.generators.manifest_generator,
       harness_skills.generators.config_generator).
-      Open violations (as of 2026-03-20):
-        harness_skills/cli/evaluate.py:40 — deep import from generators.evaluation.
-        harness_skills/cli/create.py:40 — deep import from generators.config_generator.
-        harness_skills/cli/manifest.py:118 — deep import from generators.manifest_generator (inline import).
+      Open violations (as of 2026-03-22):
+        harness_skills/cli/lint.py:29 — deep import from generators.evaluation (NEW).
+        harness_skills/cli/evaluate.py:42 — deep import from generators.evaluation.
+        harness_skills/cli/create.py:55 — deep import from generators.config_generator.
+        harness_skills/cli/manifest.py:138 — deep import from generators.manifest_generator (inline import).
         harness_skills/generators/config_generator.py:31 — deep import from models.gate_configs (cross-domain, see MB005).
         tests/test_generators/test_evaluation.py:20 — deep import from generators.evaluation.
         tests/test_generators/test_manifest_generator.py:21 — deep import from generators.manifest_generator.
