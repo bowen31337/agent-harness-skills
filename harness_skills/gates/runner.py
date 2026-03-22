@@ -682,55 +682,46 @@ def check_architecture(
 def check_principles(
     project_root: Path, cfg: PrinciplesGateConfig
 ) -> list[GateFailure]:
-    """Scan for violations of coding principles (magic numbers, hardcoded URLs)."""
-    import ast as _ast
-    import re as _re
+    """Scan for golden-principles violations and return blocking failures.
 
-    active_rules = set(cfg.rules)
+    Delegates to :class:`~harness_skills.gates.principles.PrinciplesGate`
+    which loads ``.claude/principles.yaml``, maps each principle's
+    ``severity`` field to a :class:`GateFailure` severity level, and runs
+    built-in AST scanners for automatically detectable violations.
+
+    Severity mapping
+    ----------------
+    * YAML ``severity: "blocking"`` → ``GateFailure.severity = "error"``
+      (fails the gate when ``cfg.fail_on_critical=True``)
+    * YAML ``severity: "warning"`` → ``GateFailure.severity = "warning"``
+    * YAML ``severity: "suggestion"`` → ``GateFailure.severity = "info"``
+
+    When ``cfg.fail_on_critical=False`` all ``"error"``-level violations are
+    downgraded to ``"warning"`` so the gate runs in advisory mode.
+    """
+    from harness_skills.gates.principles import PrinciplesGate
+    from harness_skills.gates.principles import GateConfig as _PrinciplesGateConfig
+
+    gate_cfg = _PrinciplesGateConfig(
+        fail_on_critical=getattr(cfg, "fail_on_critical", True),
+        fail_on_error=cfg.fail_on_error,
+        principles_file=cfg.principles_file,
+        rules=list(cfg.rules),
+    )
+    gate = PrinciplesGate(gate_cfg)
+    result = gate.run(project_root)
+
     failures: list[GateFailure] = []
-    url_re = _re.compile(r"https?://[^\s\"']+")
-    ALLOWED_NUMBERS = {0, 1, -1, 2, 100, 1000}
-
-    for py_file in sorted(project_root.rglob("*.py")):
-        if any(p in py_file.parts for p in {".venv", "venv", "__pycache__", ".git"}):
-            continue
-        try:
-            source = py_file.read_text(encoding="utf-8", errors="replace")
-            tree = _ast.parse(source, filename=str(py_file))
-        except SyntaxError:
-            continue
-
-        rel = _repo_rel(py_file, project_root)
-
-        for node in _ast.walk(tree):
-            if "no_magic_numbers" in active_rules:
-                if isinstance(node, _ast.Constant) and isinstance(node.value, (int, float)):
-                    if node.value not in ALLOWED_NUMBERS and abs(node.value) > 1:
-                        failures.append(GateFailure(
-                            gate_id="principles", severity="warning",
-                            message=f"Magic number {node.value!r} — extract to a named constant.",
-                            file_path=rel, line_number=node.lineno,
-                            suggestion=(
-                                f"Replace {node.value!r} with a named constant, e.g. "
-                                f"`THRESHOLD = {node.value!r}` in a config module."
-                            ),
-                            rule_id="principles/no-magic-numbers",
-                        ))
-
-            if "no_hardcoded_urls" in active_rules:
-                if isinstance(node, _ast.Constant) and isinstance(node.value, str):
-                    if url_re.search(node.value) and len(node.value) > 10:
-                        failures.append(GateFailure(
-                            gate_id="principles", severity="warning",
-                            message=f"Hard-coded URL: {node.value[:60]!r}",
-                            file_path=rel, line_number=node.lineno,
-                            suggestion=(
-                                "Move this URL to harness.config.yaml or an env var. "
-                                "Hard-coded URLs make environment switching harder."
-                            ),
-                            rule_id="principles/no-hardcoded-urls",
-                        ))
-
+    for v in result.violations:
+        failures.append(GateFailure(
+            gate_id="principles",
+            severity=v.severity,
+            message=v.message,
+            file_path=v.file_path,
+            line_number=v.line_number,
+            suggestion=v.suggestion,
+            rule_id=v.rule_id,
+        ))
     return failures
 
 

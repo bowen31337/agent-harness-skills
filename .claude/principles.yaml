@@ -611,13 +611,21 @@ principles:
     severity: "blocking"
     applies_to: ["review-pr", "check-code"]
     rule: >
-      harness_skills/cli: __all__ = ["cli", "PipelineGroup"] is now declared.
+      harness_skills/cli: __all__ = ["cli", "PipelineGroup", "VerbosityLevel",
+      "get_verbosity", "vecho"] is now declared.
       All imports from outside harness_skills/cli/ must go through
       harness_skills.cli (the subpackage root), never from
       harness_skills.cli.<module> directly.
       The private function `_emit` in harness_skills/cli/observe.py must not
       be imported by any file outside the cli subpackage; the test in
       tests/test_models/test_observe.py:232 that does so must be refactored.
+      Open violations (as of 2026-03-22) — non-cli modules importing cli internals:
+        harness_skills/telemetry_reporter.py:37 → from harness_skills.cli.fmt import ...
+        harness_skills/telemetry_reporter.py:38 → from harness_skills.cli.verbosity import ...
+        harness_skills/resume.py:483 → from harness_skills.cli.fmt import resolve_output_format
+        harness_skills/resume.py:484 → from harness_skills.cli.verbosity import VerbosityLevel, vecho
+      Fix: use `from harness_skills.cli import VerbosityLevel, vecho, get_verbosity`
+      (symbols already in __all__); for fmt helpers not yet in __all__, add them first.
       Never weaken __all__ by removing symbols without a deprecation cycle.
 
   - id: "MB003"

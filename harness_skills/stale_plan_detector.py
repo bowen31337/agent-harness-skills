@@ -53,14 +53,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import Severity, Status
 from harness_skills.models.stale import (
-<<<<<<< HEAD
     ArtifactResult,
     ArtifactStaleness,
-||||||| 0e893bd
-=======
-    ArtifactStalenessEntry,
-    ArtifactStalenessSummary,
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
     StalePlanResponse,
     StalePlanSummary,
     StaleTask,
@@ -71,7 +65,6 @@ from harness_skills.models.stale import (
 DEFAULT_THRESHOLD_SECONDS: float = 1800.0   # 30 minutes
 DEFAULT_MODEL: str = "claude-opus-4-6"
 DEFAULT_PLAN_ID: str = "default-plan"
-<<<<<<< HEAD
 DEFAULT_ARTIFACT_THRESHOLD_DAYS: int = 30
 
 # Canonical artifact files every harness project should maintain
@@ -207,21 +200,6 @@ def _is_ignored_path(rel: str) -> bool:
     ignored_prefixes = (".git/", "node_modules/", ".venv/", ".claw-forge/")
     return any(rel.startswith(p) for p in ignored_prefixes)
 
-||||||| 0e893bd
-=======
-DEFAULT_ARTIFACT_THRESHOLD_DAYS: int = 30
-
-# Canonical artifact files that every harness project should maintain
-CANONICAL_ARTIFACTS: list[str] = [
-    "AGENTS.md",
-    "ARCHITECTURE.md",
-    "PRINCIPLES.md",
-    "EVALUATION.md",
-]
-
-# Directories to skip when scanning for subdirectory AGENTS.md files
-_SKIP_DIRS: frozenset[str] = frozenset({".git", "node_modules", ".venv", "__pycache__"})
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 
 # ── Input schema ───────────────────────────────────────────────────────────────
 
@@ -500,15 +478,7 @@ def detect_stale_plan(
     artifact_threshold_days: int = DEFAULT_ARTIFACT_THRESHOLD_DAYS,
     artifact_base_dir: str | Path | None = None,
     now: datetime | None = None,
-<<<<<<< HEAD
     today: date | None = None,
-||||||| 0e893bd
-=======
-    artifact_threshold_days: int = DEFAULT_ARTIFACT_THRESHOLD_DAYS,
-    skip_artifacts: bool = False,
-    base_dir: Path | None = None,
-    today: date | None = None,
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 ) -> StalePlanResponse:
     """Detect stale tasks in an execution plan and optionally analyse them with Claude.
 
@@ -536,23 +506,9 @@ def detect_stale_plan(
         Reference timestamp for computing idle durations.  Defaults to
         ``datetime.now(tz=timezone.utc)`` at call time.  Pass an explicit
         value in tests to freeze time and get deterministic results.
-<<<<<<< HEAD
     today:
         Reference date for artifact age calculation.  Defaults to ``date.today()``.
         Pass an explicit value in tests to get deterministic results.
-||||||| 0e893bd
-=======
-    artifact_threshold_days:
-        Maximum age (days) of canonical artifact files before they are flagged.
-    skip_artifacts:
-        If *True*, skip the artifact freshness scan entirely.
-    base_dir:
-        Root directory used when scanning for artifact files.  Defaults to
-        ``Path.cwd()``.
-    today:
-        Reference date for artifact age calculation.  Defaults to
-        ``date.today()``.  Pass an explicit value in tests.
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 
     Returns
     -------
@@ -653,7 +609,6 @@ def detect_stale_plan(
         else None
     )
 
-<<<<<<< HEAD
     # ── 6. Artifact freshness scan ─────────────────────────────────────────────
     artifact_staleness_result: ArtifactStaleness | None = None
     if not skip_artifacts:
@@ -663,18 +618,6 @@ def detect_stale_plan(
             today=today,
         )
 
-||||||| 0e893bd
-=======
-    # ── 6. Artifact freshness scan ────────────────────────────────────────────
-    artifact_staleness: ArtifactStalenessSummary | None = None
-    if not skip_artifacts:
-        artifact_staleness = scan_artifact_freshness(
-            base_dir=base_dir,
-            threshold_days=artifact_threshold_days,
-            today=today,
-        )
-
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
     duration_ms = (time.monotonic_ns() - start_ns) // 1_000_000
 
     return StalePlanResponse(
@@ -686,12 +629,7 @@ def detect_stale_plan(
         stale_task_details=stale_task_details,
         llm_analysis=llm_analysis,
         analysis_model=model if llm_analysis else None,
-<<<<<<< HEAD
         artifact_staleness=artifact_staleness_result,
-||||||| 0e893bd
-=======
-        artifact_staleness=artifact_staleness,
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
     )
 
 
@@ -896,7 +834,6 @@ def _render_human_report(response: StalePlanResponse) -> None:  # noqa: C901
     default=False,
     help="Pretty-print the JSON output (2-space indent).",
 )
-<<<<<<< HEAD
 @click.option(
     "--artifact-threshold-days",
     default=DEFAULT_ARTIFACT_THRESHOLD_DAYS,
@@ -910,22 +847,6 @@ def _render_human_report(response: StalePlanResponse) -> None:  # noqa: C901
     default=False,
     help="Skip the artifact freshness scan entirely.",
 )
-||||||| 0e893bd
-=======
-@click.option(
-    "--artifact-threshold-days",
-    default=DEFAULT_ARTIFACT_THRESHOLD_DAYS,
-    show_default=True,
-    type=int,
-    help="Maximum artifact age in days before flagging as stale.",
-)
-@click.option(
-    "--skip-artifacts",
-    is_flag=True,
-    default=False,
-    help="Skip the artifact freshness scan entirely.",
-)
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 def cli(
     plan_file: str,
     threshold: float,
@@ -986,14 +907,8 @@ def cli(
         model=model,
         api_key=api_key,
         skip_llm=skip_llm,
-<<<<<<< HEAD
         skip_artifacts=skip_artifacts,
         artifact_threshold_days=artifact_threshold_days,
-||||||| 0e893bd
-=======
-        artifact_threshold_days=artifact_threshold_days,
-        skip_artifacts=skip_artifacts,
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
     )
 
     # ── Render human-readable report to stderr ─────────────────────────────────
