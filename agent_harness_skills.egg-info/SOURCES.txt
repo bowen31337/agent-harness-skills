@@ -45,7 +45,10 @@ harness_skills/cli/verbosity.py
 harness_skills/gates/__init__.py
 harness_skills/gates/coverage.py
 harness_skills/gates/docs_freshness.py
+harness_skills/gates/performance.py
+harness_skills/gates/principles.py
 harness_skills/gates/runner.py
+harness_skills/gates/security.py
 harness_skills/generators/__init__.py
 harness_skills/generators/config_generator.py
 harness_skills/generators/evaluation.py

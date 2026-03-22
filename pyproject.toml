@@ -105,6 +105,28 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+# Suppress import-untyped: third-party libs without stubs (e.g. requests,
+# playwright) are covered by ignore_missing_imports; this silences the
+# stricter "library exists but ships no py.typed marker" variant.
+disable_error_code = ["import-untyped"]
+# Exclude standalone script directories that are not importable packages
+# (no __init__.py) to avoid double-module-name collisions.
+exclude = [
+    "skills/",
+    "examples/",
+    "scripts/",
+    "git_checkpoint\\.py",
+    "checkpoint_agent\\.py",
+    "coordinate\\.py",
+    "handoff\\.py",
+    "harness_context\\.py",
+    "harness_status\\.py",
+    "harness_telemetry\\.py",
+    "stale_plan_detector\\.py",
+    "task_lock_example\\.py",
+    "performance_hooks_example\\.py",
+    "example\\.py",
+]
 
 # ---------------------------------------------------------------------------
 # Pytest

@@ -30,6 +30,7 @@ from harness_skills.gates.runner import (
     HarnessConfigLoader,
     run_gates,
 )
+from harness_skills.models.gate_configs import SecurityGateConfig
 
 __all__ = [
     # ── coverage gate ────────────────────────────────────────────────────────
