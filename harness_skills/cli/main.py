@@ -117,9 +117,9 @@ class PipelineGroup(click.Group):
             )
             last_result = result
 
-            if isinstance(result, int) and result \!= 0:
+            if isinstance(result, int) and result != 0:
                 click.echo(
-                    f"[harness pipeline] Stage {i + 1} ({seg[0]\!r}) failed "
+                    f"[harness pipeline] Stage {i + 1} ({seg[0]!r}) failed "
                     f"(exit {result}) — aborting remaining stages.",
                     err=True,
                 )

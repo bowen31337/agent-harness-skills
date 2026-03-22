@@ -154,7 +154,7 @@ def _passes_filters(
         return False
 
     # Trace-ID gate
-    if trace_id_filter and entry.get("trace_id", "") \!= trace_id_filter:
+    if trace_id_filter and entry.get("trace_id", "") != trace_id_filter:
         return False
 
     return True
@@ -182,7 +182,7 @@ def _format_pretty(entry: dict, *, color: bool) -> str:
     parts: list[str] = [ts, level_str, domain_str, f"[{short_tid}]", message]
 
     if extra:
-        extra_pairs = "  ".join(f"{k}={v\!r}" for k, v in extra.items())
+        extra_pairs = "  ".join(f"{k}={v!r}" for k, v in extra.items())
         parts.append(
             f"{_EXTRA_COLOUR}{extra_pairs}{_ANSI_RESET}" if color else extra_pairs
         )

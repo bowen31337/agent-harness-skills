@@ -130,6 +130,10 @@ conflict_clusters:
   - coding-b7da9203
   - coding-e4908d0c
   recommendation: serialise; locking semantics are sensitive to ordering
+# intermediate_results — written by /harness:shared-state publish
+# Each entry: {agent_id, timestamp, category, key, value, ttl_minutes}
+# Categories: endpoints | schema_changes | test_results | config | custom
+# Query with: /harness:shared-state query --category <category>
 intermediate_results: []
 execution_plan:
   strategy: parallel-with-serialised-hotspots
