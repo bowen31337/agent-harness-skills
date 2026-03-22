@@ -1,16 +1,8 @@
 # AGENTS.md
 
 <!-- harness:auto-generated — do not edit this block manually -->
-<<<<<<< HEAD
 last_updated: 2026-03-22
 head: 157af7b
-||||||| 0e893bd
-last_updated: 2026-03-20
-head: ca0b0a3
-=======
-last_updated: 2026-03-21
-head: 0e893bd
->>>>>>> feat/skill-invocatio-skill-registers-as-harness-update-for-r
 service: agent-harness-skills
 <!-- /harness:auto-generated -->
 
