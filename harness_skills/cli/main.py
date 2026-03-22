@@ -24,7 +24,12 @@ from typing import Any
 
 import click
 
+<<<<<<< HEAD
 from harness_skills.cli.completion_report import completion_report_cmd
+||||||| 7446a2f
+=======
+from harness_skills.cli.boot import boot_cmd
+>>>>>>> feat/skill-invocatio-skill-registers-as-harness-boot-for-lau
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
 from harness_skills.cli.lint import lint_cmd
@@ -635,7 +640,12 @@ def cli(ctx: click.Context, verbosity: str) -> None:
 >>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 
 
+<<<<<<< HEAD
 cli.add_command(completion_report_cmd)
+||||||| 7446a2f
+=======
+cli.add_command(boot_cmd)
+>>>>>>> feat/skill-invocatio-skill-registers-as-harness-boot-for-lau
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
 cli.add_command(lint_cmd)

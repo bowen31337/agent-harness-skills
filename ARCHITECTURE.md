@@ -1,6 +1,6 @@
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-20
-head: f63c51b
+last_updated: 2026-03-22
+head: 157af7b
 artifact: architecture
 <!-- /harness:auto-generated -->
 

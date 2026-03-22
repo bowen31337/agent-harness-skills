@@ -30,4 +30,4 @@ BASE_URL=https://staging.example.com pytest tests/browser/ -v
 - State service: http://localhost:8888
 - Report task complete: PATCH /features/{id} with status=done
 - Request human input: POST /features/{id}/human-input
-- Skills available: 19 skills in `.claude/commands/` — run `/harness:context` for details
+- Skills available: 34 skills in `.claude/commands/` — run `/harness:context` for details

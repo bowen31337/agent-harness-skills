@@ -1,6 +1,8 @@
-"""Typed response model for ``harness create`` (/harness:create)."""
+"""Typed response models for ``harness create`` (/harness:create)."""
 
 from __future__ import annotations
+
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -71,4 +73,55 @@ class CreateResponse(HarnessResponse):
     warnings: list[Violation] = Field(
         default_factory=list,
         description="Non-fatal warnings emitted during generation.",
+    )
+
+
+class CreateConfigResponse(HarnessResponse):
+    """Response schema for the ``harness create`` config-generator CLI command.
+
+    This is the lightweight response for the YAML config-file writer
+    (``harness.config.yaml``).  For the full harness initialisation response
+    (AGENTS.md, ARCHITECTURE.md, schemas, etc.) see :class:`CreateResponse`.
+
+    Example (new file)::
+
+        {
+          "command": "harness create",
+          "status": "passed",
+          "timestamp": "2026-03-22T10:00:00+00:00",
+          "action": "created",
+          "path": "harness.config.yaml",
+          "profile": "standard",
+          "stack": "python"
+        }
+
+    Example (merged into existing file)::
+
+        {
+          "command": "harness create",
+          "status": "passed",
+          "action": "updated",
+          "path": "harness.config.yaml",
+          "profile": "advanced",
+          "stack": null
+        }
+    """
+
+    command: str = "harness create"
+
+    action: str = Field(
+        description=(
+            "'created' when a new harness.config.yaml was written from scratch; "
+            "'updated' when the gates block was merged into an existing file."
+        ),
+    )
+    path: str = Field(
+        description="Destination path of the written or updated harness.config.yaml.",
+    )
+    profile: str = Field(
+        description="Complexity profile used to generate gate defaults (starter | standard | advanced).",
+    )
+    stack: Optional[str] = Field(
+        default=None,
+        description="Stack hint used for generation (None = auto-detected from project files).",
     )

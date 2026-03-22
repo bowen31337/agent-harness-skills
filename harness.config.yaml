@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 # HARNESS METADATA — auto-updated by /harness:update (do not edit manually)
 # ---------------------------------------------------------------------------
-updated_at: "2026-03-22T00:00:00Z"
+updated_at: "2026-03-22T18:59:23Z"
 
 stack:
   languages: [python]
@@ -20,7 +20,7 @@ stack:
 agents_md_files:
   - ./AGENTS.md
 
-skill_count: 19
+skill_count: 34
 
 # ---------------------------------------------------------------------------
 # ACTIVE PROFILE — change this value to switch between profiles

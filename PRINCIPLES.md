@@ -1,3 +1,9 @@
+<!-- harness:auto-generated — do not edit this block manually -->
+last_updated: 2026-03-22
+head: 157af7b
+artifact: principles
+<!-- /harness:auto-generated -->
+
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
 > Each rule is stated as a short imperative, followed by its rationale and a concrete example.

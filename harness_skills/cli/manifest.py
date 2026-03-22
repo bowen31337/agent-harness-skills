@@ -24,23 +24,17 @@ Exit codes::
 from __future__ import annotations
 
 import json
-import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import click
-<<<<<<< HEAD
 import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-
 from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
-||||||| 9c7e5db
-=======
-import yaml
-
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
+from harness_skills.models.base import Status
+from harness_skills.models.manifest import ManifestValidateResponse, ManifestValidationError
 
 
 # ---------------------------------------------------------------------------
@@ -72,7 +66,7 @@ def manifest_cmd() -> None:
 )
 @output_format_option(
     help_extra=(
-        "json: machine-readable report with JSONPath error locations.  "
+        "json: machine-readable ManifestValidateResponse with JSONPath error locations.  "
         "yaml: same report as YAML.  "
         "table: human-readable text with checkmarks/crosses."
     ),
@@ -97,7 +91,7 @@ def validate_cmd(
     PATH defaults to ``harness_manifest.json`` in the current directory.
 
     \b
-    Validation errors are printed to stderr with JSONPath locations:
+    Validation errors are printed with JSONPath locations:
 
         $.artifacts[0].artifact_type  →  'bad_type' is not one of [...]
         $.detected_stack              →  'project_structure' is a required property
@@ -109,39 +103,22 @@ def validate_cmd(
         harness manifest validate --output-format json | jq '.errors'
         harness manifest validate --output-format yaml
     """
-<<<<<<< HEAD
-<<<<<<< HEAD
-    # --json flag is a deprecated alias for --output-format json
-    if output_json_flag and output_format is None:
-        output_format = "json"
-
-    fmt = resolve_output_format(output_format)
-
-||||||| 9c7e5db
-=======
     verbosity = get_verbosity(ctx)
 
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
     # --json flag is a deprecated alias for --output-format json
     if output_json_flag and output_format is None:
         output_format = "json"
 
     fmt = resolve_output_format(output_format)
 
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     # ------------------------------------------------------------------
     # 1. Read the file
     # ------------------------------------------------------------------
     vecho(f"  Validating: {path}", verbosity=verbosity, min_level=VerbosityLevel.verbose)
 
     if not path.exists():
-        _emit_error(
-            fmt=fmt,
-            error=f"harness manifest validate: file not found: {path}",
-            path=path,
-        )
+        error_msg = f"harness manifest validate: file not found: {path}"
+        _emit_error(fmt=fmt, error=error_msg, path=path, verbosity=verbosity)
         ctx.exit(2)
         return
 
@@ -149,11 +126,8 @@ def validate_cmd(
         raw = path.read_text(encoding="utf-8")
         data: dict = json.loads(raw)
     except json.JSONDecodeError as exc:
-        _emit_error(
-            fmt=fmt,
-            error=f"harness manifest validate: invalid JSON in {path}: {exc}",
-            path=path,
-        )
+        error_msg = f"harness manifest validate: invalid JSON in {path}: {exc}"
+        _emit_error(fmt=fmt, error=error_msg, path=path, verbosity=verbosity)
         ctx.exit(2)
         return
 
@@ -165,7 +139,7 @@ def validate_cmd(
             validate_manifest,
         )
     except ImportError as exc:
-        _emit_error(fmt=fmt, error=str(exc), path=path)
+        _emit_error(fmt=fmt, error=str(exc), path=path, verbosity=verbosity)
         ctx.exit(1)
         return
 
@@ -174,34 +148,31 @@ def validate_cmd(
     # ------------------------------------------------------------------
     errors = validate_manifest(data)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
+    vecho(
+        f"  Found {len(errors)} error(s) in {path}",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.verbose,
+    )
+
     if fmt in ("json", "yaml"):
-||||||| 9c7e5db
-    if output_json:
-=======
-    if output_json:
-        # JSON output is always machine-parseable — always emitted.
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-    if output_json:
-=======
-    if fmt in ("json", "yaml"):
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
-        result = {
-            "valid": len(errors) == 0,
-            "path": str(path),
-            "error_count": len(errors),
-            "errors": [
-                {"jsonpath": jp, "message": msg} for jp, msg in errors
+        response = ManifestValidateResponse(
+            status=Status.PASSED if not errors else Status.FAILED,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            valid=len(errors) == 0,
+            path=str(path),
+            error_count=len(errors),
+            errors=[
+                ManifestValidationError(jsonpath=jp, message=msg)
+                for jp, msg in errors
             ],
-        }
+        )
         if fmt == "json":
-            click.echo(json.dumps(result, indent=2))
+            click.echo(response.model_dump_json(indent=2))
         else:
+            data_out = json.loads(response.model_dump_json())
             click.echo(
                 yaml.dump(
-                    result,
+                    data_out,
                     default_flow_style=False,
                     sort_keys=False,
                     allow_unicode=True,
@@ -214,7 +185,6 @@ def validate_cmd(
 
     # Human-readable table output
     if not errors:
-        # Success message suppressed in quiet mode (not machine-parseable).
         vecho(
             f"✓  {path}  is valid against harness_manifest.schema.json",
             verbosity=verbosity,
@@ -248,21 +218,25 @@ def _emit_error(
     fmt: str,
     error: str,
     path: Optional[Path] = None,
+    verbosity: str = VerbosityLevel.normal,
 ) -> None:
-    """Emit a fatal error in either JSON, YAML, or human-readable format."""
+    """Emit a fatal error as a schema-validated ManifestValidateResponse or plain text."""
     if fmt in ("json", "yaml"):
-        result = {
-            "valid": False,
-            "path": str(path) if path is not None else None,
-            "error_count": 1,
-            "errors": [{"jsonpath": "$", "message": error}],
-        }
+        response = ManifestValidateResponse(
+            status=Status.FAILED,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            valid=False,
+            path=str(path) if path is not None else "",
+            error_count=1,
+            errors=[ManifestValidationError(jsonpath="$", message=error)],
+        )
         if fmt == "json":
-            click.echo(json.dumps(result, indent=2))
+            click.echo(response.model_dump_json(indent=2))
         else:
+            data_out = json.loads(response.model_dump_json())
             click.echo(
                 yaml.dump(
-                    result,
+                    data_out,
                     default_flow_style=False,
                     sort_keys=False,
                     allow_unicode=True,
@@ -270,4 +244,4 @@ def _emit_error(
                 nl=False,
             )
     else:
-        click.echo(error, err=True)
+        vecho(error, verbosity=verbosity, min_level=VerbosityLevel.quiet, err=True)

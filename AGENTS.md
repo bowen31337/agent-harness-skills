@@ -1,8 +1,8 @@
 # AGENTS.md
 
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-20
-head: ca0b0a3
+last_updated: 2026-03-22
+head: 157af7b
 service: agent-harness-skills
 <!-- /harness:auto-generated -->
 
