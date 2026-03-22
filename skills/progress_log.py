@@ -73,6 +73,7 @@ Entry statuses
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -139,11 +140,11 @@ def _now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _ensure_file() -> None:
-    """Create docs/exec-plans/progress.md if it does not yet exist."""
-    PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if not PROGRESS_FILE.exists():
-        PROGRESS_FILE.write_text(_HEADER, encoding="utf-8")
+def _ensure_file(path: Path = PROGRESS_FILE) -> None:
+    """Create the progress log file (and parent dirs) if it does not yet exist."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(_HEADER, encoding="utf-8")
 
 
 def _build_row(
@@ -199,8 +200,10 @@ def _parse_row(line: str) -> Optional[ProgressEntry]:
     line = line.strip()
     if not line.startswith("|") or line.startswith("|---") or line.startswith("| Tim"):
         return None
-    # Strip leading/trailing pipe, split on |
-    parts = [p.strip() for p in line.strip("|").split("|")]
+    # Split on | that is NOT preceded by a backslash (i.e. not escaped \|).
+    # Stripping the outer leading/trailing pipes first keeps part counts stable.
+    inner = line.strip("|")
+    parts = [p.strip() for p in re.split(r"(?<!\\)\|", inner)]
     if len(parts) < 6:
         return None
     timestamp, plan_id, step, status_label, agent, *rest = parts
@@ -277,7 +280,7 @@ class ProgressLog:
         """
         status = _normalise_status(status)
         ts = timestamp or _now_utc()
-        _ensure_file()
+        _ensure_file(self._file)
 
         row = _build_row(ts, plan_id, step, status, agent, message)
 
