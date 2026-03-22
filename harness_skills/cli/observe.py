@@ -17,11 +17,11 @@ Filtering
 
 Output modes
 ------------
-``--format pretty``  (default)
+``--output-format table``  (default)
     ANSI-coloured, human-readable line per entry (mirrors
     ``PrettyConventionFormatter``).
 
-``--format json``
+``--output-format json``
     Raw NDJSON — one JSON object per line, suitable for piping to ``jq``.
 
 Examples
@@ -41,7 +41,7 @@ Examples
     harness observe --level ERROR --lines 100 --no-follow
 
     # Pipe raw NDJSON to jq
-    harness observe --format json --domain harness | jq .message
+    harness observe --output-format json --domain harness | jq .message
 
     # Point at a non-default log file
     harness observe --log-file /var/log/harness/app.ndjson
@@ -59,17 +59,8 @@ from typing import Optional
 import click
 from pydantic import ValidationError
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-||||||| 9c7e5db
-=======
 from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.models.observe import LogEntry, ObserveResponse
 
 # ---------------------------------------------------------------------------
@@ -163,19 +154,14 @@ def _passes_filters(
         return False
 
     # Trace-ID gate
-    if trace_id_filter and entry.get("trace_id", "") != trace_id_filter:
+    if trace_id_filter and entry.get("trace_id", "") \!= trace_id_filter:
         return False
 
     return True
 
 
 def _format_pretty(entry: dict, *, color: bool) -> str:
-    """Render a parsed log entry as a human-readable line.
-
-    Format (mirrors ``PrettyConventionFormatter``)::
-
-        <timestamp>  <LEVEL>  <domain>  [<trace8>]  <message>  <extra k=v …>
-    """
+    """Render a parsed log entry as a human-readable line."""
     ts       = entry.get("timestamp", "")
     level    = entry.get("level", "?").upper()
     domain   = entry.get("domain", "")
@@ -196,7 +182,7 @@ def _format_pretty(entry: dict, *, color: bool) -> str:
     parts: list[str] = [ts, level_str, domain_str, f"[{short_tid}]", message]
 
     if extra:
-        extra_pairs = "  ".join(f"{k}={v!r}" for k, v in extra.items())
+        extra_pairs = "  ".join(f"{k}={v\!r}" for k, v in extra.items())
         parts.append(
             f"{_EXTRA_COLOUR}{extra_pairs}{_ANSI_RESET}" if color else extra_pairs
         )
@@ -251,37 +237,15 @@ def _tail_file(
     color: bool,
     verbosity: str = VerbosityLevel.normal,
 ) -> _TailStats:
-    """Open *path*, emit matching existing lines, then follow new writes.
-
-    Parameters
-    ----------
-    path:          Path to the NDJSON log file.
-    follow:        If *True*, keep tailing after existing content is exhausted.
-    lines:         How many trailing existing lines to scan before following
-                   (0 = all existing lines).
-    domain:        Domain-prefix filter (``None`` = no filter).
-    trace_id:      Exact trace-ID filter (``None`` = no filter).
-    min_level:     Minimum severity level order value.
-    output_format: ``"pretty"`` or ``"json"``.
-    color:         Whether to emit ANSI colour codes.
-
-    Returns
-    -------
-    _TailStats
-        Aggregate counters for the session.  Only meaningful in
-        ``--no-follow`` mode; in follow mode the stats cover all lines
-        emitted until Ctrl-C.
-    """
+    """Open *path*, emit matching existing lines, then follow new writes."""
     stats = _TailStats()
 
     # ── Wait for file if following ────────────────────────────────────────────
     if not path.exists():
         msg = f"[harness:observe] Log file not found: {path}"
         if not follow:
-            # Error — always shown.
             vecho(msg, verbosity=verbosity, min_level=VerbosityLevel.quiet, err=True)
             sys.exit(1)
-        # Status message — suppressed in quiet mode.
         vecho(
             msg + "  Waiting for it to appear…",
             verbosity=verbosity,
@@ -333,7 +297,7 @@ def _tail_file(
 
     filter_desc = ""
     if domain:
-        filter_desc += f"  domain={domain!r}"
+        filter_desc += f"  domain={domain\!r}"
     if trace_id:
         filter_desc += f"  trace_id={trace_id[:8]}…"
     vecho(
@@ -503,7 +467,7 @@ def observe_cmd(
 
     \b
       # Pipe raw NDJSON to jq (disables colour automatically)
-      harness observe --format json --domain harness | jq '{ts: .timestamp, msg: .message}'
+      harness observe --output-format json --domain harness | jq '{ts: .timestamp, msg: .message}'
 
     \b
       # Non-default log file
@@ -517,20 +481,20 @@ def observe_cmd(
     fmt = resolve_output_format(output_format)
     internal_format = "json" if fmt == "json" else "pretty"
     # Enable colour only for pretty mode on a real TTY unless suppressed
-    color     = (
+    color = (
         not no_color
         and internal_format == "pretty"
         and sys.stdout.isatty()
     )
 
     # Verbose: show active filters before tailing begins.
-    if domain or trace_id or min_level_name.upper() != "DEBUG":
+    if domain or trace_id or min_level_name.upper() \!= "DEBUG":
         _filter_parts = []
         if domain:
-            _filter_parts.append(f"domain={domain!r}")
+            _filter_parts.append(f"domain={domain\!r}")
         if trace_id:
             _filter_parts.append(f"trace_id={trace_id[:8]}…")
-        if min_level_name.upper() != "DEBUG":
+        if min_level_name.upper() \!= "DEBUG":
             _filter_parts.append(f"level≥{min_level_name.upper()}")
         vecho(
             "  Filters: " + ", ".join(_filter_parts),

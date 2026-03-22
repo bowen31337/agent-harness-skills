@@ -53,17 +53,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-||||||| 9c7e5db
-=======
-from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.models.base import Status
 from harness_skills.models.status import (
     DashboardSummary,
@@ -584,17 +574,7 @@ def status_cmd(
         1   No plan data found.
         2   Parse / validation error.
     """
-<<<<<<< HEAD
-<<<<<<< HEAD
     fmt = resolve_output_format(output_format)
-||||||| 9c7e5db
-=======
-    verbosity = get_verbosity(ctx)
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
-    fmt = resolve_output_format(output_format)
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
     start_ms = int(time.monotonic() * 1000)
     plans: list[PlanSnapshot] = []
     data_sources: list[str] = []
@@ -703,35 +683,9 @@ def status_cmd(
     response.duration_ms = end_ms - start_ms
 
     # ── 7. Emit output ────────────────────────────────────────────────────────
-<<<<<<< HEAD
-<<<<<<< HEAD
     if fmt == "json":
-||||||| 9c7e5db
-    if output_format == "json":
-=======
-    if output_format == "json":
-        # Machine-parseable — always emitted regardless of verbosity.
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-    if output_format == "json":
-=======
-    if fmt == "json":
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(_format_json(response))
-<<<<<<< HEAD
-<<<<<<< HEAD
     elif fmt == "yaml":
-||||||| 9c7e5db
-    elif output_format == "yaml":
-=======
-    elif output_format == "yaml":
-        # Machine-parseable — always emitted regardless of verbosity.
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-    elif output_format == "yaml":
-=======
-    elif fmt == "yaml":
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(_format_yaml_output(response))
     else:
         _print_table_output(response, verbosity=verbosity)
