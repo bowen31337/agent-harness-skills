@@ -97,6 +97,16 @@ indent-style = "space"
 line-ending = "lf"
 
 # ---------------------------------------------------------------------------
+# Mypy — strict type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
 # Pytest
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
@@ -104,15 +114,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-<<<<<<< HEAD
+# --browser chromium  targets Chromium for the tests/browser/ suite.
+# pytest-playwright picks this up automatically; non-browser tests ignore it.
 addopts = "-v --tb=short --browser chromium"
 
 [tool.playwright]
 base_url = "http://localhost:3000"
-||||||| 0e893bd
-addopts = "-v --tb=short"
-=======
-# --browser chromium  targets Chromium for the tests/browser/ suite.
-# pytest-playwright picks this up automatically; non-browser tests ignore it.
-addopts = "-v --tb=short --browser chromium"
->>>>>>> feat/observability-a-skill-generates-browser-automation-inte

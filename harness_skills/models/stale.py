@@ -14,16 +14,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse, Severity
 
-<<<<<<< HEAD
 # Severity values used for artifact freshness (superset: adds "healthy")
 ArtifactSeverityLiteral = Literal["healthy", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
-||||||| 0e893bd
-=======
-# Type alias for artifact-level severity (includes the "healthy" baseline state)
-ArtifactSeverity = Literal["healthy", "INFO", "WARNING", "ERROR", "CRITICAL"]
-
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 
 # ── Per-task staleness detail ──────────────────────────────────────────────────
 
@@ -96,7 +89,6 @@ class StalePlanSummary(BaseModel):
     )
 
 
-<<<<<<< HEAD
 # ── Artifact freshness models ─────────────────────────────────────────────────
 
 
@@ -141,68 +133,6 @@ class ArtifactStaleness(BaseModel):
     results: list[ArtifactResult] = Field(default_factory=list)
 
 
-||||||| 0e893bd
-=======
-# ── Artifact freshness models ──────────────────────────────────────────────────
-
-
-class ArtifactStalenessEntry(BaseModel):
-    """Staleness detail for a single canonical harness artifact file."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    file: str = Field(description="Relative path to the artifact file.")
-    last_updated: str | None = Field(
-        default=None,
-        description=(
-            "Value of the last_updated field extracted from the file's "
-            "``<!-- harness:auto-generated -->`` front-matter block, "
-            "or None when the field is absent or the file is missing."
-        ),
-    )
-    age_days: int | None = Field(
-        default=None,
-        ge=0,
-        description=(
-            "Age of the artifact in whole days relative to today.  "
-            "None when the file is missing or the timestamp cannot be parsed."
-        ),
-    )
-    severity: ArtifactSeverity = Field(
-        description=(
-            "healthy  → age ≤ threshold; "
-            "INFO     → threshold < age ≤ 2× threshold; "
-            "WARNING  → 2× threshold < age ≤ 4× threshold, or timestamp missing; "
-            "ERROR    → file absent from repository; "
-            "CRITICAL → age > 4× threshold."
-        )
-    )
-
-
-class ArtifactStalenessSummary(BaseModel):
-    """Summary of artifact freshness across all canonical harness files."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    threshold_days: int = Field(
-        ge=0,
-        description="Maximum artifact age in days before the artifact is considered stale.",
-    )
-    artifacts_checked: int = Field(ge=0, description="Total number of artifact files inspected.")
-    stale_artifacts: int = Field(
-        ge=0,
-        description="Number of artifacts flagged as non-healthy (INFO, WARNING, ERROR, CRITICAL).",
-    )
-    missing_artifacts: int = Field(
-        ge=0, description="Number of expected artifact files that were not found on disk."
-    )
-    results: list[ArtifactStalenessEntry] = Field(
-        default_factory=list,
-        description="Per-file staleness detail, in the order the files were inspected.",
-    )
-
-
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
 # ── Top-level response ─────────────────────────────────────────────────────────
 
 
@@ -236,7 +166,6 @@ class StalePlanResponse(HarnessResponse):
         default=None,
         description="Model ID used for the LLM analysis, e.g. 'claude-opus-4-6'.",
     )
-<<<<<<< HEAD
     artifact_staleness: ArtifactStaleness | None = Field(
         default=None,
         description=(
@@ -245,14 +174,3 @@ class StalePlanResponse(HarnessResponse):
             "None when --skip-artifacts is passed."
         ),
     )
-||||||| 0e893bd
-=======
-    artifact_staleness: ArtifactStalenessSummary | None = Field(
-        default=None,
-        description=(
-            "Freshness report for canonical harness artifact files "
-            "(AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md). "
-            "None when artifact scanning is disabled via --skip-artifacts."
-        ),
-    )
->>>>>>> feat/execution-plans-skill-generates-a-stale-plan-detector-t
