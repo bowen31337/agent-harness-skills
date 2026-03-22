@@ -55,7 +55,6 @@ _GATE_ORDER = [
     "architecture", "principles", "docs_freshness", "types", "lint",
 ]
 
-<<<<<<< HEAD
 _PLUGIN_COMMENT = (
     "      # ── Custom plugin gates ─────────────────────────────────────────────\n"
     "      # Each entry runs a shell command; exit code 0=pass, non-zero=fail.\n"
@@ -71,40 +70,6 @@ _PLUGIN_COMMENT = (
     "      #       fail_on_error: true\n"
     "      plugins: []                       # replace [] with gate definitions"
 )
-||||||| 0e893bd
-_PLUGIN_COMMENT = textwrap.dedent("""\
-      # ── Custom plugin gates ─────────────────────────────────────────────
-      # Each entry runs a shell command; exit code 0=pass, non-zero=fail.
-      # Required: gate_id, gate_name, command
-      # Optional: timeout_seconds (60), fail_on_error (true), severity (error), env ({})
-      #
-      # Example:
-      #   plugins:
-      #     - gate_id: check_migrations
-      #       gate_name: "DB Migration Safety"
-      #       command: "python scripts/check_migrations.py"
-      #       timeout_seconds: 30
-      #       fail_on_error: true
-      plugins: []                       # replace [] with gate definitions""")
-=======
-# NOTE: leading whitespace is intentional — keeps plugins: at the same 6-space
-# indentation level as all other gate keys in the generated YAML fragment.
-_PLUGIN_COMMENT = (
-    "      # ── Custom plugin gates ─────────────────────────────────────────────\n"
-    "      # Each entry runs a shell command; exit code 0=pass, non-zero=fail.\n"
-    "      # Required: gate_id, gate_name, command\n"
-    "      # Optional: timeout_seconds (60), fail_on_error (true), severity (error), env ({})\n"
-    "      #\n"
-    "      # Example:\n"
-    "      #   plugins:\n"
-    "      #     - gate_id: check_migrations\n"
-    '      #       gate_name: "DB Migration Safety"\n'
-    '      #       command: "python scripts/check_migrations.py"\n'
-    "      #       timeout_seconds: 30\n"
-    "      #       fail_on_error: true\n"
-    "      plugins: []                       # replace [] with gate definitions"
-)
->>>>>>> feat/evaluation-gate-skill-generates-per-gate-configuration
 
 
 def _b(v: bool) -> str:
