@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Local-dev observability stack
+#
+# Services:
+#   vector  — file-based log collector; tails ./logs/**/*.ndjson, ships to Loki
+#   loki    — lightweight log aggregation store
+#   grafana — browser dashboard at http://localhost:3000 (admin/admin)
+#
+# Quick start:
+#   mkdir -p logs
+#   docker compose -f observability/docker-compose.yml up -d
+#   open http://localhost:3000
+#
+# Write logs to ./logs/<service>.ndjson and they appear in Grafana within ~2 s.
+# ──────────────────────────────────────────────────────────────────────────────
+
+version: "3.9"
+
+networks:
+  obs:
+    driver: bridge
+
+volumes:
+  loki-data:
+
+services:
+
+  # ── Vector: file-based log collector ───────────────────────────────────────
+  vector:
+    image: timberio/vector:0.39.0-alpine
+    container_name: obs_vector
+    restart: unless-stopped
+    networks: [obs]
+    volumes:
+      # Config file (read-only)
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      # Log directory from the host — Vector tails files here
+      - ../logs:/var/log/app:ro
+    command: ["--config", "/etc/vector/vector.toml"]
+    depends_on: [loki]
+    environment:
+      VECTOR_LOG: warn
+
+  # ── Loki: log aggregation backend ──────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.5
+    container_name: obs_loki
+    restart: unless-stopped
+    networks: [obs]
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki-data:/loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+
+  # ── Grafana: browser UI ─────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: obs_grafana
+    restart: unless-stopped
+    networks: [obs]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on: [loki]
