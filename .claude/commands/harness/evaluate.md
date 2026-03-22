@@ -17,6 +17,7 @@ Gates covered (in execution order):
 | `docs_freshness` | Harness artefact staleness (default 30 days) |
 | `types` | Static type checking (mypy / pyright) |
 | `lint` | Code-style rules (ruff) |
+| *(plugin gates)* | Project-specific checks defined in `harness.config.yaml` |
 
 Use this skill any time you want the authoritative answer to:
 *"Is this branch ready to ship?"*
@@ -342,7 +343,7 @@ If `passed == false` but `blocking_failures == 0` (only warnings/info), state:
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--gate GATE_ID` | *(all)* | Run only the specified gate(s). Repeat for multiple. Valid IDs: `regression`, `coverage`, `security`, `performance`, `architecture`, `principles`, `docs_freshness`, `types`, `lint` |
+| `--gate GATE_ID` | *(all)* | Run only the specified gate(s). Repeat for multiple. Built-in IDs: `regression`, `coverage`, `security`, `performance`, `architecture`, `principles`, `docs_freshness`, `types`, `lint`. Plugin gate IDs (defined in `harness.config.yaml`) are also accepted. |
 | `--coverage-threshold N` | `90.0` | Minimum line-coverage % for the `coverage` gate |
 | `--max-staleness-days N` | `30` | Max artefact age (days) for the `docs_freshness` gate |
 | `--project-root PATH` | `.` | Override the repository root |
@@ -351,6 +352,56 @@ If `passed == false` but `blocking_failures == 0` (only warnings/info), state:
 | `--format table` | `table` | Render a rich ASCII table (default, interactive terminal use) |
 
 Multiple `--gate` flags may be combined.
+
+---
+
+## Custom Plugin Gates
+
+Engineers can define **project-specific evaluation gates** directly in
+`harness.config.yaml` without writing any Python code.  Plugin gates run a
+shell command and treat exit code `0` as a pass, any other code as a failure.
+
+```yaml
+profiles:
+  starter:
+    gates:
+      plugins:
+        - gate_id: check_migrations
+          gate_name: "DB Migration Safety"
+          command: "python scripts/check_migrations.py"
+          timeout_seconds: 30
+          fail_on_error: true     # blocks merge on failure
+          severity: error
+          env:
+            DATABASE_URL: "${DATABASE_URL}"   # expands from os.environ
+
+        - gate_id: api_health
+          gate_name: "API Health Check"
+          command: "curl -sf http://localhost:8000/health"
+          timeout_seconds: 10
+          fail_on_error: false    # advisory — non-blocking
+          severity: warning
+```
+
+**Plugin gate fields:**
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `gate_id` | ✅ | — | Unique identifier (lowercase, `^[a-z][a-z0-9_]*$`) |
+| `gate_name` | ✅ | — | Human-readable display name |
+| `command` | ✅ | — | Shell command to execute; exit 0 = pass |
+| `timeout_seconds` | | `60` | Abort after this many seconds (1–3600) |
+| `fail_on_error` | | `true` | `false` → advisory warning, does not block merge |
+| `severity` | | `"error"` | Violation severity: `error` \| `warning` \| `info` |
+| `env` | | `{}` | Extra env vars; values support `${VAR}` expansion |
+
+Plugin gates appear in the `gate_results[]` array of the `EvaluationReport`
+alongside built-in gates and are rendered in the same table output.  Multiple
+plugin gates all execute even when one fails.
+
+**Profile isolation:** Plugin gates are loaded from the *active* profile only.
+Gates defined under `profiles.advanced.gates.plugins` are ignored when
+`active_profile: starter`.
 
 ---
 
