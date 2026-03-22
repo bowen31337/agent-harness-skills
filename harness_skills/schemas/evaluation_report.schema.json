@@ -30,7 +30,10 @@
       "items": { "$ref": "#/$defs/GateFailure" }
     },
     "metadata": {
-      "$ref": "#/$defs/ReportMetadata"
+      "oneOf": [
+        { "$ref": "#/$defs/ReportMetadata" },
+        { "type": "null" }
+      ]
     }
   },
   "$defs": {
