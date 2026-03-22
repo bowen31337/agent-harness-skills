@@ -2,16 +2,16 @@
 harness evaluate — run all evaluation gates and emit a structured report.
 
 Usage (CLI):
-    harness evaluate [--format json|yaml|table] [--gate GATE_ID ...] [--project-root PATH]
+    harness evaluate [--output-format json|yaml|table] [--gate GATE_ID ...] [--project-root PATH]
 
 Usage (agent tool call):
-    harness evaluate --format json
-    harness evaluate --format yaml
-    harness evaluate --format json --gate regression --gate types
+    harness evaluate --output-format json
+    harness evaluate --output-format yaml
+    harness evaluate --output-format json --gate regression --gate types
 
-The --format json output conforms to evaluation_report.schema.json.
-The --format yaml output is the same data serialised as YAML (human-friendly, still machine-parseable).
-The --format table output renders a rich ASCII table for interactive terminal use.
+The --output-format json output conforms to evaluation_report.schema.json.
+The --output-format yaml output is the same data serialised as YAML (human-friendly, still machine-parseable).
+The --output-format table output renders a rich ASCII table for interactive terminal use.
 
 Agents should:
   1. Check the top-level `passed` field.
@@ -37,17 +37,8 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-||||||| 9c7e5db
-=======
 from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
 from harness_skills.generators.evaluation import (
     GateConfig,
     GateId,
@@ -113,7 +104,7 @@ def evaluate_cmd(
 
     \b
     Agent usage pattern (JSON):
-        result=$(harness evaluate --format json)
+        result=$(harness evaluate --output-format json)
         passed=$(echo "$result" | jq '.passed')
         if [ "$passed" = "false" ]; then
             echo "$result" | jq '.failures[] | select(.severity=="error")'
@@ -121,23 +112,15 @@ def evaluate_cmd(
 
     \b
     Agent usage pattern (YAML):
-        harness evaluate --format yaml | python3 -c "
+        harness evaluate --output-format yaml | python3 -c "
         import sys, yaml
         r = yaml.safe_load(sys.stdin)
         print('passed:', r['passed'])
         "
     """
-<<<<<<< HEAD
-<<<<<<< HEAD
-    fmt = resolve_output_format(output_format)
-||||||| 9c7e5db
-=======
     verbosity = get_verbosity(ctx)
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-=======
     fmt = resolve_output_format(output_format)
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
+
     config = GateConfig(
         coverage_threshold=coverage_threshold,
         max_staleness_days=max_staleness_days,
@@ -163,49 +146,22 @@ def evaluate_cmd(
 
     report = run_all_gates(project_root=project_root, config=config, gates=gates)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     if fmt == "json":
-||||||| 9c7e5db
-    if output_format == "json":
-=======
-    if output_format == "json":
-        # Machine-parseable — always emitted regardless of verbosity.
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-    if output_format == "json":
-=======
-    if fmt == "json":
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(format_report(report))
-<<<<<<< HEAD
-<<<<<<< HEAD
     elif fmt == "yaml":
-||||||| 9c7e5db
-    elif output_format == "yaml":
-=======
-    elif output_format == "yaml":
-        # Machine-parseable — always emitted regardless of verbosity.
->>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
-||||||| 9c7e5db
-    elif output_format == "yaml":
-=======
-    elif fmt == "yaml":
->>>>>>> feat/skill-invocatio-all-cli-commands-support-a-output-forma
         click.echo(_format_yaml_report(report))
     else:
         _print_table_report(report, verbosity=verbosity)
 
-    # Verbose: summary line with timing details.
-    if output_format in ("json", "yaml"):
-        vecho(
-            f"  Gates run: {report.summary.total_gates}  "
-            f"Passed: {report.summary.passed_gates}  "
-            f"Failed: {report.summary.blocking_failures} blocking",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-            err=True,
-        )
+    # Verbose: summary line to stderr so it doesn't pollute structured output.
+    vecho(
+        f"  Gates run: {report.summary.total_gates}  "
+        f"Passed: {report.summary.passed_gates}  "
+        f"Failed: {report.summary.blocking_failures} blocking",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.verbose,
+        err=True,
+    )
 
     # Exit code: 0 = all passed, 1 = failures
     if not report.passed:
@@ -220,11 +176,8 @@ def evaluate_cmd(
 def _format_yaml_report(report: EvaluationReport) -> str:
     """Serialise an EvaluationReport to a YAML string.
 
-    Produces the same data as --format json but in YAML, which is easier for
-    humans to skim and can still be parsed by scripts (``yaml.safe_load``).
-    The output is NOT validated against evaluation_report.schema.json because
-    JSON Schema validators don't speak YAML directly, but the data structure is
-    identical to the JSON output.
+    Produces the same data as --output-format json but in YAML, which is easier
+    for humans to skim and can still be parsed by scripts (``yaml.safe_load``).
     """
     data = json.loads(report.model_dump_json())
     return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
@@ -253,23 +206,7 @@ def _print_table_report(
     *,
     verbosity: str = VerbosityLevel.normal,
 ) -> None:
-    """Render a human-readable rich table to stdout.
-
-    Layout:
-      1. Header line — overall pass/fail + summary counts (hidden in quiet mode).
-      2. Gates table — one row per gate with status, duration, failure count, message.
-      3. Failures detail table — one row per GateFailure (only when failures exist).
-      4. Timing footer — shown in verbose/debug mode.
-
-    Parameters
-    ----------
-    report:
-        The evaluation report to render.
-    verbosity:
-        Active verbosity level (from :func:`~harness_skills.cli.verbosity.get_verbosity`).
-        In *quiet* mode the surrounding header and blank lines are omitted so
-        that only the table rows remain.
-    """
+    """Render a human-readable rich table to stdout."""
     console = Console()
     s = report.summary
 

@@ -6,7 +6,13 @@
 # ---------------------------------------------------------------------------
 # HARNESS METADATA — auto-updated by /harness:update (do not edit manually)
 # ---------------------------------------------------------------------------
+<<<<<<< HEAD
 updated_at: "2026-03-22T18:59:23Z"
+||||||| 0e893bd
+updated_at: "2026-03-21T15:10:00Z"
+=======
+updated_at: "2026-03-21T15:11:38Z"
+>>>>>>> feat/skill-invocatio-skill-registers-as-harness-update-for-r
 
 stack:
   languages: [python]
@@ -20,7 +26,13 @@ stack:
 agents_md_files:
   - ./AGENTS.md
 
+<<<<<<< HEAD
 skill_count: 34
+||||||| 0e893bd
+skill_count: 19
+=======
+skill_count: 31
+>>>>>>> feat/skill-invocatio-skill-registers-as-harness-update-for-r
 
 # ---------------------------------------------------------------------------
 # ACTIVE PROFILE — change this value to switch between profiles
