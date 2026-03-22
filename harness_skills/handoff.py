@@ -151,32 +151,37 @@ class HandoffDocument(BaseModel):
 
         hints_body = "\n\n".join(hint_sections) if hint_sections else "*(no hints recorded)*"
 
-        return textwrap.dedent(f"""\
-            ---
-            {fm}
-            ---
-
-            ## Accomplished
-            {bullets(self.accomplished)}
-
-            ## In Progress
-            {bullets(self.in_progress)}
-
-            ## Next Steps
-            {bullets(self.next_steps)}
-
-            ## Search Hints
-            {hints_body}
-
-            ## Open Questions
-            {bullets(self.open_questions)}
-
-            ## Artifacts
-            {bullets(self.artifacts)}
-
-            ## Notes
-            {self.notes or "*(none)*"}
-        """)
+        # Build with explicit joins rather than textwrap.dedent: multi-line YAML
+        # injected via f-string breaks dedent's common-whitespace detection when
+        # the YAML keys start at column-0 while the template is indented.
+        parts = [
+            "---",
+            fm,
+            "---",
+            "",
+            "## Accomplished",
+            bullets(self.accomplished),
+            "",
+            "## In Progress",
+            bullets(self.in_progress),
+            "",
+            "## Next Steps",
+            bullets(self.next_steps),
+            "",
+            "## Search Hints",
+            hints_body,
+            "",
+            "## Open Questions",
+            bullets(self.open_questions),
+            "",
+            "## Artifacts",
+            bullets(self.artifacts),
+            "",
+            "## Notes",
+            self.notes or "*(none)*",
+            "",
+        ]
+        return "\n".join(parts)
 
     @classmethod
     def from_markdown(cls, text: str) -> "HandoffDocument":
