@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-03-21T15:10:00Z",
-  "git_sha": "e0f047c",
-  "git_branch": "feat/skill-invocatio-skill-registers-as-harness-plan-for-cre",
+  "generated_at": "2026-03-22T00:00:00Z",
+  "git_sha": "0e893bd",
+  "git_branch": "feat/execution-plans-skill-generates-a-harness-plan-command",
   "harness_version": null,
   "project_root": "/Users/bowenli/projects/claw-forge-test/agent-harness-skills",
   "detected_stack": {
