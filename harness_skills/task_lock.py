@@ -81,6 +81,18 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
+# Optional async state-service integration
+# ---------------------------------------------------------------------------
+# Import httpx lazily so the file-based lock protocol works even when httpx
+# is not installed.  Call sites that need the state service will get an
+# ImportError at runtime if the dependency is absent.
+try:
+    import httpx as _httpx
+    _HTTPX_AVAILABLE = True
+except ImportError:  # pragma: no cover
+    _HTTPX_AVAILABLE = False
+
+# ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
@@ -621,6 +633,403 @@ class TaskLockProtocol:
         n = len(self.list_locks())
         return (
             f"TaskLockProtocol(locks_dir={str(self.locks_dir)!r}, "
+            f"default_timeout={self.default_timeout_seconds}s, "
+            f"active_locks={n})"
+        )
+
+
+# ---------------------------------------------------------------------------
+# State-service integration
+# ---------------------------------------------------------------------------
+
+
+class StateServiceLockClient:
+    """Async client that syncs task-lock events to the claw-forge state service.
+
+    Each file-based lock operation (acquire / extend / release) is mirrored to
+    the state service via ``PATCH /features/{task_id}`` so that the
+    :class:`TaskLockProtocol` dashboards, ``/harness:status``, and
+    ``coordinate.py`` all show consistent lock state.
+
+    The client is intentionally *best-effort*: if the state service is
+    unreachable the file-based lock still succeeds.  Network errors are
+    logged to *stderr* and swallowed so a connectivity blip never blocks
+    an agent from starting work.
+
+    Parameters
+    ----------
+    state_url:
+        Base URL of the claw-forge state service.
+        Default: ``http://localhost:8888``
+    timeout_seconds:
+        HTTP request timeout.  Default: 5 s.
+
+    Example
+    -------
+    .. code-block:: python
+
+        proto  = TaskLockProtocol(default_timeout_seconds=300)
+        client = StateServiceLockClient(state_url="http://localhost:8888")
+
+        lock = proto.acquire("TASK-001", agent_id="agent-42")
+        if lock:
+            await client.notify_acquire("TASK-001", lock)
+            # ... do work ...
+            proto.release("TASK-001", agent_id="agent-42")
+            await client.notify_release("TASK-001", "agent-42", outcome="done")
+
+    Agent SDK integration (one-liner)
+    ----------------------------------
+    .. code-block:: python
+
+        options = proto.agent_options_with_lock(
+            base_options=ClaudeAgentOptions(allowed_tools=["Read", "Edit"]),
+            task_id="TASK-001",
+            agent_id="agent-42",
+            state_client=StateServiceLockClient(),   # ← pass the client here
+        )
+    """
+
+    def __init__(
+        self,
+        state_url: str = "http://localhost:8888",
+        timeout_seconds: float = 5.0,
+    ) -> None:
+        if not _HTTPX_AVAILABLE:  # pragma: no cover
+            raise ImportError(
+                "httpx is required for StateServiceLockClient. "
+                "Install it with: pip install httpx"
+            )
+        self.state_url = state_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+
+    # ------------------------------------------------------------------
+    # Notification helpers
+    # ------------------------------------------------------------------
+
+    async def notify_acquire(self, task_id: str, lock: "TaskLock") -> bool:
+        """Tell the state service that *lock* was acquired for *task_id*.
+
+        Sends:  PATCH /features/{task_id}
+        Body:   {"lock_action": "acquire", "agent_id": "...",
+                 "timeout_seconds": ..., "acquired_at": "..."}
+
+        Returns True on HTTP 2xx, False on any error.
+        """
+        return await self._patch(task_id, {
+            "lock_action": "acquire",
+            "agent_id": lock.agent_id,
+            "timeout_seconds": lock.timeout_seconds,
+            "acquired_at": lock.acquired_at,
+            "expires_at": lock.expires_at,
+        })
+
+    async def notify_extend(self, task_id: str, lock: "TaskLock") -> bool:
+        """Tell the state service that the lock on *task_id* was extended.
+
+        Sends:  PATCH /features/{task_id}
+        Body:   {"lock_action": "extend", "agent_id": "...",
+                 "expires_at": "...", "timeout_seconds": ...}
+
+        Returns True on HTTP 2xx, False on any error.
+        """
+        return await self._patch(task_id, {
+            "lock_action": "extend",
+            "agent_id": lock.agent_id,
+            "expires_at": lock.expires_at,
+            "timeout_seconds": lock.timeout_seconds,
+        })
+
+    async def notify_release(
+        self,
+        task_id: str,
+        agent_id: str,
+        outcome: str = "done",
+        notes: str | None = None,
+    ) -> bool:
+        """Tell the state service that the lock on *task_id* was released.
+
+        Sends:  PATCH /features/{task_id}
+        Body:   {"lock_action": "release", "agent_id": "...",
+                 "outcome": "done|failed|skipped|handed-off", "notes": "..."}
+
+        *outcome* is forwarded as the feature's new ``status`` when it is
+        ``"done"`` or ``"failed"`` so dashboards update automatically.
+
+        Returns True on HTTP 2xx, False on any error.
+        """
+        payload: dict = {
+            "lock_action": "release",
+            "agent_id": agent_id,
+            "outcome": outcome,
+        }
+        if notes is not None:
+            payload["notes"] = notes
+        if outcome == "done":
+            payload["status"] = "done"
+        return await self._patch(task_id, payload)
+
+    async def get_lock_state(self, task_id: str) -> dict | None:
+        """Fetch the current lock record for *task_id* from the state service.
+
+        Sends:  GET /features/{task_id}/lock
+
+        Returns the parsed JSON response dict, or None on error / not found.
+        """
+        import sys
+        url = f"{self.state_url}/features/{task_id}/lock"
+        try:
+            async with _httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    return resp.json()
+                if resp.status_code == 404:
+                    return None
+                resp.raise_for_status()
+        except Exception as exc:
+            print(
+                f"[task-lock] state-service GET {url} failed: {exc}",
+                file=sys.stderr,
+            )
+        return None
+
+    async def list_locks(self) -> list[dict]:
+        """Fetch all active locks from the state service.
+
+        Sends:  GET /features/locks
+
+        Returns a list of lock record dicts; empty list on error.
+        """
+        import sys
+        url = f"{self.state_url}/features/locks"
+        try:
+            async with _httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+                return data.get("locks", data) if isinstance(data, dict) else data
+        except Exception as exc:
+            print(
+                f"[task-lock] state-service GET {url} failed: {exc}",
+                file=sys.stderr,
+            )
+        return []
+
+    # ------------------------------------------------------------------
+    # Internal
+    # ------------------------------------------------------------------
+
+    async def _patch(self, task_id: str, payload: dict) -> bool:
+        """Send PATCH /features/{task_id} with *payload*.  Returns True on 2xx."""
+        import sys
+        url = f"{self.state_url}/features/{task_id}"
+        try:
+            async with _httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                resp = await client.patch(url, json=payload)
+                resp.raise_for_status()
+                return True
+        except Exception as exc:
+            print(
+                f"[task-lock] state-service PATCH {url} failed: {exc}",
+                file=sys.stderr,
+            )
+            return False
+
+    def __repr__(self) -> str:
+        return f"StateServiceLockClient(state_url={self.state_url!r})"
+
+
+# ---------------------------------------------------------------------------
+# Combined async protocol (file lock + state service)
+# ---------------------------------------------------------------------------
+
+
+class AsyncTaskLockProtocol(TaskLockProtocol):
+    """Extends :class:`TaskLockProtocol` with automatic state-service sync.
+
+    Every ``acquire``, ``extend``, and ``release`` call is mirrored to the
+    claw-forge state service asynchronously.  The file-based lock always
+    succeeds or fails first; the network call is best-effort and never blocks
+    the return value.
+
+    Parameters
+    ----------
+    state_client:
+        A :class:`StateServiceLockClient` instance.  When *None*, the protocol
+        falls back to pure file-based locking (identical to
+        :class:`TaskLockProtocol`).
+    locks_dir / default_timeout_seconds:
+        Forwarded to :class:`TaskLockProtocol`.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import asyncio
+        from harness_skills.task_lock import AsyncTaskLockProtocol, StateServiceLockClient
+
+        async def main():
+            proto = AsyncTaskLockProtocol(
+                state_client=StateServiceLockClient("http://localhost:8888"),
+                default_timeout_seconds=300,
+            )
+
+            lock = await proto.async_acquire("TASK-001", agent_id="agent-42")
+            if lock is None:
+                print("Task locked by another agent — backing off")
+                return
+
+            try:
+                # ... do work ...
+                await asyncio.sleep(1)
+            finally:
+                await proto.async_release("TASK-001", agent_id="agent-42",
+                                          outcome="done")
+
+        asyncio.run(main())
+    """
+
+    def __init__(
+        self,
+        state_client: StateServiceLockClient | None = None,
+        locks_dir: Path = _DEFAULT_LOCKS_DIR,
+        default_timeout_seconds: float = 300.0,
+    ) -> None:
+        super().__init__(locks_dir=locks_dir, default_timeout_seconds=default_timeout_seconds)
+        self.state_client = state_client
+
+    # ------------------------------------------------------------------
+    # Async counterparts of the core public API
+    # ------------------------------------------------------------------
+
+    async def async_acquire(
+        self,
+        task_id: str,
+        agent_id: str,
+        timeout_seconds: float | None = None,
+        raise_on_conflict: bool = False,
+    ) -> "TaskLock | None":
+        """Acquire a file-based lock and notify the state service.
+
+        Parameters mirror :meth:`TaskLockProtocol.acquire`.
+
+        Returns the ``TaskLock`` on success or ``None`` (/ raises
+        ``LockConflictError``) on conflict — identical semantics to the
+        synchronous version.
+        """
+        lock = self.acquire(
+            task_id,
+            agent_id,
+            timeout_seconds=timeout_seconds,
+            raise_on_conflict=raise_on_conflict,
+        )
+        if lock is not None and self.state_client is not None:
+            await self.state_client.notify_acquire(task_id, lock)
+        return lock
+
+    async def async_release(
+        self,
+        task_id: str,
+        agent_id: str,
+        *,
+        force: bool = False,
+        outcome: str = "done",
+        notes: str | None = None,
+    ) -> bool:
+        """Release a file-based lock and notify the state service.
+
+        Parameters mirror :meth:`TaskLockProtocol.release` plus *outcome* and
+        *notes* which are forwarded to the state service as the task result.
+
+        Returns True if a lock was removed.
+        """
+        released = self.release(task_id, agent_id, force=force)
+        if self.state_client is not None:
+            await self.state_client.notify_release(
+                task_id, agent_id, outcome=outcome, notes=notes
+            )
+        return released
+
+    async def async_extend(
+        self,
+        task_id: str,
+        agent_id: str,
+        additional_seconds: float,
+    ) -> "TaskLock | None":
+        """Extend a file-based lock TTL and notify the state service.
+
+        Parameters mirror :meth:`TaskLockProtocol.extend`.
+
+        Returns the updated ``TaskLock`` or ``None`` if no valid lock exists.
+        """
+        lock = self.extend(task_id, agent_id, additional_seconds)
+        if lock is not None and self.state_client is not None:
+            await self.state_client.notify_extend(task_id, lock)
+        return lock
+
+    # ------------------------------------------------------------------
+    # Async Agent SDK hooks
+    # ------------------------------------------------------------------
+
+    def as_async_acquire_hook(
+        self,
+        task_id: str,
+        agent_id: str,
+        timeout_seconds: float | None = None,
+    ):
+        """Return an async hook for the Agent SDK ``SessionStart`` event.
+
+        Acquires the file-based lock *and* notifies the state service when
+        the agent session starts.  Raises ``LockConflictError`` to abort
+        the session if the task is already locked.
+        """
+        proto = self
+
+        async def _acquire_hook(input_data: dict, tool_use_id: str, context: Any) -> dict:
+            lock = await proto.async_acquire(
+                task_id,
+                agent_id,
+                timeout_seconds=timeout_seconds,
+                raise_on_conflict=True,
+            )
+            print(
+                f"[task-lock] acquired lock on '{task_id}' for agent '{agent_id}' "
+                f"(expires in {lock.seconds_remaining():.0f}s)"
+            )
+            return {}
+
+        return _acquire_hook
+
+    def as_async_release_hook(
+        self,
+        task_id: str,
+        agent_id: str,
+        outcome: str = "done",
+    ):
+        """Return an async hook for the Agent SDK ``Stop`` event.
+
+        Releases the file-based lock and notifies the state service.
+        """
+        proto = self
+
+        async def _release_hook(input_data: dict, tool_use_id: str, context: Any) -> dict:
+            released = await proto.async_release(
+                task_id, agent_id, outcome=outcome
+            )
+            if released:
+                print(f"[task-lock] released lock on '{task_id}' for agent '{agent_id}'")
+            else:
+                print(f"[task-lock] no lock to release for '{task_id}' / '{agent_id}'")
+            return {}
+
+        return _release_hook
+
+    def __repr__(self) -> str:
+        n = len(self.list_locks())
+        return (
+            f"AsyncTaskLockProtocol("
+            f"state_client={self.state_client!r}, "
+            f"locks_dir={str(self.locks_dir)!r}, "
             f"default_timeout={self.default_timeout_seconds}s, "
             f"active_locks={n})"
         )

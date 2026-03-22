@@ -35,6 +35,7 @@ import click
 import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -421,6 +422,7 @@ def telemetry_cmd(
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
     fmt = resolve_output_format(output_format)
+    verbosity = get_verbosity(ctx)
     path = Path(telemetry_file)
 
     vecho(

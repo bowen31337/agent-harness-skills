@@ -54,6 +54,7 @@ from rich.table import Table
 from rich.text import Text
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
+from harness_skills.cli.verbosity import VerbosityLevel, at_least, vecho
 from harness_skills.models.base import Status
 from harness_skills.models.status import (
     DashboardSummary,
@@ -339,15 +340,6 @@ def _format_yaml_output(response: StatusDashboardResponse) -> str:
     return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
-<<<<<<< HEAD
-def _print_table_output(
-    response: StatusDashboardResponse,
-    *,
-    verbosity: str = VerbosityLevel.normal,
-) -> None:
-||||||| 0e893bd
-def _print_table_output(response: StatusDashboardResponse) -> None:
-=======
 _DEP_STATE_ICON: dict[str, str] = {
     "ready":   "🟢",
     "waiting": "⏳",
@@ -448,8 +440,11 @@ def _render_dep_graph(plan: PlanSnapshot, console: Console) -> None:
     console.print()
 
 
-def _print_table_output(response: StatusDashboardResponse) -> None:
->>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
+def _print_table_output(
+    response: StatusDashboardResponse,
+    *,
+    verbosity: str = VerbosityLevel.normal,
+) -> None:
     console = Console()
     s = response.summary
 
@@ -532,7 +527,8 @@ def _print_table_output(response: StatusDashboardResponse) -> None:
         if not plan.tasks:
             continue
 
-<<<<<<< HEAD
+        tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
+
         if at_least(verbosity, VerbosityLevel.normal):
             console.print()
             status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
@@ -540,23 +536,6 @@ def _print_table_output(response: StatusDashboardResponse) -> None:
                 f"[bold]{plan.plan_id}[/bold] — {plan.title}"
                 f"  [[{status_style}]{plan.status}[/{status_style}]]"
             )
-||||||| 0e893bd
-        console.print()
-        status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
-        console.print(
-            f"[bold]{plan.plan_id}[/bold] — {plan.title}"
-            f"  [[{status_style}]{plan.status}[/{status_style}]]"
-        )
-=======
-        tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
-
-        console.print()
-        status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
-        console.print(
-            f"[bold]{plan.plan_id}[/bold] — {plan.title}"
-            f"  [[{status_style}]{plan.status}[/{status_style}]]"
-        )
->>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
 
         task_table = Table(
             box=box.SIMPLE,
@@ -614,18 +593,12 @@ def _print_table_output(response: StatusDashboardResponse) -> None:
 
         console.print(task_table)
 
-<<<<<<< HEAD
-    if at_least(verbosity, VerbosityLevel.normal):
-        console.print()
-||||||| 0e893bd
-    console.print()
-=======
         # Render the dependency graph when any task in this plan has deps
         if any(t.depends_on for t in plan.tasks):
             _render_dep_graph(plan, console)
 
-    console.print()
->>>>>>> feat/execution-plans-execution-plans-support-task-dependenci
+    if at_least(verbosity, VerbosityLevel.normal):
+        console.print()
 
 
 # ---------------------------------------------------------------------------

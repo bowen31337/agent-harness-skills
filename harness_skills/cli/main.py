@@ -24,12 +24,8 @@ from typing import Any
 
 import click
 
-<<<<<<< HEAD
 from harness_skills.cli.completion_report import completion_report_cmd
-||||||| 0e893bd
-=======
 from harness_skills.cli.context import context_cmd
->>>>>>> feat/execution-plans-skill-generates-a-harness-context-comma
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
 from harness_skills.cli.lint import lint_cmd
@@ -172,12 +168,8 @@ def cli(ctx: click.Context, verbosity: str) -> None:
     apply_verbosity(verbosity)
 
 
-<<<<<<< HEAD
 cli.add_command(completion_report_cmd)
-||||||| 0e893bd
-=======
 cli.add_command(context_cmd)
->>>>>>> feat/execution-plans-skill-generates-a-harness-context-comma
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
 cli.add_command(lint_cmd)

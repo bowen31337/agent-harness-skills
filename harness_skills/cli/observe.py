@@ -297,7 +297,7 @@ def _tail_file(
 
     filter_desc = ""
     if domain:
-        filter_desc += f"  domain={domain\!r}"
+        filter_desc += f"  domain={domain!r}"
     if trace_id:
         filter_desc += f"  trace_id={trace_id[:8]}…"
     vecho(
@@ -488,13 +488,13 @@ def observe_cmd(
     )
 
     # Verbose: show active filters before tailing begins.
-    if domain or trace_id or min_level_name.upper() \!= "DEBUG":
+    if domain or trace_id or min_level_name.upper() != "DEBUG":
         _filter_parts = []
         if domain:
-            _filter_parts.append(f"domain={domain\!r}")
+            _filter_parts.append(f"domain={domain!r}")
         if trace_id:
             _filter_parts.append(f"trace_id={trace_id[:8]}…")
-        if min_level_name.upper() \!= "DEBUG":
+        if min_level_name.upper() != "DEBUG":
             _filter_parts.append(f"level≥{min_level_name.upper()}")
         vecho(
             "  Filters: " + ", ".join(_filter_parts),
