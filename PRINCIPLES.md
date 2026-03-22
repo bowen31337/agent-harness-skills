@@ -1,19 +1,8 @@
-<<<<<<< HEAD
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: 2026-03-22
 head: 157af7b
 artifact: principles
 <!-- /harness:auto-generated -->
-
-||||||| 0e893bd
-=======
-<!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-21
-head: 0e893bd
-artifact: principles
-<!-- /harness:auto-generated -->
-
->>>>>>> feat/skill-invocatio-skill-registers-as-harness-update-for-r
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
 > Each rule is stated as a short imperative, followed by its rationale and a concrete example.

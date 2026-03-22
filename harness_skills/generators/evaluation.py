@@ -1117,21 +1117,76 @@ class LintGate(GateRunner):
     Auto-detects Ruff (Python) or ESLint (JavaScript/TypeScript).
     Emits machine-parseable JSON output so every violation has a precise
     file_path, line_number, rule_id, and suggestion.
+
+    When git-tracked changes are present the gate runs only on changed files
+    and enforces a **zero-warnings policy**: every lint message — regardless of
+    the tool's native severity — is promoted to a blocking ``Severity.ERROR``.
+    When no changes are detected the gate falls back to scanning the whole
+    project with the tool's default severity mapping.
     """
 
     gate_id = GateId.LINT
 
     def _run(self, project_root: Path, config: GateConfig) -> list[GateFailure]:
+        changed_files = self._get_changed_files(project_root)
         if (project_root / "pyproject.toml").exists() or (project_root / "ruff.toml").exists():
-            return self._run_ruff(project_root)
+            return self._run_ruff(project_root, changed_files=changed_files)
         if (project_root / ".eslintrc.js").exists() or (project_root / ".eslintrc.json").exists():
-            return self._run_eslint(project_root)
+            return self._run_eslint(project_root, changed_files=changed_files)
         # Fallback: try ruff anyway
-        return self._run_ruff(project_root)
+        return self._run_ruff(project_root, changed_files=changed_files)
 
-    def _run_ruff(self, project_root: Path) -> list[GateFailure]:
+    def _get_changed_files(self, project_root: Path) -> list[Path]:
+        """Return absolute paths of files changed vs. HEAD (staged + unstaged).
+
+        Runs ``git diff --name-only --diff-filter=ACMR HEAD`` first; if that
+        fails (e.g. the initial commit has no HEAD yet) it falls back to
+        ``git diff --cached --name-only --diff-filter=ACMR`` for staged-only
+        changes.  Returns an empty list when the working tree is clean, the
+        directory is not a git repo, or the command errors — the caller treats
+        an empty list as "scan the whole project".
+        """
+        returncode, stdout, _ = self._run_cmd(
+            ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"],
+            cwd=project_root,
+        )
+        if returncode != 0 or not stdout.strip():
+            # Fallback: staged-only (useful before first commit)
+            returncode, stdout, _ = self._run_cmd(
+                ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+                cwd=project_root,
+            )
+        if returncode != 0 or not stdout.strip():
+            return []
+
+        return [project_root / p for p in stdout.splitlines() if p.strip()]
+
+    def _run_ruff(
+        self,
+        project_root: Path,
+        *,
+        changed_files: list[Path] | None = None,
+    ) -> list[GateFailure]:
+        """Run Ruff on *changed_files* (or the whole project when empty/None).
+
+        Zero-warnings policy: all violations found on changed files are emitted
+        as ``Severity.ERROR`` so the gate blocks on any warning, not just errors.
+        """
+        if changed_files:
+            py_files = [
+                str(p)
+                for p in changed_files
+                if p.suffix in {".py", ".pyi"} and p.exists()
+            ]
+            if not py_files:
+                # No Python files among the changed set — nothing to check.
+                return []
+            targets: list[str] = py_files
+        else:
+            targets = ["."]
+
         returncode, stdout, stderr = self._run_cmd(
-            [sys.executable, "-m", "ruff", "check", ".", "--output-format=json"],
+            [sys.executable, "-m", "ruff", "check", *targets, "--output-format=json"],
             cwd=project_root,
         )
         if returncode == 0:
@@ -1159,6 +1214,7 @@ class LintGate(GateRunner):
             fix_hint = fix.get("message") if fix else None
             failures.append(
                 GateFailure(
+                    # Zero-warnings policy: every ruff message is a blocking error.
                     severity=Severity.ERROR,
                     gate_id=GateId.LINT,
                     message=v.get("message", ""),
@@ -1173,9 +1229,33 @@ class LintGate(GateRunner):
             )
         return failures
 
-    def _run_eslint(self, project_root: Path) -> list[GateFailure]:
+    def _run_eslint(
+        self,
+        project_root: Path,
+        *,
+        changed_files: list[Path] | None = None,
+    ) -> list[GateFailure]:
+        """Run ESLint on *changed_files* (or the whole project when empty/None).
+
+        Zero-warnings policy: when running on changed files all ESLint messages
+        (severity 1 *and* 2) are promoted to ``Severity.ERROR``.  When scanning
+        the full project, severity-1 warnings remain ``Severity.WARNING``.
+        """
+        _JS_SUFFIXES = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
+        if changed_files:
+            js_files = [
+                str(p)
+                for p in changed_files
+                if p.suffix in _JS_SUFFIXES and p.exists()
+            ]
+            if not js_files:
+                return []
+            targets: list[str] = js_files
+        else:
+            targets = ["."]
+
         returncode, stdout, _ = self._run_cmd(
-            ["npx", "eslint", ".", "--format=json"],
+            ["npx", "eslint", *targets, "--format=json"],
             cwd=project_root,
         )
         if returncode == 0:
@@ -1186,11 +1266,16 @@ class LintGate(GateRunner):
         except json.JSONDecodeError:
             return []
 
+        zero_warnings = bool(changed_files)  # enforce zero-warnings only on changed files
         failures: list[GateFailure] = []
         for file_result in files:
             rel = self._repo_rel(Path(file_result.get("filePath", "")), project_root)
             for msg in file_result.get("messages", []):
-                sev = Severity.ERROR if msg.get("severity") == 2 else Severity.WARNING
+                # Zero-warnings policy: all messages become errors on changed files.
+                if zero_warnings or msg.get("severity") == 2:
+                    sev = Severity.ERROR
+                else:
+                    sev = Severity.WARNING
                 rule = msg.get("ruleId") or "unknown"
                 failures.append(
                     GateFailure(

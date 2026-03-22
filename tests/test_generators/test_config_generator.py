@@ -61,8 +61,13 @@ _ALL_GATE_IDS = [
 
 
 def _parse_gates(yaml_text: str) -> dict:
-    """Parse the ``gates:`` YAML block and return the mapping under ``gates``."""
-    parsed = yaml.safe_load(yaml_text)
+    """Parse the ``gates:`` YAML block and return the mapping under ``gates``.
+
+    ``generate_gate_config`` returns 4-space-indented text designed to be
+    embedded under ``profiles.<profile>:`` in a full config file.  We dedent
+    before calling ``yaml.safe_load`` so the text is a valid standalone doc.
+    """
+    parsed = yaml.safe_load(textwrap.dedent(yaml_text))
     assert parsed is not None, "YAML parsed to None"
     assert "gates" in parsed, f"No 'gates' key in parsed output: {list(parsed)}"
     return parsed["gates"]
@@ -98,13 +103,13 @@ class TestGenerateGateConfigYamlValidity:
     @pytest.mark.parametrize("profile", _ALL_PROFILES)
     def test_output_is_parseable_yaml(self, profile: str):
         result = generate_gate_config(profile)
-        parsed = yaml.safe_load(result)
+        parsed = yaml.safe_load(textwrap.dedent(result))
         assert parsed is not None
 
     @pytest.mark.parametrize("profile", _ALL_PROFILES)
     def test_output_contains_gates_key(self, profile: str):
         result = generate_gate_config(profile)
-        parsed = yaml.safe_load(result)
+        parsed = yaml.safe_load(textwrap.dedent(result))
         assert "gates" in parsed
 
     @pytest.mark.parametrize("profile", _ALL_PROFILES)
@@ -298,8 +303,9 @@ class TestGenerateGateConfigInlineComments:
         assert "gate_name" in result
 
     def test_output_starts_with_gates_header(self):
+        # Output is 4-space-indented for embedding in a full config file.
         result = generate_gate_config("starter")
-        assert result.lstrip().startswith("gates:")
+        assert textwrap.dedent(result).startswith("gates:")
 
 
 # ===========================================================================

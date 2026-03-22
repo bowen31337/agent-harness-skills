@@ -1,0 +1,2 @@
+[console_scripts]
+log-lint = log_format_linter.cli:main

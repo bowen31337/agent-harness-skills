@@ -358,6 +358,107 @@ class TestLintGate:
         assert f.rule_id == "F401"
         assert f.suggestion is not None
 
+    def test_runs_only_on_changed_python_files_when_git_detects_changes(
+        self, tmp_path: Path
+    ) -> None:
+        """When git diff reports changed files, ruff is called with those paths only."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        changed = tmp_path / "src" / "service.py"
+        changed.parent.mkdir(parents=True)
+        changed.write_text("x = 1\n")
+
+        git_diff_output = "src/service.py\n"
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout=git_diff_output, stderr="")
+            # ruff call — assert it received the specific file, not "."
+            assert str(changed) in args or "src/service.py" in " ".join(args)
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.PASSED
+
+    def test_zero_warnings_policy_on_changed_files_eslint(self, tmp_path: Path) -> None:
+        """ESLint severity-1 warnings become Severity.ERROR when running on changed files."""
+        (tmp_path / ".eslintrc.json").write_text("{}\n")
+        changed = tmp_path / "src" / "app.js"
+        changed.parent.mkdir(parents=True)
+        changed.write_text("var x = 1;\n")
+
+        git_diff_output = "src/app.js\n"
+        eslint_output = json.dumps(
+            [
+                {
+                    "filePath": str(changed),
+                    "messages": [
+                        {
+                            "ruleId": "no-var",
+                            "severity": 1,  # warning in ESLint
+                            "message": "Unexpected var, use let or const instead.",
+                            "line": 1,
+                        }
+                    ],
+                }
+            ]
+        )
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout=git_diff_output, stderr="")
+            return MagicMock(returncode=1, stdout=eslint_output, stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.FAILED
+        assert len(result.failures) == 1
+        # Zero-warnings policy: severity-1 warning must be promoted to ERROR
+        assert result.failures[0].severity == Severity.ERROR
+
+    def test_falls_back_to_full_scan_when_no_changed_files(self, tmp_path: Path) -> None:
+        """When git reports no changes, ruff is called with '.' (full project scan)."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+
+        calls: list[list[str]] = []
+
+        def fake_run(args, **kwargs):
+            calls.append(list(args))
+            if "git" in args:
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.PASSED
+        ruff_calls = [c for c in calls if "ruff" in " ".join(c)]
+        assert any("." in c for c in ruff_calls), "ruff should be called with '.' for full scan"
+
+    def test_passes_when_no_python_files_in_changed_set(self, tmp_path: Path) -> None:
+        """Gate passes immediately when changed files contain no Python files."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        # Only a markdown file changed
+        git_diff_output = "README.md\n"
+
+        calls: list[list[str]] = []
+
+        def fake_run(args, **kwargs):
+            calls.append(list(args))
+            if "git" in args:
+                return MagicMock(returncode=0, stdout=git_diff_output, stderr="")
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.PASSED
+        # Ruff should NOT have been called (no Python files to lint)
+        ruff_calls = [c for c in calls if "ruff" in " ".join(c)]
+        assert len(ruff_calls) == 0
+
 
 class TestTypesGate:
     def test_passes_when_mypy_exits_zero(self, tmp_path: Path) -> None:
