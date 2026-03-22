@@ -59,7 +59,12 @@ from typing import Optional
 import click
 from pydantic import ValidationError
 
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
+||||||| 9c7e5db
+=======
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
 from harness_skills.models.observe import LogEntry, ObserveResponse
 
 # ---------------------------------------------------------------------------
@@ -239,6 +244,7 @@ def _tail_file(
     min_level: int,
     output_format: str,
     color: bool,
+    verbosity: str = VerbosityLevel.normal,
 ) -> _TailStats:
     """Open *path*, emit matching existing lines, then follow new writes.
 
@@ -267,12 +273,24 @@ def _tail_file(
     if not path.exists():
         msg = f"[harness:observe] Log file not found: {path}"
         if not follow:
-            click.echo(msg, err=True)
+            # Error — always shown.
+            vecho(msg, verbosity=verbosity, min_level=VerbosityLevel.quiet, err=True)
             sys.exit(1)
-        click.echo(msg + "  Waiting for it to appear…", err=True)
+        # Status message — suppressed in quiet mode.
+        vecho(
+            msg + "  Waiting for it to appear…",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.normal,
+            err=True,
+        )
         while not path.exists():
             time.sleep(0.5)
-        click.echo(f"[harness:observe] Log file appeared: {path}", err=True)
+        vecho(
+            f"[harness:observe] Log file appeared: {path}",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.normal,
+            err=True,
+        )
 
     # ── Read existing content ─────────────────────────────────────────────────
     existing_lines: list[str]
@@ -304,17 +322,19 @@ def _tail_file(
     if not follow:
         return stats
 
-    # ── Separator + banner ────────────────────────────────────────────────────
+    # ── Separator + banner (suppressed in quiet mode) ─────────────────────────
     if shown > 0:
-        click.echo("─" * 60, err=True)
+        vecho("─" * 60, verbosity=verbosity, min_level=VerbosityLevel.normal, err=True)
 
     filter_desc = ""
     if domain:
         filter_desc += f"  domain={domain!r}"
     if trace_id:
         filter_desc += f"  trace_id={trace_id[:8]}…"
-    click.echo(
+    vecho(
         f"[harness:observe] Tailing {path}{filter_desc}  (Ctrl-C to stop)",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.normal,
         err=True,
     )
 
@@ -351,7 +371,12 @@ def _tail_file(
                         stats.validation_errors += 1
 
         except KeyboardInterrupt:
-            click.echo("\n[harness:observe] Stopped.", err=True)
+            vecho(
+                "\n[harness:observe] Stopped.",
+                verbosity=verbosity,
+                min_level=VerbosityLevel.normal,
+                err=True,
+            )
 
     return stats
 
@@ -431,7 +456,9 @@ def _tail_file(
     default=False,
     help="Disable ANSI colour codes (automatically disabled when stdout is not a TTY).",
 )
+@click.pass_context
 def observe_cmd(
+    ctx: click.Context,
     log_file: str,
     domain: Optional[str],
     trace_id: Optional[str],
@@ -477,6 +504,7 @@ def observe_cmd(
       # Non-default log file
       harness observe --log-file /var/log/harness/app.ndjson --domain harness.gates
     """
+    verbosity = get_verbosity(ctx) if hasattr(ctx, "obj") else VerbosityLevel.normal
     path      = Path(log_file)
     min_level = _LEVEL_ORDER.get(min_level_name.upper(), 0)
     # Map the standardised --output-format to internal "pretty"/"json" names.
@@ -490,6 +518,21 @@ def observe_cmd(
         and sys.stdout.isatty()
     )
 
+    # Verbose: show active filters before tailing begins.
+    if domain or trace_id or min_level_name.upper() != "DEBUG":
+        _filter_parts = []
+        if domain:
+            _filter_parts.append(f"domain={domain!r}")
+        if trace_id:
+            _filter_parts.append(f"trace_id={trace_id[:8]}…")
+        if min_level_name.upper() != "DEBUG":
+            _filter_parts.append(f"level≥{min_level_name.upper()}")
+        vecho(
+            "  Filters: " + ", ".join(_filter_parts),
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+        )
+
     stats = _tail_file(
         path,
         follow=follow,
@@ -499,10 +542,12 @@ def observe_cmd(
         min_level=min_level,
         output_format=internal_format,
         color=color,
+        verbosity=verbosity,
     )
 
     # In --no-follow mode emit a structured ObserveResponse summary to stderr
     # so downstream tools can assess filter coverage and schema health.
+    # The JSON summary is machine-parseable — always emitted.
     if not follow:
         summary = ObserveResponse(
             log_file=str(path),

@@ -34,7 +34,12 @@ from typing import Any, Optional
 import click
 import yaml
 
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
+||||||| 9c7e5db
+=======
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -410,7 +415,9 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
     type=int,
     help="Cap the artifact list at N entries (sorted by reads descending).",
 )
+@click.pass_context
 def telemetry_cmd(
+    ctx: click.Context,
     telemetry_file: str,
     output_format: Optional[str],
     min_reads: int,
@@ -418,14 +425,34 @@ def telemetry_cmd(
 ) -> None:
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
+<<<<<<< HEAD
     fmt = resolve_output_format(output_format)
+||||||| 9c7e5db
+=======
+    verbosity = get_verbosity(ctx)
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
     path = Path(telemetry_file)
+
+    vecho(
+        f"  Analysing telemetry file: {path}",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.verbose,
+    )
+
     report = build_report(path, min_reads=min_reads, top_n=top_n)
 
+<<<<<<< HEAD
     if fmt == "json":
+||||||| 9c7e5db
+    if output_format == "json":
+=======
+    if output_format == "json":
+        # Machine-parseable — always emitted.
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
         click.echo(report.model_dump_json(indent=2))
         return
 
+<<<<<<< HEAD
     if fmt == "yaml":
         data = json.loads(report.model_dump_json())
         click.echo(
@@ -437,12 +464,32 @@ def telemetry_cmd(
     # Table output
     click.echo(render_report(report))
     click.echo("")
+||||||| 9c7e5db
+    # Table output
+    click.echo(render_report(report))
+    click.echo("")
+=======
+    # Table output: human-readable report is suppressed in quiet mode.
+    # The trailing JSON block (machine-parseable) is always emitted.
+    if output_format == "table":
+        vecho(render_report(report), verbosity=verbosity)
+        vecho("", verbosity=verbosity)
+
+    # Machine-parseable JSON block — always emitted so scripts can parse results.
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
     click.echo("```json")
     click.echo(report.model_dump_json(indent=2))
     click.echo("```")
 
-    # Exit 1 if there are cold/unused artifacts or silent gates to flag.
+    # Verbose: explain the exit code before exiting.
     if report.summary.cold_artifact_count > 0 or report.summary.silent_gate_count > 0:
+        vecho(
+            f"  {report.summary.cold_artifact_count} cold/unused artifact(s) · "
+            f"{report.summary.silent_gate_count} silent gate(s) — exit 1",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+            err=True,
+        )
         sys.exit(1)
 
 

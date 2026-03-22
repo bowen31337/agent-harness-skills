@@ -33,6 +33,8 @@ import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+
 
 # ---------------------------------------------------------------------------
 # ``harness manifest`` group
@@ -100,15 +102,23 @@ def validate_cmd(
         harness manifest validate --output-format json | jq '.errors'
         harness manifest validate --output-format yaml
     """
+<<<<<<< HEAD
     # --json flag is a deprecated alias for --output-format json
     if output_json_flag and output_format is None:
         output_format = "json"
 
     fmt = resolve_output_format(output_format)
 
+||||||| 9c7e5db
+=======
+    verbosity = get_verbosity(ctx)
+
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
     # ------------------------------------------------------------------
     # 1. Read the file
     # ------------------------------------------------------------------
+    vecho(f"  Validating: {path}", verbosity=verbosity, min_level=VerbosityLevel.verbose)
+
     if not path.exists():
         _emit_error(
             fmt=fmt,
@@ -147,7 +157,14 @@ def validate_cmd(
     # ------------------------------------------------------------------
     errors = validate_manifest(data)
 
+<<<<<<< HEAD
     if fmt in ("json", "yaml"):
+||||||| 9c7e5db
+    if output_json:
+=======
+    if output_json:
+        # JSON output is always machine-parseable — always emitted.
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
         result = {
             "valid": len(errors) == 0,
             "path": str(path),
@@ -174,15 +191,27 @@ def validate_cmd(
 
     # Human-readable table output
     if not errors:
-        click.echo(f"✓  {path}  is valid against harness_manifest.schema.json")
+        # Success message suppressed in quiet mode (not machine-parseable).
+        vecho(
+            f"✓  {path}  is valid against harness_manifest.schema.json",
+            verbosity=verbosity,
+        )
         return
 
-    click.echo(
+    # Validation errors always shown — they explain a non-zero exit code.
+    vecho(
         f"✗  {path}  failed schema validation — {len(errors)} error(s):",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.quiet,
         err=True,
     )
     for jsonpath, message in errors:
-        click.echo(f"  {jsonpath}  →  {message}", err=True)
+        vecho(
+            f"  {jsonpath}  →  {message}",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.quiet,
+            err=True,
+        )
     ctx.exit(1)
 
 

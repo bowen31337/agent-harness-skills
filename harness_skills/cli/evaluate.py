@@ -37,7 +37,12 @@ from rich import box
 from rich.console import Console
 from rich.table import Table
 
+<<<<<<< HEAD
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
+||||||| 9c7e5db
+=======
+from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
 from harness_skills.generators.evaluation import (
     GateConfig,
     GateId,
@@ -117,7 +122,12 @@ def evaluate_cmd(
         print('passed:', r['passed'])
         "
     """
+<<<<<<< HEAD
     fmt = resolve_output_format(output_format)
+||||||| 9c7e5db
+=======
+    verbosity = get_verbosity(ctx)
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
     config = GateConfig(
         coverage_threshold=coverage_threshold,
         max_staleness_days=max_staleness_days,
@@ -127,14 +137,53 @@ def evaluate_cmd(
         [GateId(g) for g in selected_gates] if selected_gates else None
     )
 
+    # Verbose: announce which gates will run before executing them.
+    if gates:
+        vecho(
+            f"  Running {len(gates)} gate(s): {', '.join(g.value for g in gates)}",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+        )
+    else:
+        vecho(
+            "  Running all evaluation gates…",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+        )
+
     report = run_all_gates(project_root=project_root, config=config, gates=gates)
 
+<<<<<<< HEAD
     if fmt == "json":
+||||||| 9c7e5db
+    if output_format == "json":
+=======
+    if output_format == "json":
+        # Machine-parseable — always emitted regardless of verbosity.
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
         click.echo(format_report(report))
+<<<<<<< HEAD
     elif fmt == "yaml":
+||||||| 9c7e5db
+    elif output_format == "yaml":
+=======
+    elif output_format == "yaml":
+        # Machine-parseable — always emitted regardless of verbosity.
+>>>>>>> feat/skill-invocatio-cli-commands-support-verbosity-levels-q
         click.echo(_format_yaml_report(report))
     else:
-        _print_table_report(report)
+        _print_table_report(report, verbosity=verbosity)
+
+    # Verbose: summary line with timing details.
+    if output_format in ("json", "yaml"):
+        vecho(
+            f"  Gates run: {report.summary.total_gates}  "
+            f"Passed: {report.summary.passed_gates}  "
+            f"Failed: {report.summary.blocking_failures} blocking",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+            err=True,
+        )
 
     # Exit code: 0 = all passed, 1 = failures
     if not report.passed:
@@ -177,28 +226,43 @@ _SEVERITY_STYLE: dict[str, str] = {
 }
 
 
-def _print_table_report(report: EvaluationReport) -> None:
+def _print_table_report(
+    report: EvaluationReport,
+    *,
+    verbosity: str = VerbosityLevel.normal,
+) -> None:
     """Render a human-readable rich table to stdout.
 
     Layout:
-      1. Header line — overall pass/fail + summary counts.
+      1. Header line — overall pass/fail + summary counts (hidden in quiet mode).
       2. Gates table — one row per gate with status, duration, failure count, message.
       3. Failures detail table — one row per GateFailure (only when failures exist).
+      4. Timing footer — shown in verbose/debug mode.
+
+    Parameters
+    ----------
+    report:
+        The evaluation report to render.
+    verbosity:
+        Active verbosity level (from :func:`~harness_skills.cli.verbosity.get_verbosity`).
+        In *quiet* mode the surrounding header and blank lines are omitted so
+        that only the table rows remain.
     """
     console = Console()
     s = report.summary
 
-    # ── 1. Header ──────────────────────────────────────────────────────────
+    # ── 1. Header (suppressed in quiet mode) ───────────────────────────────
     overall_style = "bold green" if report.passed else "bold red"
     overall_label = "PASSED" if report.passed else "FAILED"
-    console.print()
-    console.print(
-        f"[{overall_style}]{'✓' if report.passed else '✗'} Evaluation {overall_label}[/{overall_style}]"
-        f"  —  {s.passed_gates}/{s.total_gates} gates passed"
-        f"  |  {s.blocking_failures} blocking failure(s)"
-        f"  |  {s.total_failures} total failure(s)"
-    )
-    console.print()
+    if at_least(verbosity, VerbosityLevel.normal):
+        console.print()
+        console.print(
+            f"[{overall_style}]{'✓' if report.passed else '✗'} Evaluation {overall_label}[/{overall_style}]"
+            f"  —  {s.passed_gates}/{s.total_gates} gates passed"
+            f"  |  {s.blocking_failures} blocking failure(s)"
+            f"  |  {s.total_failures} total failure(s)"
+        )
+        console.print()
 
     # ── 2. Gates summary table ──────────────────────────────────────────────
     gates_table = Table(
@@ -231,9 +295,10 @@ def _print_table_report(report: EvaluationReport) -> None:
 
     # ── 3. Failures detail table (only when there are failures) ────────────
     if report.failures:
-        console.print()
-        console.print("[bold]Failure Details[/bold]")
-        console.print()
+        if at_least(verbosity, VerbosityLevel.normal):
+            console.print()
+            console.print("[bold]Failure Details[/bold]")
+            console.print()
 
         failures_table = Table(
             box=box.SIMPLE,
@@ -267,4 +332,12 @@ def _print_table_report(report: EvaluationReport) -> None:
 
         console.print(failures_table)
 
-    console.print()
+    # ── 4. Footer / timing (verbose and debug only) ─────────────────────────
+    if at_least(verbosity, VerbosityLevel.verbose) and report.gate_results:
+        total_ms = sum(
+            r.duration_ms for r in report.gate_results if r.duration_ms is not None
+        )
+        console.print(f"[dim]  Total gate time: {total_ms} ms[/dim]")
+
+    if at_least(verbosity, VerbosityLevel.normal):
+        console.print()
