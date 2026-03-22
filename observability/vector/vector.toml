@@ -1,95 +1,141 @@
-# vector.toml — file-based log collector for local dev
-# Watches log files, parses them, enriches with metadata, ships to Loki.
+# ──────────────────────────────────────────────────────────────────────────────
+# Vector configuration — local-dev file-based collector  (v1.0.0 convention)
+#
+# Pipeline:
+#   sources  file_plain, file_json   → tail /var/log/app/* on the host
+#   transforms parse_plain,
+#              parse_json_logs,
+#              validate_convention   → parse + enforce 5 required fields
+#   sinks    loki                    → ship to local Loki over HTTP
+#            console                 → echo to stdout for quick debugging
+# ──────────────────────────────────────────────────────────────────────────────
 
 # ── Global ────────────────────────────────────────────────────────────────────
 [api]
-enabled = true
-address  = "0.0.0.0:8686"
+  enabled = true
+  address = "0.0.0.0:8686"   # Vector internal API (health / tap / metrics)
 
 # ── Sources ───────────────────────────────────────────────────────────────────
 
-# Plain text / unstructured logs (app.log, worker.log, …)
+# Plain-text / unstructured logs  (app.log, worker.log, …)
 [sources.file_plain]
-type              = "file"
-include           = ["/var/log/app/*.log"]
-exclude           = ["/var/log/app/*.gz"]
-read_from         = "beginning"
-# Annotate which file the line came from
-file_key          = "source_file"
-host_key          = "host"
+  type      = "file"
+  include   = ["/var/log/app/*.log"]
+  exclude   = ["/var/log/app/*.gz"]
+  read_from = "beginning"
+  file_key  = "source_file"
+  host_key  = "host"
 
-# JSON-structured logs (e.g. from pino, winston json, structlog)
+# Structured NDJSON logs  (*.ndjson, *.jsonl)
 [sources.file_json]
-type              = "file"
-include           = ["/var/log/app/*.jsonl", "/var/log/app/*.ndjson"]
-read_from         = "beginning"
-file_key          = "source_file"
-host_key          = "host"
+  type      = "file"
+  include   = ["/var/log/app/*.ndjson", "/var/log/app/*.jsonl"]
+  read_from = "beginning"
+  file_key  = "source_file"
+  host_key  = "host"
 
 # ── Transforms ────────────────────────────────────────────────────────────────
 
-# Parse plain logs: extract level + timestamp with a flexible regex
+# 1. Parse plain-text lines: extract timestamp + level with a flexible regex
 [transforms.parse_plain]
-type   = "remap"
-inputs = ["file_plain"]
-source = '''
-  # Try common log patterns; fall back gracefully
-  parsed, err = parse_regex(.message, r'(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)\s+(?P<level>DEBUG|INFO|WARN|WARNING|ERROR|FATAL|CRITICAL)\s+(?P<body>.+)')
-  if err == null {
-    .timestamp = parsed.timestamp
-    .level     = downcase(parsed.level)
-    .message   = parsed.body
-  } else {
-    .level = "info"
-  }
-  # Label for Loki stream selector
-  .service = basename(string!(.source_file), ".log")
-  .env     = get_env_var("APP_ENV") ?? "local"
-'''
+  type   = "remap"
+  inputs = ["file_plain"]
+  source = '''
+    parsed, err = parse_regex(
+      .message,
+      r'(?P<ts>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)\s+(?P<lvl>DEBUG|INFO|WARN(?:ING)?|ERROR|FATAL|CRITICAL)\s+(?P<body>.+)'
+    )
+    if err == null {
+      .timestamp = parsed.ts
+      .level     = upcase(parsed.lvl)
+      .message   = parsed.body
+    } else {
+      .level = "INFO"
+    }
+    # Derive a domain from the filename if not already present
+    .domain  = string(.domain  ?? basename(string!(.source_file), ".log"))
+    .service = split(.domain, ".")[0] ?? .domain
+    .env     = get_env_var("APP_ENV") ?? "local"
+  '''
 
-# Parse JSON-structured logs
+# 2. Parse NDJSON lines and validate against the v1.0.0 convention
 [transforms.parse_json_logs]
-type   = "remap"
-inputs = ["file_json"]
-source = '''
-  parsed, err = parse_json(.message)
-  if err == null {
+  type   = "remap"
+  inputs = ["file_json"]
+  source = '''
+    parsed, err = parse_json(.message)
+    if err != null {
+      log("vector: JSON parse error — " + err, level: "warn")
+      abort
+    }
     . = merge(., parsed)
-  }
-  # Normalize common field names
-  .level   = downcase(string(.level ?? .severity ?? .lvl ?? "info"))
-  .message = string(.message ?? .msg ?? .text ?? "")
-  .service = string(.service ?? .app ?? basename(string!(.source_file), ".jsonl"))
-  .env     = get_env_var("APP_ENV") ?? "local"
-'''
+
+    # ── Validate required fields (drop non-conforming entries) ────────────────
+    required_fields = ["timestamp", "level", "domain", "trace_id", "message"]
+    for_each(required_fields) -> |_i, f| {
+      if !exists(get!(., [f])) || is_null(get!(., [f])) {
+        log("vector: missing required field '" + f + "' — dropping entry", level: "warn")
+        abort
+      }
+    }
+
+    # Normalise level to UPPERCASE
+    .level = upcase(string!(.level))
+
+    # Reject unknown levels
+    allowed_levels = ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]
+    if !includes(allowed_levels, .level) {
+      log("vector: invalid level '" + .level + "' — dropping entry", level: "warn")
+      abort
+    }
+
+    # Validate trace_id: exactly 32 lowercase hex chars
+    if !match(string!(.trace_id), r'^[0-9a-f]{32}$') {
+      log("vector: trace_id '" + string!(.trace_id) + "' is not 32 lowercase hex — dropping", level: "warn")
+      abort
+    }
+
+    # Reject empty message
+    if length(strip_whitespace(string!(.message))) == 0 {
+      log("vector: empty message — dropping entry", level: "warn")
+      abort
+    }
+
+    # Derive Loki stream labels
+    .service = split(string!(.domain), ".")[0] ?? .domain
+    .env     = get_env_var("APP_ENV") ?? "local"
+  '''
 
 # ── Sinks ─────────────────────────────────────────────────────────────────────
 
-# Ship to Loki (inside Docker network)
+# Ship to local Loki (reachable inside the Docker Compose network)
 [sinks.loki]
-type              = "loki"
-inputs            = ["parse_plain", "parse_json_logs"]
-endpoint          = "http://loki:3100"
-encoding.codec    = "json"
+  type           = "loki"
+  inputs         = ["parse_plain", "parse_json_logs"]
+  endpoint       = "http://loki:3100"
+  encoding.codec = "json"
+  tenant_id      = "local-dev"
 
-  # Loki stream labels (low-cardinality only!)
+  # Low-cardinality stream labels — trace_id stays in the log body
   [sinks.loki.labels]
-  service = "{{ service }}"
-  level   = "{{ level }}"
-  env     = "{{ env }}"
-  host    = "{{ host }}"
+    service = "{{ service }}"
+    level   = "{{ level }}"
+    env     = "{{ env }}"
+    host    = "{{ host }}"
 
+  # Batch: flush every second or at 1 MiB — keeps latency low in dev
   [sinks.loki.batch]
-  max_bytes    = 1_048_576   # 1 MiB
-  timeout_secs = 5
+    max_bytes    = 1_048_576
+    timeout_secs = 1
 
+  # Disk buffer: survives brief Loki restarts without losing entries
   [sinks.loki.buffer]
-  type      = "disk"
-  max_size  = 268_435_456   # 256 MiB
-  when_full = "drop_newest"
+    type      = "disk"
+    max_size  = 268_435_456   # 256 MiB
+    when_full = "drop_newest"
 
-# Also echo to stdout while developing
+# Echo every parsed entry to stdout — handy during local debugging
 [sinks.console]
-type              = "console"
-inputs            = ["parse_plain", "parse_json_logs"]
-encoding.codec    = "json"
+  type           = "console"
+  inputs         = ["parse_plain", "parse_json_logs"]
+  encoding.codec = "json"
