@@ -483,6 +483,154 @@ def detect_stale_plan(
     )
 
 
+# ── Human-readable report renderer ────────────────────────────────────────────
+
+_SEP = "━" * 54
+_THIN = "─" * 52
+
+# Severity → display icon + label
+_SEVERITY_ICONS: dict[str, str] = {
+    "CRITICAL": "🔴 CRITICAL",
+    "critical": "🔴 CRITICAL",
+    "ERROR":    "🟠 ERROR",
+    "error":    "🟠 ERROR",
+    "WARNING":  "🟡 WARNING",
+    "warning":  "🟡 WARNING",
+    "INFO":     "🔵 INFO",
+    "info":     "🔵 INFO",
+}
+
+_ARTIFACT_ICONS: dict[str, str] = {
+    "healthy":  "✅",
+    "INFO":     "🔵",
+    "WARNING":  "🟡",
+    "ERROR":    "🟠",
+    "CRITICAL": "🔴",
+}
+
+
+def _render_human_report(response: StalePlanResponse) -> None:  # noqa: C901
+    """Print a human-readable staleness report to stderr."""
+    s = response.summary
+    health = s.overall_health
+
+    # ── Banner ─────────────────────────────────────────────────────────────────
+    if health == "healthy":
+        status_line = "✅ HEALTHY"
+    elif health == "critical":
+        status_line = "🔴 CRITICAL"
+    else:
+        status_line = "⚠ DEGRADED"
+
+    click.echo(_SEP, err=True)
+    click.echo(f"  Stale Plan Detector — {status_line}", err=True)
+    click.echo(
+        f"  Plan: {s.plan_id}  ·  {s.total_tasks} tasks  ·  threshold: {s.threshold_seconds:.0f}s",
+        err=True,
+    )
+    if health != "healthy":
+        click.echo(
+            f"  {s.stale_tasks} stale  ·  {s.healthy_tasks} healthy",
+            err=True,
+        )
+    click.echo(_SEP, err=True)
+
+    # ── All-healthy shortcut ───────────────────────────────────────────────────
+    if health == "healthy":
+        click.echo(f"  ✅ All {s.total_tasks} tasks are making progress.", err=True)
+        click.echo(_SEP, err=True)
+    else:
+        # ── Stale task table ───────────────────────────────────────────────────
+        click.echo("", err=True)
+        click.echo("Stale Tasks (most idle first)", err=True)
+        click.echo(_THIN, err=True)
+
+        sorted_tasks = sorted(response.stale_task_details, key=lambda t: -t.idle_seconds)
+        for t in sorted_tasks:
+            severity_val = t.severity.value if hasattr(t.severity, "value") else str(t.severity)
+            icon = _SEVERITY_ICONS.get(severity_val.upper(), severity_val.upper())
+            agent_str = t.assigned_agent or "unassigned"
+            multiplier = t.idle_seconds / t.threshold_seconds if t.threshold_seconds else 0
+            click.echo(
+                f"  {icon:<14}  {t.task_id}  \"{t.title}\"",
+                err=True,
+            )
+            click.echo(
+                f"               status={t.status}  agent={agent_str}",
+                err=True,
+            )
+            click.echo(
+                f"               idle={t.idle_seconds:.0f}s  ({multiplier:.1f}× threshold)",
+                err=True,
+            )
+            click.echo("", err=True)
+
+        click.echo(_SEP, err=True)
+
+    # ── LLM analysis ───────────────────────────────────────────────────────────
+    if response.llm_analysis:
+        model_label = response.analysis_model or "unknown model"
+        click.echo(f"  Claude Analysis  (model: {model_label})", err=True)
+        click.echo(f"  {'─' * 41}", err=True)
+        # Indent each line of the narrative
+        for line in response.llm_analysis.splitlines():
+            click.echo(f"  {line}", err=True)
+        click.echo(_SEP, err=True)
+
+    # ── Artifact freshness ─────────────────────────────────────────────────────
+    if response.artifact_staleness is not None:
+        af = response.artifact_staleness
+        click.echo(_SEP, err=True)
+        click.echo(f"  Artifact Freshness  (threshold: {af.threshold_days} days)", err=True)
+        click.echo(_SEP, err=True)
+        for r in af.results:
+            icon = _ARTIFACT_ICONS.get(r.severity, "❓")
+            age_str = f"age={r.age_days}d" if r.age_days is not None else "age=?"
+            date_str = f"last_updated={r.last_updated}" if r.last_updated else "last_updated=MISSING"
+            sev_suffix = f"  {r.severity}" if r.severity not in ("healthy",) else ""
+            click.echo(
+                f"  {icon}  {r.file:<22}  {date_str:<30}  {age_str}{sev_suffix}",
+                err=True,
+            )
+        click.echo(_SEP, err=True)
+        if af.stale_artifacts:
+            click.echo(f"  {af.stale_artifacts} stale artifact(s) found", err=True)
+            click.echo("  → Run /harness:update to refresh all artifact timestamps.", err=True)
+        else:
+            click.echo("  ✅ All artifacts are fresh.", err=True)
+        click.echo(_SEP, err=True)
+
+    # ── Recovery recommendations ───────────────────────────────────────────────
+    health_val = health if isinstance(health, str) else health.value
+    if health_val == "healthy":
+        click.echo("  ✅ No action needed — all tasks are making progress.", err=True)
+    elif health_val == "degraded":
+        click.echo(
+            "  ⚠  Recommended: Investigate WARNING/ERROR tasks; ping assigned agents.",
+            err=True,
+        )
+    else:
+        click.echo(
+            "  🔴 Recommended: Immediately reassign or restart stale tasks.",
+            err=True,
+        )
+        click.echo(
+            "     Check for deadlocks via /coordinate.",
+            err=True,
+        )
+
+    # If any task is blocked, suggest /coordinate
+    blocked = [t for t in response.stale_task_details if t.status == "blocked"]
+    if blocked:
+        ids = ", ".join(t.task_id for t in blocked)
+        click.echo(
+            f"  ℹ  Blocked task(s) detected ({ids}): run /coordinate to check dependencies.",
+            err=True,
+        )
+
+    click.echo(_SEP, err=True)
+
+
 # ── CLI entry-point ────────────────────────────────────────────────────────────
 
 
@@ -612,6 +760,9 @@ def cli(
         skip_artifacts=skip_artifacts,
         artifact_threshold_days=artifact_threshold_days,
     )
+
+    # ── Render human-readable report to stderr ─────────────────────────────────
+    _render_human_report(response)
 
     # ── Emit structured JSON to stdout ─────────────────────────────────────────
     indent = 2 if pretty else None
