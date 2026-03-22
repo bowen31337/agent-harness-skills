@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id":     "https://example.com/logging-convention/log_entry.schema.json",
+  "title":   "LogEntry",
+  "description": "A single structured log entry conforming to the v1.0.0 logging convention",
+  "type":    "object",
+  "required": ["timestamp", "level", "domain", "trace_id", "message"],
+  "additionalProperties": false,
+  "properties": {
+    "timestamp": {
+      "type":        "string",
+      "format":      "date-time",
+      "pattern":     "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
+      "description": "ISO-8601 UTC timestamp with millisecond precision (trailing Z required)"
+    },
+    "level": {
+      "type": "string",
+      "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
+      "description": "Severity level of the log entry (UPPERCASE)"
+    },
+    "domain": {
+      "type":        "string",
+      "pattern":     "^[a-zA-Z0-9_]+(\\.[a-zA-Z0-9_]+)*$",
+      "minLength":   1,
+      "description": "Dot-separated originating service scope (e.g. payments.stripe.webhook)"
+    },
+    "trace_id": {
+      "type":        "string",
+      "pattern":     "^[0-9a-f]{32}$",
+      "description": "W3C-compatible 128-bit trace ID as 32 lowercase hex chars (no hyphens)"
+    },
+    "message": {
+      "type":        "string",
+      "minLength":   1,
+      "description": "Human-readable description of the logged event (non-empty UTF-8)"
+    },
+    "extra": {
+      "type":                 "object",
+      "additionalProperties": true,
+      "description":          "Optional additional key-value pairs; keys must not shadow required fields",
+      "not": {
+        "anyOf": [
+          { "required": ["timestamp"] },
+          { "required": ["level"] },
+          { "required": ["domain"] },
+          { "required": ["trace_id"] },
+          { "required": ["message"] }
+        ]
+      }
+    }
+  }
+}
