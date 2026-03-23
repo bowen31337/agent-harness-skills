@@ -27,7 +27,8 @@ from typing import Optional
 
 import click
 
-from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+from harness_skills.models.base import Status
+from harness_skills.models.manifest import ManifestValidationError, ManifestValidateResponse
 
 
 # ---------------------------------------------------------------------------
@@ -64,7 +65,8 @@ def manifest_cmd() -> None:
     default=False,
     help=(
         "Emit a machine-readable JSON report to stdout instead of "
-        "human-readable text.  Errors still set exit code 1."
+        "human-readable text.  Output is schema-validated against "
+        "ManifestValidateResponse before emission.  Errors still set exit code 1."
     ),
 )
 @click.pass_context
@@ -89,13 +91,9 @@ def validate_cmd(
         harness manifest validate .harness/harness_manifest.json
         harness manifest validate --json | jq '.errors'
     """
-    verbosity = get_verbosity(ctx)
-
     # ------------------------------------------------------------------
     # 1. Read the file
     # ------------------------------------------------------------------
-    vecho(f"  Validating: {path}", verbosity=verbosity, min_level=VerbosityLevel.verbose)
-
     if not path.exists():
         _emit_error(
             output_json=output_json,
@@ -135,43 +133,32 @@ def validate_cmd(
     errors = validate_manifest(data)
 
     if output_json:
-        # JSON output is always machine-parseable — always emitted.
-        result = {
-            "valid": len(errors) == 0,
-            "path": str(path),
-            "error_count": len(errors),
-            "errors": [
-                {"jsonpath": jp, "message": msg} for jp, msg in errors
+        response = ManifestValidateResponse(
+            status=Status.PASSED if not errors else Status.FAILED,
+            valid=len(errors) == 0,
+            path=str(path),
+            error_count=len(errors),
+            errors=[
+                ManifestValidationError(jsonpath=jp, message=msg)
+                for jp, msg in errors
             ],
-        }
-        click.echo(json.dumps(result, indent=2))
+        )
+        click.echo(response.model_dump_json(indent=2))
         if errors:
             ctx.exit(1)
         return
 
     # Human-readable output
     if not errors:
-        # Success message suppressed in quiet mode (not machine-parseable).
-        vecho(
-            f"✓  {path}  is valid against harness_manifest.schema.json",
-            verbosity=verbosity,
-        )
+        click.echo(f"✓  {path}  is valid against harness_manifest.schema.json")
         return
 
-    # Validation errors always shown — they explain a non-zero exit code.
-    vecho(
+    click.echo(
         f"✗  {path}  failed schema validation — {len(errors)} error(s):",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.quiet,
         err=True,
     )
     for jsonpath, message in errors:
-        vecho(
-            f"  {jsonpath}  →  {message}",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
-            err=True,
-        )
+        click.echo(f"  {jsonpath}  →  {message}", err=True)
     ctx.exit(1)
 
 
@@ -186,18 +173,21 @@ def _emit_error(
     error: str,
     path: Optional[Path] = None,
 ) -> None:
-    """Emit a fatal error in either JSON or human-readable format."""
+    """Emit a fatal error in either JSON or human-readable format.
+
+    When *output_json* is ``True`` the error is wrapped in a
+    :class:`ManifestValidateResponse` and emitted via ``model_dump_json()``
+    so the output is always schema-validated before reaching stdout.
+    """
     if output_json:
-        click.echo(
-            json.dumps(
-                {
-                    "valid": False,
-                    "path": str(path) if path is not None else None,
-                    "error_count": 1,
-                    "errors": [{"jsonpath": "$", "message": error}],
-                },
-                indent=2,
-            )
+        response = ManifestValidateResponse(
+            status=Status.FAILED,
+            valid=False,
+            path=str(path) if path is not None else None,
+            error_count=1,
+            errors=[ManifestValidationError(jsonpath="$", message=error)],
+            message=error,
         )
+        click.echo(response.model_dump_json(indent=2))
     else:
         click.echo(error, err=True)

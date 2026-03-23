@@ -4,6 +4,7 @@ Usage (CLI):
     harness create [--profile PROFILE] [--stack STACK] [--output PATH]
     harness create --dry-run
     harness create --no-merge --profile advanced --stack python
+    harness create --format json          # machine-readable CreateResponse
 
 Generates a complete ``harness.config.yaml`` pre-populated with sensible gate
 defaults for the chosen complexity profile.  If the config file already exists
@@ -17,11 +18,18 @@ Agents should:
   3. Chain with lint and evaluate in a single invocation:
          harness create --then lint --then evaluate
 
-Verbosity behaviour:
-    quiet    Success message suppressed; YAML (--dry-run) still emitted.
-    normal   "Created/Updated <path>  (profile: …)" on success.
-    verbose  Adds stack-detection result and merge decision details.
-    debug    Includes raw generator config in the output.
+JSON output
+-----------
+When ``--format json`` is given the command emits a schema-validated
+:class:`~harness_skills.models.create.CreateResponse` object before exit::
+
+    {
+      "command": "harness create",
+      "status": "passed",
+      "detected_stack": {"primary_language": "Python", ...},
+      "artifacts_generated": [{"artifact_path": "harness.config.yaml", ...}],
+      ...
+    }
 
 Exit codes:
     0   Config written (or printed for --dry-run).
@@ -30,17 +38,26 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
 import click
 
-from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
+from harness_skills.models.base import Status
+from harness_skills.models.create import CreateResponse, DetectedStack, GeneratedArtifact
 
 _PROFILE_CHOICE = click.Choice(
     ["starter", "standard", "advanced"], case_sensitive=False
 )
 _STACK_CHOICE = click.Choice(["python", "node", "go"], case_sensitive=False)
+
+# Map CLI stack hint → canonical primary_language for DetectedStack.
+_STACK_TO_LANGUAGE: dict[str, str] = {
+    "python": "Python",
+    "node": "JavaScript/TypeScript",
+    "go": "Go",
+}
 
 
 def _get_generator():
@@ -50,6 +67,10 @@ def _get_generator():
         write_harness_config,
     )
     return generate_gate_config, write_harness_config
+
+
+def _iso_now() -> str:
+    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
 
 
 @click.command("create")
@@ -100,6 +121,18 @@ def _get_generator():
         "YAML keys."
     ),
 )
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    show_default=True,
+    help=(
+        "Output format.  "
+        "text: human-readable success message (default).  "
+        "json: machine-readable CreateResponse, schema-validated before emission."
+    ),
+)
 @click.pass_context
 def create_cmd(
     ctx: click.Context,
@@ -108,6 +141,7 @@ def create_cmd(
     output: Path,
     dry_run: bool,
     no_merge: bool,
+    output_format: str,
 ) -> None:
     """Generate or update harness.config.yaml with profile-appropriate gate defaults.
 
@@ -125,25 +159,17 @@ def create_cmd(
 
     \b
     Agent usage pattern:
+        harness create --profile standard --format json
         harness create --profile standard --then lint --then evaluate
     """
-    verbosity = get_verbosity(ctx)
-
     try:
         generate_gate_config, write_harness_config = _get_generator()
     except Exception as exc:
-        # Always show dependency errors — they explain a non-zero exit code.
-        vecho(
-            "harness create: dependency error -- " + str(exc),
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
-            err=True,
-        )
+        click.echo("harness create: dependency error -- " + str(exc), err=True)
         ctx.exit(1)
         return
 
     if dry_run:
-        # --dry-run emits YAML to stdout — machine-parseable, always shown.
         gates_yaml = generate_gate_config(profile, detected_stack=stack)
         header = "# harness create --profile " + profile
         if stack:
@@ -152,19 +178,15 @@ def create_cmd(
         click.echo(header + gates_yaml)
         return
 
-    # ── Decide merge strategy ────────────────────────────────────────────────
-    file_exists = output.exists()
-    merge = (not no_merge) and file_exists
-
-    vecho(
-        f"  Stack : {stack or 'auto-detect'}"
-        f"  |  Profile : {profile}"
-        f"  |  Mode : {'merge into existing' if merge else 'create from scratch'}",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.verbose,
-    )
+    # Capture whether the file existed before writing so we can set
+    # GeneratedArtifact.overwritten accurately.
+    existed_before = output.exists()
 
     try:
+        merge = not no_merge
+        if merge and not existed_before:
+            merge = False
+
         write_harness_config(
             path=output,
             profile=profile,
@@ -172,36 +194,44 @@ def create_cmd(
             merge=merge,
         )
     except Exception as exc:
-        # Always show write errors.
-        vecho(
-            "harness create failed: " + str(exc),
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
-            err=True,
-        )
+        if output_format == "json":
+            response = CreateResponse(
+                status=Status.FAILED,
+                timestamp=_iso_now(),
+                message=str(exc),
+                detected_stack=DetectedStack(
+                    primary_language=_STACK_TO_LANGUAGE.get(stack or "", "unknown"),
+                    project_structure="single-app",
+                ),
+            )
+            click.echo(response.model_dump_json(indent=2))
+        else:
+            click.echo("harness create failed: " + str(exc), err=True)
         ctx.exit(1)
         return
 
-    action = "Updated" if merge else "Created"
-    stack_hint = ("  stack: " + stack) if stack else ""
-
-    # Success message — suppressed in quiet mode (not machine-parseable).
-    vecho(
-        action + " " + str(output) + "  (profile: " + profile + stack_hint + ")",
-        verbosity=verbosity,
-    )
-
-    # Verbose: additional detail about what changed.
-    if merge:
-        vecho(
-            f"  Merged '{profile}' gates into existing {output} "
-            "(surrounding keys preserved).",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
+    # ── Emit output ──────────────────────────────────────────────────────────
+    if output_format == "json":
+        detected = DetectedStack(
+            primary_language=_STACK_TO_LANGUAGE.get(stack or "", "unknown"),
+            project_structure="single-app",
+            ci_platform=None,
         )
+        artifact = GeneratedArtifact(
+            artifact_path=str(output),
+            artifact_type="harness.config.yaml",
+            overwritten=existed_before,
+        )
+        action = "updated" if existed_before else "created"
+        response = CreateResponse(
+            status=Status.PASSED,
+            timestamp=_iso_now(),
+            message=f"harness.config.yaml {action} (profile: {profile})",
+            detected_stack=detected,
+            artifacts_generated=[artifact],
+        )
+        click.echo(response.model_dump_json(indent=2))
     else:
-        vecho(
-            f"  New file created at {output}.",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
+        action = "Updated" if existed_before else "Created"
+        stack_hint = ("  stack: " + stack) if stack else ""
+        click.echo(action + " " + str(output) + "  (profile: " + profile + stack_hint + ")")
