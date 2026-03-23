@@ -1,56 +1,48 @@
 """
 harness_skills/models/gate_configs.py
 =======================================
-Dataclass configuration models for all evaluation gates.
+Pydantic configuration models for all evaluation gates.
 
-Each gate configuration class is a plain Python dataclass that inherits from
-:class:`BaseGateConfig`.  The base class provides :meth:`~BaseGateConfig.model_dump`
-and :meth:`~BaseGateConfig.model_validate` helpers — a lightweight, Pydantic-compatible
-interface — so the gate runner can merge YAML overrides with profile defaults
-without pulling in Pydantic as a hard dependency for gate modules themselves.
+Each gate configuration class inherits from :class:`BaseGateConfig` — a
+Pydantic ``BaseModel`` that provides ``model_dump()`` and ``model_validate()``
+used by :class:`~harness_skills.gates.runner.HarnessConfigLoader` to merge
+profile defaults with YAML overrides.
 
-:data:`GATE_CONFIG_CLASSES` maps the canonical gate ID (as used in
-``harness.config.yaml``) to the corresponding config class, enabling the
-runner to iterate all built-in gates and apply profile defaults automatically.
+Unknown YAML keys are silently ignored (``model_config = {"extra": "ignore"}``),
+so future harness.config.yaml additions never break older installations.
 """
 
 from __future__ import annotations
 
-import dataclasses
-from dataclasses import dataclass, field
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# BaseGateConfig — common interface for all gate config dataclasses
+# BaseGateConfig
 # ---------------------------------------------------------------------------
 
 
-class BaseGateConfig:
-    """Common interface for all gate configuration dataclasses.
+class BaseGateConfig(BaseModel):
+    """Shared base for every gate configuration.
 
-    Provides :meth:`model_dump` / :meth:`model_validate` helpers so that
-    :class:`~harness_skills.gates.runner.HarnessConfigLoader` can merge
-    YAML overrides with profile defaults without knowing the concrete type.
-
-    All built-in gate config dataclasses inherit from this class.  The class
-    itself is intentionally **not** a dataclass so it does not add any fields
-    to its subclasses.
+    Attributes
+    ----------
+    enabled:
+        When ``False`` the gate is skipped entirely during ``harness evaluate``.
+        Defaults to ``True``; individual subclasses may override.
+    fail_on_error:
+        When ``True`` (the default), *error*-severity violations cause the
+        gate to return a non-zero exit code and block merges.
+        Set to ``False`` to downgrade all violations to *warnings* (advisory
+        mode) without blocking CI.
     """
 
-    def model_dump(self) -> dict[str, object]:
-        """Return a plain-dict snapshot of this config (all fields and values)."""
-        return dataclasses.asdict(self)  # type: ignore[arg-type]
+    model_config: Any = {"extra": "ignore"}
 
-    @classmethod
-    def model_validate(cls, data: dict[str, object]) -> "BaseGateConfig":
-        """Construct an instance from *data*, ignoring any unknown keys.
-
-        This mirrors the Pydantic v2 ``model_validate`` signature so the
-        runner can treat dataclass configs and Pydantic models uniformly.
-        Unknown keys (e.g. YAML-only metadata) are silently dropped.
-        """
-        known = {f.name for f in dataclasses.fields(cls)}  # type: ignore[arg-type]
-        return cls(**{k: v for k, v in data.items() if k in known})  # type: ignore[return-value]
+    enabled: bool = True
+    fail_on_error: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +50,6 @@ class BaseGateConfig:
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class DocsFreshnessGateConfig(BaseGateConfig):
     """Configuration for the documentation-freshness gate.
 
@@ -67,19 +58,13 @@ class DocsFreshnessGateConfig(BaseGateConfig):
     max_staleness_days:
         Maximum number of days between the ``generated_at`` timestamp and
         today before the content is considered stale.  Defaults to 30.
-    fail_on_error:
-        When ``True`` (the default), *error*-severity violations cause the
-        gate to return ``passed=False`` and exit with a non-zero code.
-        Setting this to ``False`` downgrades all violations to *warnings*
-        and lets the gate pass regardless.
     tracked_files:
         File names (basenames only) to scan for freshness timestamps.
         ``AGENTS.md`` is always included; additional names may be appended.
     """
 
     max_staleness_days: int = 30
-    fail_on_error: bool = True
-    tracked_files: list[str] = field(default_factory=lambda: ["AGENTS.md"])
+    tracked_files: list[str] = Field(default_factory=lambda: ["AGENTS.md"])
 
 
 # ---------------------------------------------------------------------------
@@ -87,7 +72,6 @@ class DocsFreshnessGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class CoverageGateConfig(BaseGateConfig):
     """Configuration for the code-coverage gate.
 
@@ -97,11 +81,6 @@ class CoverageGateConfig(BaseGateConfig):
         Minimum required line-coverage percentage expressed as a value
         between 0 and 100 (default: **90.0**).  PRs whose overall coverage
         falls below this bar are blocked when ``fail_on_error=True``.
-    fail_on_error:
-        When ``True`` (the default), a below-threshold result causes the
-        gate to return ``passed=False`` and exit with a non-zero code.
-        Setting this to ``False`` emits a *warning* violation but still
-        allows the build to continue.
     coverage_file:
         Path to the coverage report, either absolute or relative to the
         repository root passed to :meth:`~CoverageGate.run`.
@@ -111,12 +90,19 @@ class CoverageGateConfig(BaseGateConfig):
         format from the file extension: ``.xml`` → xml, ``.json`` → json,
         ``.info`` / ``.out`` / ``.lcov`` → lcov.  Pass ``"xml"``,
         ``"json"``, or ``"lcov"`` to override auto-detection.
+    branch_coverage:
+        When ``True``, branch coverage is enforced in addition to line
+        coverage.  Defaults to ``False``.
+    exclude_patterns:
+        File-path glob patterns to exclude from coverage measurement
+        (passed as ``--omit`` to pytest-cov).
     """
 
     threshold: float = 90.0
-    fail_on_error: bool = True
     coverage_file: str = "coverage.xml"
     report_format: str = "auto"
+    branch_coverage: bool = False
+    exclude_patterns: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -124,14 +110,11 @@ class CoverageGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class RegressionGateConfig(BaseGateConfig):
     """Configuration for the regression (test-suite) gate."""
 
-    enabled: bool = True
-    fail_on_error: bool = True
     timeout_seconds: int = 300
-    extra_args: list[str] = field(default_factory=list)
+    extra_args: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -139,45 +122,14 @@ class RegressionGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class SecurityGateConfig(BaseGateConfig):
-    """Configuration for the security-scan gate (pip-audit / npm audit / bandit).
-
-    Attributes
-    ----------
-    enabled:
-        Whether this gate is active.  Set ``False`` to skip entirely.
-    fail_on_error:
-        When ``True`` (the default), *error*-severity violations cause the gate
-        to return ``passed=False`` and exit with a non-zero code.  ``False``
-        downgrades all violations to *warnings*.
-    severity_threshold:
-        Minimum CVE/advisory severity to report for dependency vulnerabilities.
-        One of ``CRITICAL``, ``HIGH``, ``MEDIUM``, or ``LOW`` (default: ``HIGH``).
-    scan_dependencies:
-        Parse a pre-generated pip-audit / npm audit JSON report and flag
-        packages with known CVEs at or above *severity_threshold*.
-    scan_secrets:
-        Regex-scan all source files for hardcoded credentials, private keys,
-        and API tokens.  Off by default to avoid noise on first run.
-    scan_input_validation:
-        Regex-scan Python/JS/TS source files for dangerous patterns that
-        indicate missing input sanitisation (e.g. ``eval(request.data)``,
-        raw SQL string formatting with request objects, pickle deserialisation
-        of user-supplied bytes).  On by default.
-    ignore_ids:
-        Vulnerability IDs (CVE, GHSA, PYSEC) or secret-scanner rule IDs to
-        suppress.  Violations whose ``rule_id`` appears in this list are
-        silently skipped.
-    """
+    """Configuration for the security-scan gate (pip-audit / npm audit / bandit)."""
 
     enabled: bool = True
-    fail_on_error: bool = True
     severity_threshold: str = "HIGH"   # CRITICAL | HIGH | MEDIUM | LOW
     scan_dependencies: bool = True
     scan_secrets: bool = False
-    scan_input_validation: bool = True
-    ignore_ids: list[str] = field(default_factory=list)
+    ignore_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -185,12 +137,10 @@ class SecurityGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class PerformanceGateConfig(BaseGateConfig):
     """Configuration for the performance-benchmark gate."""
 
     enabled: bool = False
-    fail_on_error: bool = True
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
 
@@ -200,17 +150,14 @@ class PerformanceGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class ArchitectureGateConfig(BaseGateConfig):
     """Configuration for the architecture (import-layer) gate."""
 
-    enabled: bool = True
-    fail_on_error: bool = True
-    rules: list[str] = field(default_factory=lambda: [
+    rules: list[str] = Field(default_factory=lambda: [
         "no_circular_dependencies",
         "enforce_layer_boundaries",
     ])
-    layer_order: list[str] = field(default_factory=lambda: [
+    layer_order: list[str] = Field(default_factory=lambda: [
         "models", "repositories", "services", "api",
     ])
     report_only: bool = False
@@ -221,14 +168,12 @@ class ArchitectureGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class PrinciplesGateConfig(BaseGateConfig):
     """Configuration for the golden-principles gate."""
 
-    enabled: bool = True
     fail_on_error: bool = False   # advisory by default
     principles_file: str = ".claude/principles.yaml"
-    rules: list[str] = field(default_factory=lambda: ["all"])
+    rules: list[str] = Field(default_factory=lambda: ["all"])
 
 
 # ---------------------------------------------------------------------------
@@ -236,14 +181,36 @@ class PrinciplesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class TypesGateConfig(BaseGateConfig):
-    """Configuration for the static type-checking gate (mypy / tsc / pyright)."""
+    """Configuration for the static type-checking gate (mypy / tsc / pyright).
 
-    enabled: bool = True
-    fail_on_error: bool = True
+    Attributes
+    ----------
+    strict:
+        When ``True``, passes ``--strict`` to mypy (enables all optional
+        error codes: ``disallow_untyped_defs``, ``disallow_any_generics``,
+        ``warn_return_any``, etc.).  For tsc, enables
+        ``"strict": true`` in the compiler options.  Defaults to ``False``.
+    ignore_errors:
+        List of mypy error codes (e.g. ``["import", "attr-defined"]``) or
+        TypeScript diagnostic codes (e.g. ``["TS2304"]``) to suppress.
+        Suppressed errors are excluded from the violation list and never
+        cause the gate to fail.
+    checker:
+        Explicitly select the type checker: ``"mypy"``, ``"pyright"``, or
+        ``"tsc"``.  ``"auto"`` (the default) detects the checker from the
+        project layout:
+        - ``pyproject.toml`` / ``setup.py`` present → mypy
+        - ``tsconfig.json`` present → tsc
+    paths:
+        Paths to pass to the type checker (relative to the repository root).
+        Defaults to ``["."]`` (the whole project).
+    """
+
     strict: bool = False
-    ignore_errors: list[str] = field(default_factory=list)
+    ignore_errors: list[str] = Field(default_factory=list)
+    checker: str = "auto"          # "auto" | "mypy" | "pyright" | "tsc"
+    paths: list[str] = Field(default_factory=lambda: ["."])
 
 
 # ---------------------------------------------------------------------------
@@ -251,34 +218,31 @@ class TypesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class LintGateConfig(BaseGateConfig):
     """Configuration for the linting gate (ruff / eslint / golangci-lint)."""
 
-    enabled: bool = True
-    fail_on_error: bool = True
     autofix: bool = False
-    select: list[str] = field(default_factory=list)
-    ignore: list[str] = field(default_factory=list)
+    select: list[str] = Field(default_factory=list)
+    ignore: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
 # GATE_CONFIG_CLASSES
-# Maps canonical gate IDs (as used in harness.config.yaml) to config classes.
-# Consumed by HarnessConfigLoader to iterate all built-in gates and apply
-# profile defaults + YAML overrides per gate.
+# Registry consumed by HarnessConfigLoader.gate_configs() to resolve per-gate
+# config from harness.config.yaml.
 # ---------------------------------------------------------------------------
 
+#: Maps gate_id → config class.  Order determines execution priority.
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
-    "regression":    RegressionGateConfig,
-    "coverage":      CoverageGateConfig,
-    "security":      SecurityGateConfig,
-    "performance":   PerformanceGateConfig,
-    "architecture":  ArchitectureGateConfig,
-    "principles":    PrinciplesGateConfig,
+    "regression":     RegressionGateConfig,
+    "coverage":       CoverageGateConfig,
+    "security":       SecurityGateConfig,
+    "performance":    PerformanceGateConfig,
+    "architecture":   ArchitectureGateConfig,
+    "principles":     PrinciplesGateConfig,
     "docs_freshness": DocsFreshnessGateConfig,
-    "types":         TypesGateConfig,
-    "lint":          LintGateConfig,
+    "types":          TypesGateConfig,
+    "lint":           LintGateConfig,
 }
 
 
@@ -287,7 +251,7 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
 # Canonical per-profile default configurations consumed by config_generator.
 # ---------------------------------------------------------------------------
 
-PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
+PROFILE_GATE_DEFAULTS: dict[str, dict[str, BaseGateConfig]] = {
     "starter": {
         "regression":    RegressionGateConfig(enabled=True, fail_on_error=True),
         "coverage":      CoverageGateConfig(threshold=60.0, fail_on_error=True),

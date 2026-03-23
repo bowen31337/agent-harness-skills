@@ -5,8 +5,9 @@ Public API
     CoverageGate            — line-coverage gate (XML / JSON / lcov)
     DocsFreshnessGate       — documentation-staleness gate
     DocsGateConfig          — configuration for DocsFreshnessGate
-    SecurityGate            — security gate (secret scan / dep audit / input validation)
-    SecurityGateConfig      — configuration for SecurityGate
+    TypesGate               — static type-checking gate (mypy / tsc / pyright)
+    TypesGateResult         — result type returned by TypesGate
+    TypeViolation           — single type violation from TypesGate
     EvaluationSummary       — aggregate outcome from run_gates()
     GateEvaluator           — orchestrates gate execution against a config
     GateFailure             — single gate failure descriptor
@@ -18,7 +19,7 @@ Public API
 from harness_skills.gates.coverage import CoverageGate
 from harness_skills.gates.docs_freshness import DocsFreshnessGate
 from harness_skills.gates.docs_freshness import GateConfig as DocsGateConfig
-from harness_skills.gates.security import SecurityGate
+from harness_skills.gates.types import TypesGate, TypesGateResult, TypeViolation
 from harness_skills.gates.runner import (
     EvaluationSummary,
     GateEvaluator,
@@ -27,7 +28,6 @@ from harness_skills.gates.runner import (
     HarnessConfigLoader,
     run_gates,
 )
-from harness_skills.models.gate_configs import SecurityGateConfig
 
 __all__ = [
     # ── coverage gate ────────────────────────────────────────────────────────
@@ -35,9 +35,10 @@ __all__ = [
     # ── docs-freshness gate ──────────────────────────────────────────────────
     "DocsFreshnessGate",
     "DocsGateConfig",
-    # ── security gate ────────────────────────────────────────────────────────
-    "SecurityGate",
-    "SecurityGateConfig",
+    # ── type-safety gate ─────────────────────────────────────────────────────
+    "TypesGate",
+    "TypesGateResult",
+    "TypeViolation",
     # ── runner ──────────────────────────────────────────────────────────────
     "EvaluationSummary",
     "GateEvaluator",
