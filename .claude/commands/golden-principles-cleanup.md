@@ -171,7 +171,7 @@ detecting <N> violation(s) across the following files:
 
 - [ ] PR title follows conventional commits (`refactor:` prefix)
 - [ ] No unrelated changes included
-- [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
+- [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
 ```
 
 **`generated_at`**: current UTC ISO-8601 timestamp (e.g. `"2026-03-22T10:00:00Z"`)

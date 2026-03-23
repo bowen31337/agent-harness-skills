@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from git_checkpoint import (
+from harness_tools.git_checkpoint import (
     CheckpointMeta,
     GitCheckpoint,
     _summarise_tool_input,

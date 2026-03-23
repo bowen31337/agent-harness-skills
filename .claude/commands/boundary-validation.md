@@ -30,7 +30,7 @@ find . -name "tsconfig.json" -not -path "*/node_modules/*" | head -5
 ```
 
 Then determine which directories correspond to which architectural layers by looking at
-directory names and any existing `ARCHITECTURE.md` or layer comments:
+directory names and any existing `docs/ARCHITECTURE.md` or layer comments:
 
 | Layer label | Typical directory patterns |
 |---|---|
@@ -293,17 +293,17 @@ If the analysis in Steps 1–3 found specific violations, also write per-file ru
 
 ---
 
-### Step 6: Regenerate PRINCIPLES.md
+### Step 6: Regenerate docs/PRINCIPLES.md
 
-After writing `.claude/principles.yaml`, regenerate `PRINCIPLES.md` using the same
+After writing `.claude/principles.yaml`, regenerate `docs/PRINCIPLES.md` using the same
 logic as `/define-principles` Step 4.5.  Specifically:
 
-1. Preserve all existing sections in `PRINCIPLES.md` that are outside the
+1. Preserve all existing sections in `docs/PRINCIPLES.md` that are outside the
    `Boundary Validation Rules` section.
 2. Add or replace a section titled `## <N>. Boundary Validation Rules` (where N is
    the next available section number) with the BV principles formatted the same way
    as existing sections.
-3. Stage the file with `git add PRINCIPLES.md` but do **not** auto-commit.
+3. Stage the file with `git add docs/PRINCIPLES.md` but do **not** auto-commit.
 
 ---
 
@@ -348,7 +348,7 @@ logic as `/define-principles` Step 4.5.  Specifically:
 ## Notes
 
 - **Safe to re-run** — existing `BV*` principles are updated in-place, never duplicated.
-- **No file contents are modified** — only `.claude/principles.yaml` and `PRINCIPLES.md`
+- **No file contents are modified** — only `.claude/principles.yaml` and `docs/PRINCIPLES.md`
   are written; source files are not auto-fixed.
 - **Static analysis only** — detection uses grep patterns, not AST execution.
   False positives in test helpers are expected; review the report before accepting.

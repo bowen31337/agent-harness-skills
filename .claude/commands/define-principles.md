@@ -23,7 +23,7 @@ other skills.
 ```
 
 Both workflows write the same `.claude/principles.yaml` format and auto-generate
-`PRINCIPLES.md`.  The interactive prompt is a guided editor for the same YAML.
+`docs/PRINCIPLES.md`.  The interactive prompt is a guided editor for the same YAML.
 
 ---
 
@@ -213,9 +213,9 @@ principles:
     rule: "Prefer dataclasses over plain dicts for structured data"
 ```
 
-### Step 4.5: Write PRINCIPLES.md with version identifier and generation timestamp
+### Step 4.5: Write docs/PRINCIPLES.md with version identifier and generation timestamp
 
-After saving `.claude/principles.yaml`, generate (or update) `PRINCIPLES.md` so
+After saving `.claude/principles.yaml`, generate (or update) `docs/PRINCIPLES.md` so
 that every harness artifact carries a machine-readable provenance block.
 
 ```bash
@@ -225,7 +225,7 @@ HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
 SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 ```
 
-Write `PRINCIPLES.md` using this exact structure:
+Write `docs/PRINCIPLES.md` using this exact structure:
 
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
@@ -252,10 +252,10 @@ artifact: principles
 **Rules:**
 - Replace the example rows with the actual principles from `.claude/principles.yaml`.
 - Severity `blocking` → 🔴 `blocking`; `suggestion` → 🟡 `suggestion`.
-- If `PRINCIPLES.md` already exists and has a `<!-- harness:auto-generated … -->`
+- If `docs/PRINCIPLES.md` already exists and has a `<!-- harness:auto-generated … -->`
   block, replace that block in-place and regenerate the table.  Content outside
   the block (e.g., additional narrative sections added by the team) is preserved.
-- Stage the file with `git add PRINCIPLES.md` but do **not** auto-commit.
+- Stage the file with `git add docs/PRINCIPLES.md` but do **not** auto-commit.
 
 ---
 

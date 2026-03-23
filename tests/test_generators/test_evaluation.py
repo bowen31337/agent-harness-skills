@@ -507,8 +507,10 @@ class TestDocsFreshnessGate:
         from datetime import datetime, timezone
 
         now_str = datetime.now(timezone.utc).isoformat()
-        for name in ["AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md"]:
-            (tmp_path / name).write_text(f"# {name}\n<!-- generated_at: {now_str} -->\n")
+        for name in ["AGENTS.md", "docs/ARCHITECTURE.md", "docs/PRINCIPLES.md", "docs/EVALUATION.md"]:
+            p = tmp_path / name
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(f"# {name}\n<!-- generated_at: {now_str} -->\n")
         result = DocsFreshnessGate().run(tmp_path, GateConfig(max_staleness_days=30))
         assert result.status == GateStatus.PASSED
 

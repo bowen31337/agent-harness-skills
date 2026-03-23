@@ -585,7 +585,7 @@ Only write a principle for a pattern that was **detected** in Step 1–4.
     inside a loop or per-request function.
 ```
 
-After writing, re-run the same `PRINCIPLES.md` regeneration logic as `/define-principles`
+After writing, re-run the same `docs/PRINCIPLES.md` regeneration logic as `/define-principles`
 Step 4.5 so the table stays up to date.
 
 ---

@@ -38,25 +38,25 @@
       "overwritten": false
     },
     {
-      "artifact_path": "ARCHITECTURE.md",
+      "artifact_path": "docs/ARCHITECTURE.md",
       "artifact_type": "ARCHITECTURE.md",
       "token_count": null,
       "overwritten": false
     },
     {
-      "artifact_path": "PRINCIPLES.md",
+      "artifact_path": "docs/PRINCIPLES.md",
       "artifact_type": "PRINCIPLES.md",
       "token_count": null,
       "overwritten": false
     },
     {
-      "artifact_path": "EVALUATION.md",
+      "artifact_path": "docs/EVALUATION.md",
       "artifact_type": "EVALUATION.md",
       "token_count": null,
       "overwritten": false
     },
     {
-      "artifact_path": "harness_manifest.schema.json",
+      "artifact_path": "schemas/harness_manifest.schema.json",
       "artifact_type": "schema",
       "token_count": null,
       "overwritten": true
@@ -69,6 +69,6 @@
     }
   ],
   "manifest_path": "harness_manifest.json",
-  "schema_path": "harness_manifest.schema.json",
+  "schema_path": "schemas/harness_manifest.schema.json",
   "symbols_index_path": null
 }

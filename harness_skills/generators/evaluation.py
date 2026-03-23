@@ -962,9 +962,9 @@ class DocsFreshnessGate(GateRunner):
 
     TRACKED_FILES = [
         "AGENTS.md",
-        "ARCHITECTURE.md",
-        "PRINCIPLES.md",
-        "EVALUATION.md",
+        "docs/ARCHITECTURE.md",
+        "docs/PRINCIPLES.md",
+        "docs/EVALUATION.md",
     ]
     TIMESTAMP_RE = re.compile(r"generated_at:\s*([\d\-T:.+Z]+)")
 

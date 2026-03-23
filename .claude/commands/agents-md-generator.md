@@ -259,7 +259,7 @@ with `│   ` / `├── ` / `└── ` connectors.
 **Rules agents must follow:**
 - Always import from the domain root (`from harness_skills.models import …`), never from sub-modules.
 - Never import a private symbol (leading `_`) across a domain boundary.
-- See `ARCHITECTURE.md` and `.claude/principles.yaml` (`MB001`–`MB014`) for full enforcement rules.
+- See `docs/ARCHITECTURE.md` and `.claude/principles.yaml` (`MB001`–`MB014`) for full enforcement rules.
 ```
 
 ---
@@ -343,7 +343,7 @@ Rules:
 | `--dry-run` | Print generated content to stdout; do not write any files |
 | `--shallow` | Include top-level domains only (skip sub-packages at depth > 1) |
 | `--out <path>` | Write to a custom path instead of `AGENTS.md` |
-| `--no-arch` | Skip the Architecture Overview section (use if `ARCHITECTURE.md` is the canonical source) |
+| `--no-arch` | Skip the Architecture Overview section (use if `docs/ARCHITECTURE.md` is the canonical source) |
 | `--arch-only` | Only regenerate the Architecture Overview section; preserve all other content exactly |
 
 ---
@@ -358,9 +358,9 @@ Rules:
 - **Complements `/module-boundaries`** — this skill *reads* boundary data to
   populate AGENTS.md; it does not update `.claude/principles.yaml`.  Run
   `/module-boundaries` first if you want fresh violation counts.
-- **Complements `/architecture`** — `ARCHITECTURE.md` is the deep technical
+- **Complements `/architecture`** — `docs/ARCHITECTURE.md` is the deep technical
   reference; `AGENTS.md` is the agent-actionable quick-reference.  Both can
   coexist.  The Architecture Overview section in AGENTS.md intentionally mirrors
-  the key tables from ARCHITECTURE.md in a more compact form.
+  the key tables from docs/ARCHITECTURE.md in a more compact form.
 - **CI-safe** — all discovery steps use read-only shell commands; no network
   calls are made.

@@ -136,7 +136,7 @@ HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
 SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 SERVICE=$(basename "$(pwd)")
 
-for ARTIFACT_FILE in AGENTS.md ARCHITECTURE.md PRINCIPLES.md EVALUATION.md; do
+for ARTIFACT_FILE in AGENTS.md docs/ARCHITECTURE.md docs/PRINCIPLES.md docs/EVALUATION.md; do
   if [ -f "$ARTIFACT_FILE" ]; then
     echo "EXISTS (skipping stub creation): $ARTIFACT_FILE"
     continue
@@ -457,13 +457,13 @@ separate tool call, checking the exit code of each before proceeding.
 |---|---|
 | `harness.config.yaml` | Generated (or updated) harness configuration with gate defaults |
 | `AGENTS.md` | Stub created if absent; contains version identifier and generation timestamp |
-| `ARCHITECTURE.md` | Stub created if absent; contains version identifier and generation timestamp |
-| `PRINCIPLES.md` | Stub created if absent; contains version identifier and generation timestamp |
-| `EVALUATION.md` | Stub created if absent; contains version identifier and generation timestamp |
+| `docs/ARCHITECTURE.md` | Stub created if absent; contains version identifier and generation timestamp |
+| `docs/PRINCIPLES.md` | Stub created if absent; contains version identifier and generation timestamp |
+| `docs/EVALUATION.md` | Stub created if absent; contains version identifier and generation timestamp |
 | `harness_manifest.json` | Machine-readable index of the detected stack, domain boundaries, and all generated artifact paths |
 | `harness_manifest.schema.json` | JSON Schema (2020-12) for `harness_manifest.json` — allows downstream tools and agents to validate manifest fragments independently |
 
-Pre-existing stub files (`AGENTS.md`, `ARCHITECTURE.md`, `PRINCIPLES.md`, `EVALUATION.md`) are never
+Pre-existing stub files (`AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/PRINCIPLES.md`, `docs/EVALUATION.md`) are never
 overwritten.  The manifest and schema files are always regenerated.  The skill does **not** auto-commit.
 
 ---

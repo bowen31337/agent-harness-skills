@@ -225,7 +225,7 @@ Rules:
   boundary so regressions are caught).
 - Re-running `/module-boundaries` updates existing `MB*` principles in-place; it never
   duplicates them.
-- After writing, also regenerate `PRINCIPLES.md` (same logic as `/define-principles`
+- After writing, also regenerate `docs/PRINCIPLES.md` (same logic as `/define-principles`
   Step 4.5).
 
 ---

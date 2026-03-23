@@ -13,7 +13,7 @@ class GateConfig:
     fail_on_error: bool = True
     tracked_files: list[str] = field(
         default_factory=lambda: [
-            "AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md", "EVALUATION.md",
+            "AGENTS.md", "docs/ARCHITECTURE.md", "docs/PRINCIPLES.md", "docs/EVALUATION.md",
         ]
     )
 

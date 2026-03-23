@@ -143,7 +143,7 @@ the exact state at that point in time.
 ### Docs
 
 - ✅ `docs/exec-plans/shared-state.yaml` — Added  *(shared multi-agent coordination state)*
-- ✅ `docs/harness-init.sh` — Added  *(standalone CLI init script for non-Claude Code teams)*
+- ✅ `scripts/harness-init-standalone.sh` — Added  *(standalone CLI init script for non-Claude Code teams)*
 
 ### Spec
 

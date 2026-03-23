@@ -257,9 +257,9 @@ Consumers should:
 
 ---
 
-### Step 3.5: Write EVALUATION.md — provenance block, completion criteria, and live results
+### Step 3.5: Write docs/EVALUATION.md — provenance block, completion criteria, and live results
 
-After emitting the structured JSON block, write (or update) `EVALUATION.md`.
+After emitting the structured JSON block, write (or update) `docs/EVALUATION.md`.
 This file serves **two purposes simultaneously**:
 
 1. **Standing completion criteria** — a stable checklist of what every agent must
@@ -304,7 +304,7 @@ Map each blocking/advisory gate to a human-readable requirement string:
 
 #### 3.5.3 — Write the file
 
-Write `EVALUATION.md` using this exact structure:
+Write `docs/EVALUATION.md` using this exact structure:
 
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
@@ -423,14 +423,14 @@ Items marked 🔴 **BLOCKING** prevent merge; 🟡 **ADVISORY** items are strong
 ```
 
 **Rules:**
-- If `EVALUATION.md` already exists and has a `<!-- harness:auto-generated … -->`
+- If `docs/EVALUATION.md` already exists and has a `<!-- harness:auto-generated … -->`
   block, replace the auto-generated block, the **PR Completion Criteria** section,
   the **Merge Readiness Decision Table**, **Summary**, and **Gate Results** sections
   in-place. Any content between `<!-- CUSTOM-START -->` and `<!-- CUSTOM-END -->`
   markers is preserved verbatim — never overwrite it.
 - The **Criteria Definitions** subsections (per-gate detail) are also regenerated
   from the active profile on each run, so they stay in sync with `harness.config.yaml`.
-- Stage the file with `git add EVALUATION.md` but do **not** auto-commit.
+- Stage the file with `git add docs/EVALUATION.md` but do **not** auto-commit.
 - In `--format json` mode (CI/agent invocations), still write the file but
   suppress the ASCII banner to keep stdout clean.
 - If `harness.config.yaml` cannot be read, fall back to listing all 9 standard

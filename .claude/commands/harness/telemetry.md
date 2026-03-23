@@ -276,7 +276,7 @@ block so downstream agents can consume it without re-reading the file:
   "session_count": 4,
   "totals": {
     "artifact_reads": {
-      "PRINCIPLES.md": 12,
+      "docs/PRINCIPLES.md": 12,
       "harness.config.yaml": 9,
       ".claude/principles.yaml": 7,
       "docs/exec-plans/progress.md": 5
@@ -294,7 +294,7 @@ block so downstream agents can consume it without re-reading the file:
       "ruff-format": 2
     }
   },
-  "top_artifact": "PRINCIPLES.md",
+  "top_artifact": "docs/PRINCIPLES.md",
   "top_command": "check-code",
   "top_gate_failure": "ruff"
 }
@@ -315,7 +315,7 @@ useful observations from the data:
   Insights
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Most-read artifact   : PRINCIPLES.md (12 reads across 4 sessions)
+  Most-read artifact   : docs/PRINCIPLES.md (12 reads across 4 sessions)
     → Agents consult this file heavily — keep it concise and scannable.
 
   Most-invoked command : check-code (8 invocations)
@@ -336,7 +336,7 @@ Rules:
   commonly edited files.
 - If `top_gate_failure` is `pytest`: suggest running tests locally before pushing.
 - If `top_command` appears ≥ 5 times: suggest automation in CI.
-- If `top_artifact` is a principles or config file (`.yaml`, `PRINCIPLES.md`,
+- If `top_artifact` is a principles or config file (`.yaml`, `docs/PRINCIPLES.md`,
   `CLAUDE.md`): suggest making it shorter or adding a summary section at the top.
 
 ---

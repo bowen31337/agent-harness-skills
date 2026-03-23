@@ -138,7 +138,7 @@ Produce the following output based on the parsed response.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ✅  [CURRENT     ]  AGENTS.md
                       last_updated=2026-03-20  age=3d
-  ✅  [CURRENT     ]  ARCHITECTURE.md
+  ✅  [CURRENT     ]  docs/ARCHITECTURE.md
                       last_updated=2026-03-18  age=5d
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ✅ current:5  🔵 stale:0  🟡 outdated:0  🔴 obsolete:0  ❌ missing:0  ⚪ no_ts:1
@@ -152,13 +152,13 @@ Produce the following output based on the parsed response.
   Harness Artifact Audit — ❌ FAILED
   12 artifact(s)  ·  stale>14d  outdated>30d  obsolete>90d
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ❌  [MISSING     ]  EVALUATION.md
+  ❌  [MISSING     ]  docs/EVALUATION.md
                       no timestamp
                       → Artifact not found — run `/harness:create`
-  🔴  [OBSOLETE    ]  ARCHITECTURE.md
+  🔴  [OBSOLETE    ]  docs/ARCHITECTURE.md
                       last_updated=2025-09-01  age=203d
                       → Regenerate immediately — run `/harness:update` or `/harness:create`
-  🟡  [OUTDATED    ]  PRINCIPLES.md
+  🟡  [OUTDATED    ]  docs/PRINCIPLES.md
                       last_updated=2026-01-10  age=72d
                       → Refresh required — run `/harness:update`
   🔵  [STALE       ]  .claude/commands/harness/lint.md
@@ -193,23 +193,23 @@ a fenced block so downstream agents can act without re-running the gate:
   },
   "artifacts": [
     {
-      "artifact_path": "EVALUATION.md",
-      "artifact_type": "EVALUATION.md",
+      "artifact_path": "docs/EVALUATION.md",
+      "artifact_type": "docs/EVALUATION.md",
       "score": "missing",
       "severity": "error",
       "age_days": null,
       "last_updated": null,
-      "message": "Artifact not found: 'EVALUATION.md'",
-      "recommended_action": "Artifact not found at 'EVALUATION.md'. Run `/harness:create` to generate it."
+      "message": "Artifact not found: 'docs/EVALUATION.md'",
+      "recommended_action": "Artifact not found at 'docs/EVALUATION.md'. Run `/harness:create` to generate it."
     },
     {
-      "artifact_path": "ARCHITECTURE.md",
-      "artifact_type": "ARCHITECTURE.md",
+      "artifact_path": "docs/ARCHITECTURE.md",
+      "artifact_type": "docs/ARCHITECTURE.md",
       "score": "obsolete",
       "severity": "error",
       "age_days": 203,
       "last_updated": "2025-09-01",
-      "message": "'ARCHITECTURE.md' is OBSOLETE: last_updated=2025-09-01, age=203 day(s)",
+      "message": "'docs/ARCHITECTURE.md' is OBSOLETE: last_updated=2025-09-01, age=203 day(s)",
       "recommended_action": "Regenerate immediately — run `/harness:update` or `/harness:create`."
     }
   ]

@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from harness_telemetry import (
+from harness_tools.harness_telemetry import (
     HarnessTelemetry,
     _identify_gate,
     _is_harness_artifact,

@@ -262,7 +262,7 @@ staleness by reading their `last_updated` field from the
 
 ```bash
 # Find all four canonical artifact files plus any AGENTS.md in subdirectories
-ARTIFACT_FILES=(AGENTS.md ARCHITECTURE.md PRINCIPLES.md EVALUATION.md)
+ARTIFACT_FILES=(AGENTS.md docs/ARCHITECTURE.md docs/PRINCIPLES.md docs/EVALUATION.md)
 SUBDIRECTORY_AGENTS=$(find . -name "AGENTS.md" \
   -not -path '*/.git/*' -not -path '*/node_modules/*' \
   -not -path '*/.venv/*' 2>/dev/null | sort)
@@ -339,7 +339,7 @@ top-level key `artifact_staleness`:
       "severity": "healthy"
     },
     {
-      "file": "ARCHITECTURE.md",
+      "file": "docs/ARCHITECTURE.md",
       "last_updated": "2025-11-01",
       "generated_at": "2025-11-01T14:22:00Z",
       "skill_version": "0.1.0",
@@ -347,7 +347,7 @@ top-level key `artifact_staleness`:
       "severity": "CRITICAL"
     },
     {
-      "file": "PRINCIPLES.md",
+      "file": "docs/PRINCIPLES.md",
       "last_updated": "2026-02-14",
       "generated_at": "2026-02-14T09:15:00Z",
       "skill_version": "0.1.0",
@@ -355,7 +355,7 @@ top-level key `artifact_staleness`:
       "severity": "INFO"
     },
     {
-      "file": "EVALUATION.md",
+      "file": "docs/EVALUATION.md",
       "last_updated": "2026-03-18",
       "generated_at": "2026-03-18T16:45:00Z",
       "skill_version": "0.1.0",
@@ -373,9 +373,9 @@ Add a corresponding **Artifact Freshness** section to the human-readable report:
   Artifact Freshness  (threshold: 30 days)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   ✅  AGENTS.md          generated_at=2026-03-20T10:30:00Z   skill_version=0.1.0   age=0d
-  🔴  ARCHITECTURE.md    generated_at=2025-11-01T14:22:00Z   skill_version=0.1.0   age=139d  CRITICAL
-  🔵  PRINCIPLES.md      generated_at=2026-02-14T09:15:00Z   skill_version=0.1.0   age=34d   INFO
-  ✅  EVALUATION.md      generated_at=2026-03-18T16:45:00Z   skill_version=0.1.0   age=2d
+  🔴  docs/ARCHITECTURE.md    generated_at=2025-11-01T14:22:00Z   skill_version=0.1.0   age=139d  CRITICAL
+  🔵  docs/PRINCIPLES.md      generated_at=2026-02-14T09:15:00Z   skill_version=0.1.0   age=34d   INFO
+  ✅  docs/EVALUATION.md      generated_at=2026-03-18T16:45:00Z   skill_version=0.1.0   age=2d
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   1 stale artifact(s) found
   → Run /harness:update to refresh all artifact timestamps.

@@ -20,7 +20,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
-from task_lock import LockConflictError, TaskLock, TaskLockProtocol  # noqa: F401
+from harness_tools.task_lock import LockConflictError, TaskLock, TaskLockProtocol  # noqa: F401
 
 # Use a sandbox-writable temp directory so the demo does not pollute the project workspace
 DEMO_DIR = Path(os.environ.get("TMPDIR", "/private/tmp/claude-501")) / "demo-task-locks"
@@ -243,7 +243,7 @@ def demo_agent_options() -> None:
     )
     print(
         "      from claude_agent_sdk import ClaudeAgentOptions\n"
-        "      from task_lock import TaskLockProtocol\n"
+        "      from harness_tools.task_lock import TaskLockProtocol\n"
         "\n"
         "      proto = TaskLockProtocol(default_timeout_seconds=300)\n"
         "      base  = ClaudeAgentOptions(allowed_tools=['Read', 'Edit'])\n"

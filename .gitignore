@@ -84,6 +84,9 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
+# --- Generated artifacts ---
+harness_symbols.json
+
 # --- Misc local / scratch ---
 *.log
 test_write.txt

@@ -57,9 +57,9 @@ ARTIFACTS=(
   "CLAUDE.md"
   "harness.config.yaml"
   "AGENTS.md"
-  "ARCHITECTURE.md"
-  "PRINCIPLES.md"
-  "EVALUATION.md"
+  "docs/ARCHITECTURE.md"
+  "docs/PRINCIPLES.md"
+  "docs/EVALUATION.md"
   ".claude/commands/harness/context.md"
   ".claude/commands/harness/lint.md"
   ".claude/commands/harness/telemetry.md"
@@ -477,16 +477,16 @@ def update_code_conventions(agents_md_path: pathlib.Path, new_section: str) -> N
 
 ---
 
-### Step 6.5 — Refresh front-matter in ARCHITECTURE.md, PRINCIPLES.md, and EVALUATION.md
+### Step 6.5 — Refresh front-matter in docs/ARCHITECTURE.md, docs/PRINCIPLES.md, and docs/EVALUATION.md
 
 Apply the **same auto-generated front-matter block** used for `AGENTS.md` to the
 other three canonical harness artifacts, creating stub files for any that do not
 yet exist.
 
-For each of `ARCHITECTURE.md`, `PRINCIPLES.md`, and `EVALUATION.md`:
+For each of `docs/ARCHITECTURE.md`, `docs/PRINCIPLES.md`, and `docs/EVALUATION.md`:
 
 ```bash
-for ARTIFACT_FILE in ARCHITECTURE.md PRINCIPLES.md EVALUATION.md; do
+for ARTIFACT_FILE in docs/ARCHITECTURE.md docs/PRINCIPLES.md docs/EVALUATION.md; do
   ARTIFACT_KIND=$(echo "$ARTIFACT_FILE" | sed 's/\.md$//' | tr '[:upper:]' '[:lower:]')
 
   if [ -f "$ARTIFACT_FILE" ]; then
@@ -597,9 +597,9 @@ determined), produce a structured diff summary.
   CLAUDE.md                   updated       +3 / -1
   harness.config.yaml         updated       +5 / -2
   AGENTS.md                   updated       +1 / -1
-  ARCHITECTURE.md             created       +7 / -0
-  PRINCIPLES.md               updated       +1 / -1
-  EVALUATION.md               created       +7 / -0
+  docs/ARCHITECTURE.md        created       +7 / -0
+  docs/PRINCIPLES.md          updated       +1 / -1
+  docs/EVALUATION.md          created       +7 / -0
   src/auth/AGENTS.md          unchanged     —
   .claude/commands/…          unchanged     —
   ─────────────────────────────────────────────────
@@ -627,7 +627,7 @@ In `--dry-run` mode prefix each action with `[DRY-RUN]` and write nothing.
 ### Step 9 — Stage artifacts (do NOT auto-commit)
 
 ```bash
-git add CLAUDE.md harness.config.yaml AGENTS.md ARCHITECTURE.md PRINCIPLES.md EVALUATION.md \
+git add CLAUDE.md harness.config.yaml AGENTS.md docs/ARCHITECTURE.md docs/PRINCIPLES.md docs/EVALUATION.md \
   $(find . -name "AGENTS.md" -not -path '*/.git/*' \
     -not -path '*/node_modules/*' -not -path '*/.venv/*' 2>/dev/null)
 git status --short

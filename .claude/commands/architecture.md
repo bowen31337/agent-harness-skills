@@ -37,7 +37,7 @@ patterns are all detected automatically).
 # Generate definition AND scan for violations
 /architecture --define --fail-on-violations
 
-# Write the definition to ARCHITECTURE.md
+# Write the definition to docs/ARCHITECTURE.md
 /architecture --define --write-architecture
 ```
 
@@ -432,7 +432,7 @@ Rules:
 - Principles set to `severity: warning` by default — they advise without blocking CI.
   Promote to `severity: blocking` manually in `.claude/principles.yaml` if stricter
   enforcement is desired.
-- After writing, regenerate `PRINCIPLES.md` (same logic as `/define-principles`
+- After writing, regenerate `docs/PRINCIPLES.md` (same logic as `/define-principles`
   Step 4.5).
 
 ---
@@ -441,7 +441,7 @@ Rules:
 
 Skip this step unless `--write-architecture` was passed (which also implies `--define`).
 
-Write the full per-domain definition output from Step 2.5 to `ARCHITECTURE.md` in the project root, under the heading `## Layered Architecture — Per Domain`.
+Write the full per-domain definition output from Step 2.5 to `docs/ARCHITECTURE.md`, under the heading `## Layered Architecture — Per Domain`.
 
 Wrap the generated block with harness auto-generated markers so it can be refreshed idempotently:
 
@@ -453,14 +453,14 @@ Wrap the generated block with harness auto-generated markers so it can be refres
 
 **Idempotency rules:**
 
-- If `ARCHITECTURE.md` already exists and contains the markers, replace only the content between the markers.
+- If `docs/ARCHITECTURE.md` already exists and contains the markers, replace only the content between the markers.
 - If the markers are absent, append a new `## Layered Architecture — Per Domain` section containing the markers and generated content.
-- If `ARCHITECTURE.md` does not exist, create it with the heading and generated block.
+- If `docs/ARCHITECTURE.md` does not exist, create it with the heading and generated block.
 
 After writing, print:
 
 ```
-✅  Wrote layered architecture definition to ARCHITECTURE.md
+✅  Wrote layered architecture definition to docs/ARCHITECTURE.md
 ```
 
 ---
@@ -499,7 +499,7 @@ After writing, print:
   Generate architecture definition
   ────────────────────────────────
   Run /architecture --define to produce a canonical layer definition per domain.
-  Run /architecture --define --write-architecture to persist it to ARCHITECTURE.md.
+  Run /architecture --define --write-architecture to persist it to docs/ARCHITECTURE.md.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -548,7 +548,7 @@ ignore:
 | `--ignore <glob>` | Additional glob pattern to exclude from scanning |
 | `--no-util-exemption` | Disable the automatic exemption for `util`-ranked directories |
 | `--define` | Generate per-domain layer definitions and print them; skip violation scan unless combined with `--fail-on-violations` |
-| `--write-architecture` | Write the per-domain layer definition to `ARCHITECTURE.md` (implies `--define`) |
+| `--write-architecture` | Write the per-domain layer definition to `docs/ARCHITECTURE.md` (implies `--define`) |
 
 ---
 

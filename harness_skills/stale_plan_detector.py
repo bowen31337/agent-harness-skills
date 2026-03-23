@@ -70,9 +70,9 @@ DEFAULT_ARTIFACT_THRESHOLD_DAYS: int = 30
 # Canonical artifact files that every harness project should maintain
 CANONICAL_ARTIFACTS: list[str] = [
     "AGENTS.md",
-    "ARCHITECTURE.md",
-    "PRINCIPLES.md",
-    "EVALUATION.md",
+    "docs/ARCHITECTURE.md",
+    "docs/PRINCIPLES.md",
+    "docs/EVALUATION.md",
 ]
 
 # Directories to skip when scanning for subdirectory AGENTS.md files

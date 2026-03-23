@@ -66,9 +66,9 @@ _SCORE_SEVERITY: dict[str, Severity] = {
 #: Artifact names that the harness generates and whose freshness matters.
 _WELL_KNOWN_ARTIFACTS: list[str] = [
     "AGENTS.md",
-    "ARCHITECTURE.md",
-    "PRINCIPLES.md",
-    "EVALUATION.md",
+    "docs/ARCHITECTURE.md",
+    "docs/PRINCIPLES.md",
+    "docs/EVALUATION.md",
     "harness.config.yaml",
     "harness_manifest.json",
 ]

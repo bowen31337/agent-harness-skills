@@ -233,7 +233,9 @@ class TestArtifactFreshnessScanning:
             # {name}
             Some content here.
         """)
-        (tmp_path / name).write_text(content, encoding="utf-8")
+        dest = tmp_path / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(content, encoding="utf-8")
 
     def test_fresh_artifact_is_healthy(self, tmp_path: _Path) -> None:
         self._write_artifact(tmp_path, "AGENTS.md", "2026-03-20")
@@ -301,7 +303,7 @@ class TestArtifactFreshnessScanning:
     def test_stale_count_matches_non_healthy_entries(self, tmp_path: _Path) -> None:
         # Write one healthy and one stale artifact; the other two are missing
         self._write_artifact(tmp_path, "AGENTS.md", "2026-03-20")       # healthy (2d)
-        self._write_artifact(tmp_path, "ARCHITECTURE.md", "2025-11-01")  # CRITICAL
+        self._write_artifact(tmp_path, "docs/ARCHITECTURE.md", "2025-11-01")  # CRITICAL
         result = scan_artifact_freshness(
             base_dir=tmp_path,
             threshold_days=self._THRESHOLD,

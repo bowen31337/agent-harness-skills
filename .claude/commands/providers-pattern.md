@@ -562,7 +562,7 @@ Rules:
   in Step 2.  If zero logging violations were found, skip CP001.
 - Re-running `/providers-pattern` updates existing `CP*` principles in-place; it never
   duplicates them.
-- After writing, also regenerate `PRINCIPLES.md` (same logic as `/define-principles`
+- After writing, also regenerate `docs/PRINCIPLES.md` (same logic as `/define-principles`
   Step 4.5).
 
 ---
@@ -638,7 +638,7 @@ how to fix each callsite:
     providers/impl/env_config.py           ← pydantic-settings detected
 
   Principles written → .claude/principles.yaml  (CP001–CP004)
-  PRINCIPLES.md regenerated
+  docs/PRINCIPLES.md regenerated
 
   Enforcement active in:
     • /check-code  — flags direct cross-cutting imports in staged files
