@@ -1,8 +1,8 @@
 {
   "schema_version": "1.0",
   "generated_at": "2026-03-22T00:00:00Z",
-  "git_sha": "0e893bd",
-  "git_branch": "feat/execution-plans-skill-generates-a-harness-plan-command",
+  "git_sha": "d5f6a7a",
+  "git_branch": "feat/skill-invocatio-skill-registers-as-harness-create-for-f",
   "harness_version": null,
   "project_root": "/Users/bowenli/projects/claw-forge-test/agent-harness-skills",
   "detected_stack": {
@@ -11,7 +11,7 @@
     "framework": "claude-agent-sdk",
     "project_structure": "single-app",
     "test_framework": "pytest",
-    "ci_platform": "github-actions",
+    "ci_platform": "gitlab-ci",
     "database": null,
     "api_style": null
   },
@@ -23,19 +23,6 @@
     "cli",
     "schemas",
     "browser"
-  ],
-  "patterns": [
-    "plugin-architecture",
-    "gate-pattern",
-    "skill-based-architecture",
-    "cli-command-pattern"
-  ],
-  "conventions": [
-    "pep8",
-    "type-annotations",
-    "pydantic-models",
-    "pytest-fixtures",
-    "async-ready"
   ],
   "artifacts": [
     {
