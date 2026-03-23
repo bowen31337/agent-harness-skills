@@ -871,3 +871,55 @@ principles:
       and this principle updated before any domain code uses the new capability.
       Do not let a second implementation of any provider accumulate — consolidate
       into the single provider immediately.
+
+  - id: "MB015"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      ONE-WAY DEPENDENCY RULE — each layer may only import from layers below it,
+      never from layers above it or sideways (peer layers at the same level).
+
+      Permitted dependency graph for harness_skills sub-packages (top → bottom):
+
+        cli          →  models, generators, gates, plugins, utils
+        gates        →  models, plugins
+        generators   →  models
+        plugins      →  models
+        models       →  (nothing else inside harness_skills)
+        utils        →  (nothing else inside harness_skills)
+
+      Cross-package one-way rule (top → bottom):
+
+        harness_skills       →  dom_snapshot_utility
+        harness_dashboard    →  (standalone — no harness_skills dependency)
+        log_format_linter    →  (standalone — no harness_skills dependency)
+        dom_snapshot_utility →  (standalone foundation)
+
+      Forbidden directions (these constitute upward or sideways violations):
+        • models importing from cli, gates, generators, or plugins
+        • plugins importing from gates or generators
+        • generators importing from gates or cli
+        • gates importing from cli or generators
+        • dom_snapshot_utility importing from harness_skills
+        • harness_dashboard importing from harness_skills
+        • log_format_linter importing from harness_skills
+
+      Current open violations of the upward-import rule (as of 2026-03-23):
+        harness_skills/telemetry_reporter.py:37-38
+          → imports from harness_skills.cli.fmt / harness_skills.cli.verbosity
+          → telemetry_reporter is a root-level module that sits BELOW cli;
+            fix: move the CLI formatting helpers into a shared utility layer
+            (e.g. harness_skills/utils/fmt.py) that cli also imports from.
+        harness_skills/resume.py:483-484
+          → imports from harness_skills.cli.fmt / harness_skills.cli.verbosity
+          → same fix as telemetry_reporter above.
+        harness_skills/models/__init__.py:19
+          → imports from harness_skills.task_lock (a root-level module);
+            task_lock should live inside models or utils, not at the root,
+            to keep the dependency direction clean.
+
+      Rule for all new code: before adding any import, verify its source layer
+      sits at or below the importing layer in the graph above. If it does not,
+      either move the symbol to a lower layer or introduce a shared utility
+      layer rather than creating an upward or sideways dependency.
