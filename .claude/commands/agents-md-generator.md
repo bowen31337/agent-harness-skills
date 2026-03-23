@@ -1,324 +1,366 @@
-# AGENTS.md Generator — Context Depth Map
+# AGENTS.md Generator
 
-Scan the repository and write (or refresh) the `## Context Depth Map` section
-in the root **`AGENTS.md`**, grouping every relevant file into three tiers with
-per-level token budgets.
-
-```
-/agents-md-generator              # scan cwd and refresh AGENTS.md
-/agents-md-generator --dry-run    # print map to stdout; do not write AGENTS.md
-/agents-md-generator --budget N   # override per-file token estimate (default: 10 tokens/line)
-```
+Generate or refresh `AGENTS.md` — the agent-facing reference document for this repository.
+The generated file includes an **Architecture Overview** section that maps every domain
+package, its public API surface, and the direction of cross-domain dependencies, so agents
+understand the codebase structure before writing any code.
 
 ---
 
-## What this skill produces
+## Usage
 
-A fenced block inside `AGENTS.md` that looks like:
+```bash
+# Regenerate AGENTS.md from scratch (or refresh in-place)
+/agents-md-generator
 
+# Dry-run — print the generated content without writing to disk
+/agents-md-generator --dry-run
+
+# Limit the architecture section to top-level domains only
+/agents-md-generator --shallow
+
+# Specify a custom output path (default: AGENTS.md at project root)
+/agents-md-generator --out docs/AGENTS.md
 ```
-<!-- harness:context-depth-map -->
-### L0 — Root Overview  (budget: ~3 200 tokens)  …
-### L1 — Domain Docs    (budget: ~800 tokens / domain)  …
-### L2 — File-Level     (budget: ~300 tokens / file)  …
-<!-- /harness:context-depth-map -->
-```
-
-Agents read this map to decide *which tier to load* before starting work,
-instead of doing a full codebase dump.
 
 ---
 
 ## Instructions
 
-### Step 1 — Collect candidate files
-
-Run these three discovery passes from the repo root.  Collect **paths only**;
-do not read file contents.
-
-#### 1a — L0: root-level documentation and configuration
+### Step 0 — Collect generation metadata
 
 ```bash
-# All markdown files, YAML config, and pyproject at the repo root (depth = 1)
-find . -maxdepth 1 -type f \
-  \( -name "*.md" -o -name "*.yaml" -o -name "*.yml" \
-     -o -name "*.toml" -o -name "*.json" -o -name "*.txt" \) \
-  -not -name ".*" \
-  2>/dev/null | sort
+RUN_DATE=$(date '+%Y-%m-%d')
+HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+SERVICE_NAME=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
 ```
 
-Keep only files whose names match the pattern:
+---
+
+### Step 1 — Detect language(s)
+
+```bash
+# Python packages?
+find . -name "__init__.py" \
+  -not -path "./.venv/*" -not -path "./node_modules/*" | head -5
+
+# JS/TS packages?
+find . \( -name "index.ts" -o -name "index.js" \) \
+  | grep -v node_modules | grep -v dist | head -5
+```
+
+Set `LANG_MODE` to `python`, `js`, or `both` based on what is found.
+
+---
+
+### Step 2 — Discover domain packages
+
+#### Python
+
+A *domain package* is any directory that:
+- Contains an `__init__.py`, **and**
+- Lives at depth 1 or 2 beneath a recognised source root, **and**
+- Is **not** a test package (`tests/`, `test_*`, `*_test`).
+
+```bash
+find . -name "__init__.py" \
+  -not -path "./.venv/*" \
+  -not -path "./node_modules/*" \
+  -not -path "*/tests/*" \
+  -not -path "*/test_*" \
+  | sed 's|/__init__.py||' \
+  | sort
+```
+
+#### JS / TS
+
+A *domain package* is any directory that contains an `index.ts` or `index.js`
+beneath `src/` and is not under `node_modules/`, `dist/`, or `__tests__/`.
+
+```bash
+find src \( -name "index.ts" -o -name "index.js" \) \
+  | grep -v node_modules | grep -v dist | grep -v __tests__ \
+  | sed 's|/index\.[tj]s||' \
+  | sort
+```
+
+Collect results into **DOMAINS**.
+
+---
+
+### Step 3 — Analyse each domain's public surface
+
+For each domain in DOMAINS:
+
+#### 3a — API surface declaration
+
+**Python** — check for `__all__`:
+
+```bash
+grep -n "__all__" <domain>/__init__.py 2>/dev/null || echo "__MISSING__"
+```
+
+- Present → **EXPLICIT** ✅
+- Absent → **IMPLICIT** ⚠️
+- File missing entirely → **NONE** ❌
+
+**JS/TS** — check for named exports:
+
+```bash
+grep -n "^export " <domain>/index.ts 2>/dev/null \
+  || grep -n "^export " <domain>/index.js 2>/dev/null \
+  || echo "__MISSING__"
+```
+
+- Named `export` statements → **EXPLICIT** ✅
+- `export *` only → **WILDCARD** 🔶
+- Nothing → **IMPLICIT** ⚠️
+
+#### 3b — Extract key exported symbols
+
+For EXPLICIT domains, list the first 5–10 public symbols to give agents a quick
+orientation:
+
+**Python:**
+```bash
+python3 -c "
+import ast, sys
+src = open('<domain>/__init__.py').read()
+tree = ast.parse(src)
+for node in ast.walk(tree):
+    if isinstance(node, ast.Assign):
+        for t in node.targets:
+            if isinstance(t, ast.Name) and t.id == '__all__':
+                if isinstance(node.value, ast.List):
+                    names = [e.s for e in node.value.elts if isinstance(e, ast.Constant)]
+                    print(', '.join(names[:10]))
+" 2>/dev/null || grep -o '"[^"]*"' <domain>/__init__.py | head -10 | tr '\n' ' '
+```
+
+**JS/TS:**
+```bash
+grep "^export " <domain>/index.ts 2>/dev/null \
+  | sed 's/export [^{]*{\([^}]*\)}.*/\1/' \
+  | head -5
+```
+
+---
+
+### Step 4 — Map dependency flow direction
+
+For each domain, determine which *other* domains it imports from:
+
+**Python:**
+```bash
+grep -rn "^from \|^import " <domain>/ \
+  --include="*.py" \
+  --exclude-dir=__pycache__ \
+  2>/dev/null \
+  | grep -v "^<domain>/__init__" \
+  | grep -oP '(?<=from )\S+|(?<=import )\S+' \
+  | grep -v "^\." \
+  | sort -u
+```
+
+Cross-reference each import against **DOMAINS** to identify intra-project
+dependencies.  For each pair `(A → B)` record:
 
 ```
-L0_KEEP = {
-    # Human-readable docs
-    "README.md", "AGENTS.md", "ARCHITECTURE.md", "PRINCIPLES.md",
-    "SPEC.md", "ERROR_HANDLING_RULES.md", "EVALUATION.md",
-    "HEALTH_CHECK_SPEC.md", "CLAUDE.md", "CONTRIBUTING.md", "CHANGELOG.md",
-    # Project config
-    "pyproject.toml", "requirements.txt", "claw-forge.yaml",
-    "harness.config.yaml", "package.json",
+A depends on B   (A imports from B's public surface)
+```
+
+Build a directed adjacency list:
+
+```python
+deps = {
+    "harness_skills/cli":        ["harness_skills/models", "harness_skills/generators"],
+    "harness_skills/gates":      ["harness_skills/models", "harness_skills/plugins"],
+    "harness_skills/generators": ["harness_skills/models"],
+    "harness_skills/plugins":    ["harness_skills/models"],
+    "harness_skills/models":     [],   # foundation — no local deps
+    "harness_skills/utils":      [],
 }
 ```
 
-Anything not in `L0_KEEP` (e.g. lock files, `.env.example`) is silently skipped.
-
-#### 1b — L1: package / domain entry points
-
-```bash
-# __init__.py files at depth 2–3 (i.e. top-level packages and their sub-packages)
-find . -mindepth 2 -maxdepth 3 -name "__init__.py" \
-  -not -path '*/.git/*' -not -path '*/node_modules/*' \
-  -not -path '*/__pycache__/*' -not -path '*/dist/*' \
-  2>/dev/null | sort
-
-# index.ts / index.js for TypeScript/JS repos
-find . -mindepth 2 -maxdepth 3 \( -name "index.ts" -o -name "index.js" \) \
-  -not -path '*/.git/*' -not -path '*/node_modules/*' \
-  -not -path '*/dist/*' \
-  2>/dev/null | sort
-
-# domain-level README files
-find . -mindepth 2 -maxdepth 3 -name "README.md" \
-  -not -path '*/.git/*' \
-  2>/dev/null | sort
-
-# skill command files
-find .claude/commands -type f -name "*.md" 2>/dev/null | sort
-```
-
-#### 1c — L2: individual source files
-
-```bash
-# Python source files, excluding __init__.py already captured in L1
-find . -name "*.py" \
-  -not -name "__init__.py" \
-  -not -path '*/.git/*' -not -path '*/__pycache__/*' \
-  -not -path '*/dist/*' -not -path '*/build/*' \
-  -not -path '*/migrations/*' \
-  2>/dev/null | sort
-
-# TypeScript / JavaScript
-find . \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
-  -not -path '*/.git/*' -not -path '*/node_modules/*' \
-  -not -path '*/dist/*' -not -path '*/build/*' \
-  2>/dev/null | sort
-```
-
-Exclude test files from L2's *primary listing* but include them in a
-collapsible **Tests** sub-section under L2:
-
-```
-TEST_PATTERNS = [r'/tests?/', r'_test\.py$', r'\.spec\.(ts|js)$', r'test_.*\.py$']
-```
+Identify **foundation layers** (no outgoing edges to other project domains) and
+**orchestration layers** (highest in-degree, most things depend on them).
 
 ---
 
-### Step 2 — Estimate token budgets
+### Step 5 — Build the Architecture Overview section
 
-For every file collected, compute a line count **without reading the file**:
+Using the data collected in Steps 2–4, render the following sub-sections:
 
-```bash
-wc -l <path> 2>/dev/null | awk '{print $1}'
-```
-
-Convert lines → estimated tokens using:
-
-```
-CHARS_PER_LINE   = 60     # conservative average across code + markdown
-CHARS_PER_TOKEN  = 4      # OpenAI / Anthropic rule of thumb
-tokens_per_line  = CHARS_PER_LINE / CHARS_PER_TOKEN   # = 15
-estimated_tokens = lines * tokens_per_line
-```
-
-Round to the nearest 50 for display.  Cap displayed values at 9 999.
-
-Compute **tier totals**:
-
-```python
-l0_total = sum(est_tokens for f in l0_files)
-l1_budget_per_domain = median(est_tokens for domain_init in l1_files)
-l2_budget_per_file   = median(est_tokens for f in l2_files)
-```
-
----
-
-### Step 3 — Group L1 files into named domains
-
-Derive the **domain name** from the parent directory of each L1 file:
-
-```python
-from pathlib import Path
-
-def domain_name(path: str) -> str:
-    p = Path(path)
-    # e.g. harness_skills/models/__init__.py → "harness_skills · models"
-    parts = [part for part in p.parts[1:-1]]   # strip leading '.' and filename
-    return " · ".join(parts) if parts else p.parts[1]
-```
-
-Group all L1 files under their top-level package (first component after `./`).
-
----
-
-### Step 4 — Build the depth-map block
-
-Render the following Markdown.  Use **real numbers** from Steps 1–3;
-do not hard-code estimates.
+#### 5a — Domain Map table
 
 ```markdown
-<!-- harness:context-depth-map -->
-<!-- regenerate: /agents-md-generator  last_updated: <ISO-DATE>  head: <git-sha-short> -->
+## Architecture Overview
 
-## Context Depth Map
+### Domain Map
 
-> **Reading guide**
-> Load only the tier(s) relevant to your task.  Prefer patterns + Grep over
-> loading entire files.  Budget figures assume ~15 tokens per line.
+| # | Domain | Lang | API Surface | Key Symbols | Role |
+|---|--------|------|-------------|-------------|------|
+| 1 | `harness_skills/models` | Python | ✅ EXPLICIT | `Status`, `GateResult`, `Violation`, … | Foundation — no local deps |
+| 2 | `harness_skills/plugins` | Python | ✅ EXPLICIT | `PluginGateConfig`, `load_plugin_gates`, … | Gate plugin system |
+| 3 | `harness_skills/gates` | Python | ✅ EXPLICIT | `CoverageGate`, `GateEvaluator`, `run_gates` | Built-in gate runners |
+| 4 | `harness_skills/generators` | Python | ✅ EXPLICIT | `EvaluationReport`, `run_all_gates` | Artifact generators |
+| 5 | `harness_skills/cli` | Python | ✅ EXPLICIT | `cli`, `PipelineGroup` | CLI entry point |
+```
 
----
+Rules for the **Role** column:
+- A domain with 0 outgoing project-deps → `Foundation — no local deps`
+- A domain depended on by ≥ 3 others → `Core shared library`
+- A domain that imports from ≥ 3 others → `Orchestration / entry-point layer`
+- Otherwise → derive a 3–5 word summary from the domain name + `__all__` symbols
 
-### Tier Summary
+#### 5b — Dependency flow diagram
 
-| Tier | Scope | Files | Total Est. Tokens | Load when… |
-|------|-------|-------|-------------------|-----------|
-| **L0** | Root overview — project-wide docs & config | N | ~T | First orientation; always load |
-| **L1** | Domain docs — package `__init__` / index | N | ~T each domain | Entering a new package |
-| **L2** | File-level — individual source modules | N | ~T each file | Touching specific logic |
+Render a text-art tree showing the **flow of imports** (arrows point from
+dependent → dependency, i.e. "A → B" means A imports B):
 
----
+```markdown
+### Dependency Flow
 
-### L0 — Root Overview  (total budget: ~T tokens)
+```
+<orchestration>
+    │
+    ├── <domain-A> ──► <foundation>
+    │       │
+    │       └──────── ► <shared-lib>
+    │
+    ├── <domain-B> ──► <foundation>
+    │
+    └── <domain-C> ──► <shared-lib>
+                    ──► <foundation>
 
-Load **all** L0 files for project orientation.
+<standalone>   (no local deps — safe to import anywhere)
+<standalone2>  (no local deps — safe to import anywhere)
+```
+```
 
-| File | Lines | Est. Tokens | Purpose |
-|------|-------|-------------|---------|
-| `README.md` | L | ~T | … |
-| …  |  |  |  |
+For this project the rendered diagram should match the actual dependency graph
+discovered in Step 4.  Use `──►` for dependency arrows and indent child nodes
+with `│   ` / `├── ` / `└── ` connectors.
 
----
+#### 5c — Boundary status summary
 
-### L1 — Domain Docs  (budget: ~T tokens per domain)
+```markdown
+### Module Boundary Status
 
-Load the domain(s) relevant to your task.
+> Source of truth: run `/module-boundaries` to refresh violations.
 
-#### `<domain>` — <one-line description>
+| Domain | Boundary | Violations |
+|--------|----------|------------|
+| `harness_skills/models` | ✅ EXPLICIT | 17 (tests only) |
+| `harness_skills/plugins` | ✅ EXPLICIT | 6 (tests only) |
+| `dom_snapshot_utility` | ✅ EXPLICIT | 1 |
+| … | … | … |
 
-| File | Lines | Est. Tokens | Public symbols / purpose |
-|------|-------|-------------|--------------------------|
-| `…/__init__.py` | L | ~T | exports: … |
-
-…one section per top-level package…
-
----
-
-### L2 — File-Level Comments  (budget: ~T tokens per file)
-
-Load individual files only when you need to edit or trace through their logic.
-
-#### `<domain>` files
-
-| File | Lines | Est. Tokens | Responsibility |
-|------|-------|-------------|----------------|
-| `harness_skills/handoff.py` | L | ~T | Agent handoff protocol |
-| … |  |  |  |
-
-<details>
-<summary>Tests (<N> files, ~T tokens total)</summary>
-
-| File | Lines | Est. Tokens |
-|------|-------|-------------|
-| … |  |  |
-
-</details>
-
-<!-- /harness:context-depth-map -->
+**Rules agents must follow:**
+- Always import from the domain root (`from harness_skills.models import …`), never from sub-modules.
+- Never import a private symbol (leading `_`) across a domain boundary.
+- See `ARCHITECTURE.md` and `.claude/principles.yaml` (`MB001`–`MB014`) for full enforcement rules.
 ```
 
 ---
 
-### Step 5 — Write AGENTS.md
+### Step 6 — Collect existing content from AGENTS.md
 
-#### Locate or create the auto-generated block
+If `AGENTS.md` already exists:
 
-Search for an existing `<!-- harness:context-depth-map -->` block in `AGENTS.md`:
+1. Read the full file.
+2. Strip the existing `<!-- harness:auto-generated … -->` provenance block and any
+   existing `## Architecture Overview` section (they will be regenerated).
+3. Preserve **all other sections** verbatim (e.g., `## Browser Automation`,
+   `## Environment Variables`, hand-written notes).
 
-```python
-import re
+If the file does not exist, start with an empty body.
 
-OPEN_TAG  = "<!-- harness:context-depth-map -->"
-CLOSE_TAG = "<!-- /harness:context-depth-map -->"
+---
 
-with open("AGENTS.md", "r") as fh:
-    content = fh.read()
+### Step 7 — Assemble and write AGENTS.md
 
-pattern = re.compile(
-    re.escape(OPEN_TAG) + r".*?" + re.escape(CLOSE_TAG),
-    re.DOTALL,
-)
+Write (or overwrite) `AGENTS.md` using this exact structure:
+
+```markdown
+<!-- harness:auto-generated — do not edit this block manually -->
+last_updated: <RUN_DATE>
+head: <HEAD_HASH>
+service: <SERVICE_NAME>
+<!-- /harness:auto-generated -->
+
+Agent-facing reference for this repository.
+
+---
+
+## Architecture Overview
+
+<content from Step 5 — Domain Map, Dependency Flow, Boundary Status>
+
+---
+
+<all preserved sections from Step 6, each separated by ---  >
 ```
 
-- **If the block exists:** replace it in-place with the newly rendered block.
-- **If the block does not exist:** append the new block at the end of `AGENTS.md`.
+Rules:
+- The provenance block is always **first** — nothing above it.
+- The `## Architecture Overview` section is always **immediately after** the
+  provenance block and the one-line description.
+- Preserved sections follow in their original order.
+- Do **not** auto-commit.  Stage with `git add AGENTS.md` after writing.
+- If `--dry-run` is passed, print the assembled content to stdout and exit without
+  writing any files.
 
-Preserve the `<!-- harness:auto-generated -->` header block at the top of
-`AGENTS.md`; never remove it.
+---
 
-Update `last_updated` in both headers to today's ISO date.
-
-#### Commit message hint (do NOT commit automatically)
+### Step 8 — Summary
 
 ```
-docs(agents): refresh context depth map [auto]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ AGENTS.md generated
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Domains mapped:       <N>
+  Dependency edges:     <E>
+  Boundary violations:  <V>  (run /module-boundaries to fix)
+  Preserved sections:   <S>
+
+  File written:  AGENTS.md  (<size> lines)
+
+  Next steps:
+    • Commit:          git add AGENTS.md && git commit -m "docs: refresh AGENTS.md"
+    • Fix violations:  /module-boundaries
+    • Full audit:      /check-code
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-### Step 6 — Emit a summary to stdout
+## Flags
 
-After writing (or in `--dry-run` mode), print:
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  AGENTS.md — Context Depth Map refreshed
-  L0: <N> files  ~<T> tokens total
-  L1: <N> files across <D> domains  ~<T> tokens/domain
-  L2: <N> source files  ~<T> tokens each  |  <N> test files
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## Options
-
-| Flag | Effect |
+| Flag | Behaviour |
 |---|---|
-| `--dry-run` | Print rendered block to stdout; do not modify `AGENTS.md` |
-| `--budget N` | Override tokens-per-line estimate (default: 15) |
-| `--l2-limit N` | Cap L2 table at N files per domain (default: 30) |
-| `--include-tests` | Expand test files inline rather than inside `<details>` |
-| `--no-git` | Skip `git rev-parse` for the `head:` metadata field |
-
----
-
-## When to re-run this skill
-
-| Event | Action |
-|---|---|
-| Adding or deleting a source file | Re-run `/agents-md-generator` |
-| Renaming a top-level package | Re-run `/agents-md-generator` |
-| Significantly growing a file (>100 lines added) | Re-run to refresh token estimates |
-| Before opening a PR that adds a major feature | Re-run as part of docs-freshness gate |
+| `--dry-run` | Print generated content to stdout; do not write any files |
+| `--shallow` | Include top-level domains only (skip sub-packages at depth > 1) |
+| `--out <path>` | Write to a custom path instead of `AGENTS.md` |
+| `--no-arch` | Skip the Architecture Overview section (use if `ARCHITECTURE.md` is the canonical source) |
+| `--arch-only` | Only regenerate the Architecture Overview section; preserve all other content exactly |
 
 ---
 
 ## Notes
 
-- **Idempotent** — running twice produces the same output; safe to run in CI.
-- **Read-only scan** — only `wc -l` and path discovery; no file contents loaded.
-- **Does not overwrite** non-auto-generated sections of `AGENTS.md`.
-- **Token estimates are intentionally approximate** — add 20 % margin when
-  planning context-window budgets for downstream agents.
-- Pairs well with `/harness:context` (file-ranking for a specific plan) and
-  `/doc-freshness-gate` (staleness checks).
+- **Idempotent** — safe to re-run at any time.  The provenance block and
+  `## Architecture Overview` section are always regenerated; all other content is
+  preserved.
+- **Read-only analysis** — Steps 1–5 never write files.  Only Step 7 writes
+  `AGENTS.md` (unless `--dry-run`).
+- **Complements `/module-boundaries`** — this skill *reads* boundary data to
+  populate AGENTS.md; it does not update `.claude/principles.yaml`.  Run
+  `/module-boundaries` first if you want fresh violation counts.
+- **Complements `/architecture`** — `ARCHITECTURE.md` is the deep technical
+  reference; `AGENTS.md` is the agent-actionable quick-reference.  Both can
+  coexist.  The Architecture Overview section in AGENTS.md intentionally mirrors
+  the key tables from ARCHITECTURE.md in a more compact form.
+- **CI-safe** — all discovery steps use read-only shell commands; no network
+  calls are made.
