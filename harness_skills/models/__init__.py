@@ -15,7 +15,6 @@ from harness_skills.models.lock import (
 )
 from harness_skills.models.stale import (
     ArtifactResult, ArtifactStaleness, StaleTask, StalePlanSummary, StalePlanResponse,
-    SourceFileDrift, DocumentationDrift,
 )
 from harness_skills.task_lock import (
     TaskLock, TaskLockProtocol, LockConflictError, LockNotOwnedError,
@@ -25,15 +24,10 @@ from harness_skills.models.errors import (
     DomainOverview,
     ErrorAggregationResponse,
 )
-from harness_skills.models.docs import (
-    GeneratedDocsReport,
-    GeneratedDocsCategories,
-    SchemaCategoryResult,
-    APICategoryResult,
-    GraphCategoryResult,
-    SchemaEntity,
-    RouteEntity,
-    DependencyEdge,
+from harness_skills.models.env_vars import (
+    EnvVarSource,
+    EnvVarEntry,
+    EnvVarDetectionResult,
 )
 
 __all__ = [
@@ -53,13 +47,10 @@ __all__ = [
     "LockRecord", "LockStateResponse", "LockOperationResponse", "LockListResponse",
     # stale plan detection
     "ArtifactResult", "ArtifactStaleness", "StaleTask", "StalePlanSummary", "StalePlanResponse",
-    "SourceFileDrift", "DocumentationDrift",
     # task lock
     "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
     # errors
     "ErrorGroupResponse", "DomainOverview", "ErrorAggregationResponse",
-    # docs generation
-    "GeneratedDocsReport", "GeneratedDocsCategories",
-    "SchemaCategoryResult", "APICategoryResult", "GraphCategoryResult",
-    "SchemaEntity", "RouteEntity", "DependencyEdge",
+    # env var detection
+    "EnvVarSource", "EnvVarEntry", "EnvVarDetectionResult",
 ]
