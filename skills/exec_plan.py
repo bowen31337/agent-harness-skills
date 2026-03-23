@@ -25,10 +25,6 @@ Usage (CLI)
   # Show a text dependency graph
   python skills/exec_plan.py graph --plan PLAN-001
 
-  # Print context assembly hints for a plan or task
-  python skills/exec_plan.py context --plan PLAN-001
-  python skills/exec_plan.py context --plan PLAN-001 --task TASK-002
-
   # Link a PR URL back to the plan (run immediately after gh pr create)
   python skills/exec_plan.py link-pr --plan PLAN-001 --pr-url https://github.com/org/repo/pull/42 \
       --pr-number 42 --agent coding-03abe8fb --tasks TASK-003 TASK-004
@@ -100,15 +96,6 @@ _LOCK_ICON = {
     "done":     "✅",
 }
 
-_DEP_STATE_ICON = {
-    "ready":   "🟢",
-    "waiting": "⏳",
-    "running": "🔵",
-    "done":    "✅",
-    "blocked": "🔴",
-    "skipped": "⏭️",
-}
-
 
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -130,32 +117,8 @@ class ExecPlan:
     # ------------------------------------------------------------------
 
     @classmethod
-    def init(
-        cls,
-        title: str,
-        plan_id: str | None = None,
-        objective: str | None = None,
-        approach: str | None = None,
-        steps: list[str] | None = None,
-        completion_criteria: list[str] | None = None,
-    ) -> "ExecPlan":
-        """Create a new plan file from the template and return an ExecPlan.
-
-        Parameters
-        ----------
-        title:
-            Human-readable plan title.
-        plan_id:
-            Explicit plan ID (e.g. ``PLAN-007``).  Auto-assigned if omitted.
-        objective:
-            Concise statement of what the plan achieves.
-        approach:
-            Technical strategy, architecture decisions, and trade-offs.
-        steps:
-            Ordered list of high-level steps.
-        completion_criteria:
-            Verifiable conditions that must all be true before the plan is done.
-        """
+    def init(cls, title: str, plan_id: str | None = None) -> "ExecPlan":
+        """Create a new plan file from the template and return an ExecPlan."""
         _EXEC_PLANS_DIR.mkdir(parents=True, exist_ok=True)
 
         # Auto-generate an incremental plan ID if not provided
@@ -184,27 +147,6 @@ class ExecPlan:
         instance._data["plan"]["updated_at"] = _now()
         instance._data["plan"]["status"] = "pending"
 
-        # Populate narrative planning sections
-        instance._data["objective"] = objective or "<what this plan achieves and why it matters>"
-        instance._data["approach"] = approach or "<technical approach — architecture decisions, libraries, trade-offs>\n"
-        instance._data["steps"] = steps if steps is not None else [
-            "Step 1: <first action>",
-            "Step 2: <second action>",
-            "Step 3: <third action>",
-        ]
-        instance._data["context_assembly"] = {
-            "key_files": [],
-            "key_patterns": [],
-            "notes": "",
-        }
-        instance._data["progress_log"] = ".claw-forge/progress.log"
-        instance._data["known_debt"] = []
-        instance._data["completion_criteria"] = completion_criteria if completion_criteria is not None else [
-            "<criterion 1 — e.g. all tests pass with coverage ≥ 80 %>",
-            "<criterion 2 — e.g. no new lint errors>",
-            "<criterion 3 — e.g. PR approved and merged>",
-        ]
-
         # Reset tasks to a minimal single-task stub
         instance._data["tasks"] = [
             {
@@ -219,11 +161,6 @@ class ExecPlan:
                 "started_at": None,
                 "completed_at": None,
                 "notes": "",
-                "context": {
-                    "grep_patterns": [],
-                    "glob_patterns": [],
-                    "symbol_refs": [],
-                },
             }
         ]
         instance._data["coordination"] = {
@@ -231,13 +168,6 @@ class ExecPlan:
             "hotspot_files": [],
             "merge_order": [],
             "post_merge_checklist": [],
-        }
-        instance._data["context_assembly"] = {
-            "grep_patterns": [],
-            "glob_patterns": [],
-            "symbol_refs": [],
-            "key_files": [],
-            "rationale": "",
         }
         instance._save()
         print(f"[exec-plan] Initialised {plan_id} → {dest}")
@@ -435,28 +365,19 @@ class ExecPlan:
         ]
 
     def status_table(self) -> str:
-        """Return a formatted status table as a string (includes Dep State column)."""
+        """Return a formatted status table as a string."""
         lines = [
             f"# Plan: {self._data['plan']['id']} — {self._data['plan']['title']}",
             f"# Status: {self._data['plan']['status']}  |  "
             f"Updated: {self._data['plan'].get('updated_at', '?')}",
             "",
-            f"{'ID':<12} {'Status':<10} {'Dep State':<22} {'Lock':<10} "
-            f"{'Agent':<24} {'Priority':<10} Title",
-            "-" * 110,
+            f"{'ID':<12} {'Status':<10} {'Lock':<10} {'Agent':<24} {'Priority':<10} Title",
+            "-" * 90,
         ]
         for t in self._tasks():
-            dep_state = self._dep_state(t)
-            dep_icon  = _DEP_STATE_ICON.get(dep_state, "")
-            if dep_state == "waiting":
-                blockers = self._blocked_by(t)
-                dep_label = f"{dep_icon} waiting({','.join(blockers)})"
-            else:
-                dep_label = f"{dep_icon} {dep_state}"
             lines.append(
                 f"{t['id']:<12} "
                 f"{_STATUS_ICON.get(t['status'], t['status']):<10} "
-                f"{dep_label:<22} "
                 f"{_LOCK_ICON.get(t['lock_status'], t['lock_status']):<10} "
                 f"{(t.get('assigned_agent') or '—'):<24} "
                 f"{t.get('priority', 'medium'):<10} "
@@ -468,79 +389,10 @@ class ExecPlan:
             lines.append(f"Ready to start ({len(ready)}): " + ", ".join(t["id"] for t in ready))
         return "\n".join(lines)
 
-    def print_context(self, task_id: str | None = None) -> None:
-        """Print context assembly hints for the plan or a specific task."""
-        if task_id:
-            task = self._get_task(task_id)
-            ctx = task.get("context") or {}
-            header = f"# Context assembly — {task_id}: {task['title']}"
-        else:
-            ctx = self._data.get("context_assembly") or {}
-            header = f"# Context assembly — {self.plan_id}: {self._data['plan']['title']}"
-
-        lines = [header, ""]
-
-        grep = ctx.get("grep_patterns") or []
-        if grep:
-            lines.append("## Grep patterns")
-            for p in grep:
-                lines.append(f"  {p}")
-            lines.append("")
-
-        globs = ctx.get("glob_patterns") or []
-        if globs:
-            lines.append("## Glob patterns")
-            for g in globs:
-                lines.append(f"  {g}")
-            lines.append("")
-
-        symbols = ctx.get("symbol_refs") or []
-        if symbols:
-            lines.append("## Symbol references")
-            for s in symbols:
-                lines.append(f"  {s}")
-            lines.append("")
-
-        if not task_id:
-            key_files = ctx.get("key_files") or []
-            if key_files:
-                lines.append("## Key files")
-                for kf in key_files:
-                    if isinstance(kf, dict):
-                        lines.append(f"  {kf.get('path', '?')} — {kf.get('reason', '')}")
-                    else:
-                        lines.append(f"  {kf}")
-                lines.append("")
-
-            rationale = ctx.get("rationale") or ""
-            if rationale:
-                lines.append("## Rationale")
-                lines.append(f"  {rationale}")
-                lines.append("")
-
-        if not (grep or globs or symbols):
-            lines.append("(no context assembly hints defined yet)")
-
-        print("\n".join(lines))
-
     def dependency_graph(self) -> str:
-        """Return a text representation of the dependency graph with dep-state labels.
-
-        Each node is labelled with its computed dependency state:
-          🟢 ready   — task is pending with all upstream deps done (or no deps)
-          ⏳ waiting — task is pending but one or more deps are not done yet
-          🔵 running — task is currently running
-          ✅ done    — task is complete
-          🔴 blocked — task is explicitly blocked
-          ⏭️  skipped — task was skipped
-        """
+        """Return a text representation of the dependency graph."""
         tasks = {t["id"]: t for t in self._tasks()}
-        lines = [
-            f"Dependency graph — {self._data['plan']['id']}: "
-            f"{self._data['plan']['title']}",
-            "(→ means 'unblocks')",
-            "",
-        ]
+        lines = ["Dependency graph (→ means 'required by'):", ""]
 
         # Find roots (tasks with no dependencies)
         roots = [t for t in self._tasks() if not t.get("depends_on")]
@@ -552,17 +404,9 @@ class ExecPlan:
                 return
             visited.add(task_id)
             t = tasks.get(task_id, {})
-            dep_state = self._dep_state(t) if t else "pending"
-            icon = _DEP_STATE_ICON.get(dep_state, "?")
-            if dep_state == "waiting":
-                blockers = self._blocked_by(t)
-                suffix = f"  ⏳ waiting({', '.join(blockers)})"
-            elif dep_state == "ready":
-                suffix = "  🟢 ready"
-            else:
-                suffix = ""
-            lines.append("  " * indent + f"{icon} {task_id}: {t.get('title', '?')}{suffix}")
-            # find tasks that depend on this one (children in the unblocking direction)
+            icon = _STATUS_ICON.get(t.get("status", "pending"), "?")
+            lines.append("  " * indent + f"{icon} {task_id}: {t.get('title', '?')}")
+            # find tasks that depend on this one
             children = [
                 c for c in self._tasks()
                 if task_id in (c.get("depends_on") or [])
@@ -572,15 +416,6 @@ class ExecPlan:
 
         for root in roots:
             _render(root["id"])
-
-        # Surface unreachable tasks (e.g. dependency cycles)
-        unreached = [t for t in self._tasks() if t["id"] not in visited]
-        if unreached:
-            lines.append("")
-            lines.append("(unreachable — possible cycle):")
-            for t in unreached:
-                icon = _DEP_STATE_ICON.get(self._dep_state(t), "?")
-                lines.append(f"  {icon} {t['id']}: {t.get('title', '?')}")
 
         return "\n".join(lines)
 
@@ -605,19 +440,6 @@ class ExecPlan:
             dep for dep in dep_ids
             if tasks_by_id.get(dep, {}).get("status") != "done"
         ]
-
-    def _dep_state(self, task: dict) -> str:
-        """Return the computed dependency state string for *task*.
-
-        Returns:
-          'ready'   — pending with all upstream deps done (or no deps)
-          'waiting' — pending with one or more unmet deps
-          otherwise — mirrors the task's own status ('running', 'done', etc.)
-        """
-        status = task.get("status", "pending")
-        if status != "pending":
-            return status
-        return "waiting" if self._blocked_by(task) else "ready"
 
     def _maybe_close_plan(self) -> None:
         all_done = all(
@@ -655,7 +477,7 @@ def _next_plan_id() -> str:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="exec_plan",
-        description="Create and manage execution plans in docs/exec-plans/. Commands: init, claim, done, release, ready, status, graph, context.",
+        description="Create and manage execution plans in docs/exec-plans/",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -664,16 +486,6 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p.add_argument("--title", required=True, help="Human-readable plan title")
     init_p.add_argument("--plan-id", dest="plan_id", default=None,
                         help="Explicit plan ID (e.g. PLAN-007). Auto-assigned if omitted.")
-    init_p.add_argument("--objective", default=None,
-                        help="Concise statement of what the plan achieves.")
-    init_p.add_argument("--approach", default=None,
-                        help="Technical strategy, architecture decisions, and trade-offs.")
-    init_p.add_argument("--step", dest="steps", action="append", default=None,
-                        metavar="STEP",
-                        help="Ordered step (repeat flag for multiple steps).")
-    init_p.add_argument("--criterion", dest="completion_criteria", action="append",
-                        default=None, metavar="CRITERION",
-                        help="Completion criterion (repeat flag for multiple criteria).")
 
     # claim
     claim_p = sub.add_parser("claim", help="Lock a task for an agent")
@@ -706,11 +518,6 @@ def _build_parser() -> argparse.ArgumentParser:
     graph_p = sub.add_parser("graph", help="Print the dependency graph")
     graph_p.add_argument("--plan", required=True)
 
-    # context
-    ctx_p = sub.add_parser("context", help="Print context assembly hints for a plan or task")
-    ctx_p.add_argument("--plan", required=True)
-    ctx_p.add_argument("--task", default=None, help="Task ID (e.g. TASK-001); omit for plan-level context")
-
     # link-pr
     link_p = sub.add_parser(
         "link-pr",
@@ -740,14 +547,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "init":
-        ExecPlan.init(
-            title=args.title,
-            plan_id=args.plan_id,
-            objective=args.objective,
-            approach=args.approach,
-            steps=args.steps,
-            completion_criteria=args.completion_criteria,
-        )
+        ExecPlan.init(title=args.title, plan_id=args.plan_id)
 
     elif args.command == "claim":
         plan = ExecPlan.load(args.plan)
@@ -778,10 +578,6 @@ def main(argv: list[str] | None = None) -> None:
     elif args.command == "graph":
         plan = ExecPlan.load(args.plan)
         print(plan.dependency_graph())
-
-    elif args.command == "context":
-        plan = ExecPlan.load(args.plan)
-        plan.print_context(task_id=args.task)
 
     elif args.command == "link-pr":
         plan = ExecPlan.load(args.plan)
