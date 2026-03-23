@@ -1,0 +1,336 @@
+generated_at: "2026-03-22T10:00:00Z"
+generated_from_head: "22da8f3"
+task_count: 4
+tasks:
+  - id: "cleanup-P008-tests-gates-test-coverage-py"
+    principle_id: "P008"
+    principle_category: "testing"
+    severity: "blocking"
+    title: "Enforce test naming pattern test_<unit>_<scenario>_<expected_outcome> (P008)"
+    scope:
+      - "tests/gates/test_coverage.py"
+      - "tests/gates/test_docs_freshness.py"
+    description: |
+      Principle P008 (testing/blocking) is violated in 2 file(s).
+
+      Rule: Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>`
+      (e.g. `test_login_with_expired_token_returns_401`) so the failure message alone
+      communicates what broke and why it matters.
+
+      Affected files:
+        - tests/gates/test_coverage.py:115  — Test name 'test_xml_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_coverage.py:118  — Test name 'test_json_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_coverage.py:121  — Test name 'test_info_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_coverage.py:143  — Test name 'test_full_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_coverage.py:147  — Test name 'test_zero_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_coverage.py:151  — Test name 'test_partial_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_docs_freshness.py:37  — Test name 'test_py_file' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_docs_freshness.py:40  — Test name 'test_url_rejected' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_docs_freshness.py:50  — Test name 'test_html_comment' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_docs_freshness.py:136  — Test name 'test_fresh_ok' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - tests/gates/test_docs_freshness.py:141  — Test name 'test_stale_violation' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+
+      Refactoring steps:
+        1. In tests/gates/test_coverage.py, rename each violating test function to follow
+           test_<unit>_<scenario>_<expected_outcome>. Examples:
+             test_xml_extension       → test_detect_format_xml_extension_returns_xml
+             test_json_extension      → test_detect_format_json_extension_returns_json
+             test_info_extension      → test_detect_format_info_extension_returns_lcov
+             test_full_coverage       → test_parse_xml_full_coverage_returns_100_pct
+             test_zero_coverage       → test_parse_xml_zero_coverage_returns_0_pct
+             test_partial_coverage    → test_parse_xml_partial_coverage_returns_correct_pct
+        2. In tests/gates/test_docs_freshness.py, rename each violating test function:
+             test_py_file             → test_looks_like_file_path_py_file_returns_true
+             test_url_rejected        → test_looks_like_file_path_url_input_returns_false
+             test_html_comment        → test_parse_generated_at_html_comment_returns_date
+             test_fresh_ok            → test_check_freshness_fresh_doc_returns_no_violation
+             test_stale_violation     → test_check_freshness_stale_doc_returns_violation
+        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        4. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce P008 testing across tests/gates/test_coverage.py, tests/gates/test_docs_freshness.py"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle P008 (testing/blocking):
+      "Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>`
+      (e.g. `test_login_with_expired_token_returns_401`) so the failure message alone
+      communicates what broke and why it matters."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 11 violation(s) across the following files:
+      - tests/gates/test_coverage.py
+      - tests/gates/test_docs_freshness.py
+
+      ## Changes
+
+      - Renamed 6 test functions in `tests/gates/test_coverage.py` to match the
+        `test_<unit>_<scenario>_<expected_outcome>` naming pattern
+      - Renamed 5 test functions in `tests/gates/test_docs_freshness.py` to match
+        the same pattern
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-22T10:00:00Z"
+    status: "pending"
+
+  - id: "cleanup-P011-checkpoint-agent-py"
+    principle_id: "P011"
+    principle_category: "style"
+    severity: "blocking"
+    title: "Enforce no magic numbers: extract numeric literals to named constants (P011)"
+    scope:
+      - "checkpoint_agent.py"
+      - "coordinate.py"
+      - "handoff.py"
+      - "harness_context.py"
+    description: |
+      Principle P011 (style/blocking) is violated in 4 file(s).
+
+      Rule: No magic numbers: every numeric literal that carries domain or configuration
+      meaning must be extracted to a named constant in UPPER_SNAKE_CASE. Pure domain
+      constants belong in `src/<pkg>/constants.py`. Runtime-tunable values must be read
+      from a config object or environment variable — never inlined. Exemptions: trivially
+      obvious values such as 0, 1, and -1.
+
+      Affected files:
+        - checkpoint_agent.py:119  — Magic number 20 used as max_turns argument inline: max_turns=20
+        - coordinate.py:643       — Magic number 300 used as default_timeout_seconds inline: default_timeout_seconds=300
+        - handoff.py:269          — Magic number 4096 used as max_tokens argument inline: max_tokens=4096
+        - harness_context.py:102  — Magic number 20 used as default for max_turns parameter inline: max_turns: int = 20
+
+      Refactoring steps:
+        1. In checkpoint_agent.py: Extract `max_turns=20` to a module-level constant
+           `_MAX_AGENT_TURNS = 20` (or import from a shared constants module) and replace
+           the inline literal with the constant.
+        2. In coordinate.py: Extract `default_timeout_seconds=300` to a module-level
+           constant `_DEFAULT_TIMEOUT_SECONDS = 300` and replace the inline literal.
+        3. In handoff.py: Extract `max_tokens=4096` to a module-level constant
+           `_MAX_TOKENS = 4096` and replace the inline literal.
+        4. In harness_context.py: Extract `max_turns: int = 20` default to a module-level
+           constant `_DEFAULT_MAX_TURNS = 20` and reference it in the function signature.
+        5. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        6. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce P011 style across 4 files"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle P011 (style/blocking):
+      "No magic numbers: every numeric literal that carries domain or configuration
+      meaning must be extracted to a named constant in UPPER_SNAKE_CASE."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 4 violation(s) across the following files:
+      - checkpoint_agent.py
+      - coordinate.py
+      - handoff.py
+      - harness_context.py
+
+      ## Changes
+
+      - `checkpoint_agent.py`: extract `max_turns=20` → `_MAX_AGENT_TURNS = 20` constant
+      - `coordinate.py`: extract `default_timeout_seconds=300` → `_DEFAULT_TIMEOUT_SECONDS = 300` constant
+      - `handoff.py`: extract `max_tokens=4096` → `_MAX_TOKENS = 4096` constant
+      - `harness_context.py`: extract `max_turns: int = 20` default → `_DEFAULT_MAX_TURNS = 20` constant
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-22T10:00:00Z"
+    status: "pending"
+
+  - id: "cleanup-P012-coordinate-py"
+    principle_id: "P012"
+    principle_category: "style"
+    severity: "blocking"
+    title: "Enforce no hardcoded config strings: move URLs/hostnames to config (P012)"
+    scope:
+      - "coordinate.py"
+      - "harness_skills/boot.py"
+    description: |
+      Principle P012 (style/blocking) is violated in 2 file(s).
+
+      Rule: No hardcoded strings: string literals that represent configuration (URLs,
+      hostnames, file paths, queue names, feature-flag keys, error-code strings) must
+      not appear inline in business logic. Config strings must be sourced from environment
+      variables via `src/config.py`. Shared string constants must be declared as
+      module-level constants or a `StrEnum`.
+
+      Affected files:
+        - coordinate.py:587       — Hardcoded URL 'http://localhost:8420' used as default argparse argument value in business logic
+        - harness_skills/boot.py:301 — Hardcoded URL constructed inline as f-string 'http://localhost:{port}{config.health_path}' in generate_boot_script()
+
+      Refactoring steps:
+        1. In coordinate.py: Replace the inline `"http://localhost:8420"` default with a
+           module-level constant `_DEFAULT_STATE_URL = "http://localhost:8420"` (or, better,
+           read from `os.environ.get("CLAW_FORGE_STATE_URL", "http://localhost:8420")` via
+           a config object) and reference the constant in the argparse default.
+        2. In harness_skills/boot.py: Move the localhost scheme+host string into a
+           config-sourced value or module-level constant. The f-string URL construction
+           should reference `config.state_url` or a `_LOCALHOST_BASE = "http://localhost"`
+           constant rather than inlining the literal.
+        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        4. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce P012 style across coordinate.py, harness_skills/boot.py"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle P012 (style/blocking):
+      "No hardcoded strings: string literals that represent configuration (URLs,
+      hostnames, file paths, queue names, feature-flag keys, error-code strings) must
+      not appear inline in business logic."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 2 violation(s) across the following files:
+      - coordinate.py
+      - harness_skills/boot.py
+
+      ## Changes
+
+      - `coordinate.py`: replace inline `"http://localhost:8420"` with
+        `_DEFAULT_STATE_URL` constant or env-var-backed config lookup
+      - `harness_skills/boot.py`: extract hardcoded localhost URL in
+        `generate_boot_script()` to a config-sourced value or module constant
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-22T10:00:00Z"
+    status: "pending"
+
+  - id: "cleanup-P013-harness-skills-stale-plan-detector-py"
+    principle_id: "P013"
+    principle_category: "style"
+    severity: "suggestion"
+    title: "Enforce import ordering: future imports first in every module (P013)"
+    scope:
+      - "conftest.py"
+      - "harness_dashboard/__init__.py"
+      - "harness_skills/cli/__init__.py"
+      - "harness_skills/gates/coverage.py"
+      - "harness_skills/gates/runner.py"
+      - "harness_skills/generators/evaluation.py"
+      - "harness_skills/generators/manifest_generator.py"
+      - "harness_skills/logging_config.py"
+      - "harness_skills/performance_hooks.py"
+      - "harness_skills/stale_plan_detector.py"
+      - "skills/debt_tracker.py"
+      - "skills/exec_plan.py"
+      - "skills/golden_principles_cleanup.py"
+      - "task_lock.py"
+    description: |
+      Principle P013 (style/suggestion) is violated in 14 file(s).
+
+      Rule: Imports must follow the four-group isort order — future, stdlib, third-party,
+      first-party — with exactly one blank line between each group.
+      `from __future__ import annotations` must appear as the very first import in every
+      Python module.
+
+      Affected files:
+        - harness_skills/stale_plan_detector.py:14   — 'from __future__ import annotations' is not the first import (appears after other import lines)
+        - harness_skills/performance_hooks.py:19     — 'from __future__ import annotations' is not the first import in the module
+        - harness_skills/gates/coverage.py:34        — 'from __future__ import annotations' is not the first import (appears after stdlib imports)
+        - harness_skills/gates/runner.py:34          — 'from __future__ import annotations' is not the first import in the module
+        - harness_skills/generators/evaluation.py:32 — 'from __future__ import annotations' is not the first import in the module
+        - harness_skills/generators/manifest_generator.py:19 — 'from __future__ import annotations' is not the first import in the module
+        - skills/exec_plan.py:30                     — 'from __future__ import annotations' is not the first import in the module
+        - skills/golden_principles_cleanup.py:29     — 'from __future__ import annotations' is not the first import in the module
+        - skills/debt_tracker.py:28                  — 'from __future__ import annotations' is not the first import in the module
+        - harness_skills/logging_config.py:27        — 'from __future__ import annotations' is not the first import in the module
+        - conftest.py:2                              — Module is missing 'from __future__ import annotations'
+        - task_lock.py:6                             — Module is missing 'from __future__ import annotations'
+        - harness_dashboard/__init__.py:19           — Module is missing 'from __future__ import annotations'
+        - harness_skills/cli/__init__.py:3           — Module is missing 'from __future__ import annotations'
+
+      Refactoring steps:
+        1. For each file where 'from __future__ import annotations' is present but
+           mis-ordered: move the line to be the very first import statement (directly
+           after the module docstring if present, before all other imports).
+        2. For each file missing 'from __future__ import annotations' entirely
+           (conftest.py, task_lock.py, harness_dashboard/__init__.py,
+           harness_skills/cli/__init__.py): add `from __future__ import annotations`
+           as the first import.
+        3. While editing each file, ensure import groups follow the isort four-group
+           order (future → stdlib → third-party → first-party) with one blank line
+           between each group.
+        4. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        5. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce P013 style across 14 files"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle P013 (style/suggestion):
+      "Imports must follow the four-group isort order — future, stdlib, third-party,
+      first-party — with exactly one blank line between each group.
+      `from __future__ import annotations` must appear as the very first import in
+      every Python module."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 14 violation(s) across the following files:
+      - conftest.py
+      - harness_dashboard/__init__.py
+      - harness_skills/cli/__init__.py
+      - harness_skills/gates/coverage.py
+      - harness_skills/gates/runner.py
+      - harness_skills/generators/evaluation.py
+      - harness_skills/generators/manifest_generator.py
+      - harness_skills/logging_config.py
+      - harness_skills/performance_hooks.py
+      - harness_skills/stale_plan_detector.py
+      - skills/debt_tracker.py
+      - skills/exec_plan.py
+      - skills/golden_principles_cleanup.py
+      - task_lock.py
+
+      ## Changes
+
+      - Moved or added `from __future__ import annotations` to be the first import
+        in each of the 14 affected modules
+      - Ensured isort-compatible four-group ordering (future → stdlib → third-party →
+        first-party) with one blank line separating each group
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-22T10:00:00Z"
+    status: "pending"

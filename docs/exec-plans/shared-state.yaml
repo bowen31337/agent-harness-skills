@@ -1,12 +1,3 @@
-# docs/exec-plans/shared-state.yaml
-# Managed by /harness:shared-state — agents append to intermediate_results.
-# See .claude/commands/harness/shared-state.md for schema reference and usage.
-
-meta:
-  schema_version: "1"
-  initialized_at: '2026-03-14T19:11:16Z'
-  last_updated_at: '2026-03-14T19:11:16Z'
-
 snapshot:
   timestamp: '2026-03-14T19:11:16'
   agent_count: 109
@@ -139,11 +130,15 @@ conflict_clusters:
   - coding-b7da9203
   - coding-e4908d0c
   recommendation: serialise; locking semantics are sensitive to ordering
-# intermediate_results — written by /harness:shared-state publish
-# Each entry: {agent_id, timestamp, category, key, value, ttl_minutes}
-# Categories: endpoints | schema_changes | test_results | config | custom
-# Query with: /harness:shared-state query --category <category>
-intermediate_results: []
+intermediate_results:
+- agent_id: golden-principles-cleanup
+  type: other
+  timestamp: '2026-03-22T10:56:03Z'
+  data:
+    cleanup_tasks_generated: 4
+    output: docs/exec-plans/cleanup-tasks.yaml
+    principles_scanned: 20
+    violations_found: 30
 execution_plan:
   strategy: parallel-with-serialised-hotspots
   slots:
