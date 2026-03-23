@@ -35,7 +35,7 @@ artifact: docs-index
 | Document | Purpose |
 |---|---|
 | [PRINCIPLES.md](PRINCIPLES.md) | Mechanical rules for AI agents — task lifecycle, git, safety, skills |
-| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | Structured error model, GateResult patterns, severity levels |
+| [docs/ERROR_HANDLING_RULES.md](docs/ERROR_HANDLING_RULES.md) | Structured error model, GateResult patterns, severity levels |
 
 ---
 
@@ -43,8 +43,8 @@ artifact: docs-index
 
 | Document | Purpose |
 |---|---|
-| [SPEC.md](SPEC.md) | Logging convention — five required fields, JSON Schema, adoption guide |
-| [HEALTH_CHECK_SPEC.md](HEALTH_CHECK_SPEC.md) | Health check endpoint contract — response format, polling protocol |
+| [docs/SPEC.md](docs/SPEC.md) | Logging convention — five required fields, JSON Schema, adoption guide |
+| [docs/HEALTH_CHECK_SPEC.md](docs/HEALTH_CHECK_SPEC.md) | Health check endpoint contract — response format, polling protocol |
 | [docs/health-check-endpoint-spec.md](docs/health-check-endpoint-spec.md) | Extended health check spec with ADR context |
 
 ---

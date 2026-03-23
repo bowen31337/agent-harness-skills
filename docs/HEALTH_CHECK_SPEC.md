@@ -372,10 +372,10 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 | Document | Relationship |
 |---|---|
 | [SPEC.md](SPEC.md) | logging convention (observability peer) |
-| [AGENTS.md](AGENTS.md) | agents poll the health endpoint |
-| [docs/health-check-endpoint-spec.md](docs/health-check-endpoint-spec.md) | extended spec with ADR context |
-| [.claude/commands/health-check-endpoint.md](.claude/commands/health-check-endpoint.md) | skill that generated this file |
-| [.claude/commands/harness/observe.md](.claude/commands/harness/observe.md) | log observation for health events |
-| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+| [AGENTS.md](../AGENTS.md) | agents poll the health endpoint |
+| [health-check-endpoint-spec.md](health-check-endpoint-spec.md) | extended spec with ADR context |
+| [.claude/commands/health-check-endpoint.md](../.claude/commands/health-check-endpoint.md) | skill that generated this file |
+| [.claude/commands/harness/observe.md](../.claude/commands/harness/observe.md) | log observation for health events |
+| [DOCS_INDEX.md](../DOCS_INDEX.md) | full documentation index |
 
 <!-- /harness:cross-links -->

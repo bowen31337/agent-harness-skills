@@ -28,7 +28,7 @@ Optional `extra` object for structured context:
  "extra":{"actual":71,"threshold":80,"file":"harness_skills/gates/coverage.py"}}
 ```
 
-Full specification: **[SPEC.md](../../SPEC.md)** (12 KB).
+Full specification: **[SPEC.md](../SPEC.md)** (12 KB).
 
 ---
 
@@ -152,7 +152,7 @@ print('All entries valid')
 
 ## Deeper References
 
-- **Full log spec** → [SPEC.md](../../SPEC.md) (12 KB — field rules, examples, JSON Schema)
+- **Full log spec** → [SPEC.md](../SPEC.md) (12 KB — field rules, examples, JSON Schema)
 - **Logging convention skill** → `.claude/commands/logging-convention.md` (585 lines)
 - **Log format linter skill** → `.claude/commands/log-format-linter.md` (411 lines)
 - **Log linter source** → `log_format_linter/` package

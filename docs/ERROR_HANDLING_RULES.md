@@ -350,10 +350,10 @@ Before submitting code that handles errors, verify:
 
 | Document | Relationship |
 |---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | package structure these rules apply to |
-| [PRINCIPLES.md](PRINCIPLES.md) | code quality and tool usage rules |
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | package structure these rules apply to |
+| [PRINCIPLES.md](../PRINCIPLES.md) | code quality and tool usage rules |
 | [SPEC.md](SPEC.md) | structured logging spec (§6) |
-| [EVALUATION.md](EVALUATION.md) | latest gate run results |
-| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+| [EVALUATION.md](../EVALUATION.md) | latest gate run results |
+| [DOCS_INDEX.md](../DOCS_INDEX.md) | full documentation index |
 
 <!-- /harness:cross-links -->

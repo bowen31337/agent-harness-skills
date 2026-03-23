@@ -25,6 +25,10 @@ dev = [
     "pre-commit>=3.7",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["harness_skills*", "harness_tools*"]
+
 # ---------------------------------------------------------------------------
 # Ruff — linter + formatter
 # https://docs.astral.sh/ruff/
@@ -81,7 +85,13 @@ ignore = [
 classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.model_validator"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["harness_skills", "harness_dashboard", "log_format_linter", "dom_snapshot_utility"]
+known-first-party = [
+    "harness_skills",
+    "harness_tools",
+    "harness_dashboard",
+    "log_format_linter",
+    "dom_snapshot_utility",
+]
 force-sort-within-sections = true
 
 [tool.ruff.format]

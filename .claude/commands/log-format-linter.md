@@ -407,5 +407,5 @@ When violations are present, populate the `violations` array:
 - To add more required fields (e.g. `request_id`), use
   `--fields domain trace_id request_id`.
 - The `domain` and `trace_id` defaults align with the
-  [Logging Convention Spec](./SPEC.md) and its JSON Schema at
+  [Logging Convention Spec](../docs/SPEC.md) and its JSON Schema at
   `schemas/log_entry.schema.json`.

@@ -127,12 +127,15 @@ skills/ (agent skill scripts)
 └── error-aggregation──► harness_skills.error_aggregation
                       ──► harness_skills.error_query_agent
 
-Top-level orchestration scripts
+harness_tools/ (implementations; imported by thin root shims)
 ├── coordinate.py        ──► harness_skills.task_lock
-├── task_lock.py         ──► harness_skills.task_lock  (re-export shim)
+├── task_lock.py         ──► harness_skills.task_lock  (re-export + CLI)
 ├── harness_status.py    ──► harness_skills.handoff
 ├── harness_telemetry.py ──► harness_skills (CLI / models)
-└── harness_context.py   ──► harness_skills (context helpers)
+├── harness_context.py   ──► harness_skills (context helpers)
+├── checkpoint_agent.py, git_checkpoint.py, handoff.py, stale_plan_detector.py
+
+Root *.py shims (same basename) re-export ``harness_tools.*`` for stable CLI and ``from task_lock import …``.
 
 examples/ (runnable demos; run from repo root)
 ├── context_handoff_example.py  ──► handoff.py

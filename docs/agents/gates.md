@@ -133,7 +133,7 @@ from harness_skills.gates.coverage import CoverageGate
 
 - **Gate config schema** → `harness.config.yaml` (annotated, repo root)
 - **Principles rules** → `PRINCIPLES.md` (30 KB, full rule catalogue)
-- **Error handling model** → `ERROR_HANDLING_RULES.md` (12 KB)
+- **Error handling model** → [ERROR_HANDLING_RULES.md](../ERROR_HANDLING_RULES.md) (12 KB)
 - **Coverage gate skill** → `.claude/commands/harness/coverage-gate.md`
 - **Security gate skill** → `.claude/commands/harness/security-check-gate.md`
 - **Performance gate skill** → `.claude/commands/harness/performance.md`

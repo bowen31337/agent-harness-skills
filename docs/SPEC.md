@@ -355,9 +355,9 @@ kubectl logs my-pod | log-lint validate -
 |---|---|
 | [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | logging format conventions (§6) |
 | [HEALTH_CHECK_SPEC.md](HEALTH_CHECK_SPEC.md) | related observability specification |
-| [PRINCIPLES.md](PRINCIPLES.md) | logging provider rule MB011 |
-| [.claude/commands/logging-convention.md](.claude/commands/logging-convention.md) | skill that regenerated this file |
-| [.claude/commands/log-format-linter.md](.claude/commands/log-format-linter.md) | CI linter that validates against this spec |
-| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+| [PRINCIPLES.md](../PRINCIPLES.md) | logging provider rule MB011 |
+| [.claude/commands/logging-convention.md](../.claude/commands/logging-convention.md) | skill that regenerated this file |
+| [.claude/commands/log-format-linter.md](../.claude/commands/log-format-linter.md) | CI linter that validates against this spec |
+| [DOCS_INDEX.md](../DOCS_INDEX.md) | full documentation index |
 
 <!-- /harness:cross-links -->
