@@ -3,96 +3,40 @@ harness_skills/models/gate_configs.py
 =======================================
 Pydantic configuration models for all evaluation gates.
 
-Each gate configuration class is a plain Python dataclass — intentionally
-lightweight so gate modules can be imported without pulling in Pydantic.
-
-The :class:`BaseGateConfig` base class provides two compatibility shims used
-by :class:`~harness_skills.gates.runner.HarnessConfigLoader`:
-
-* ``model_dump()``     — returns a ``dict`` of all dataclass fields (mirrors
-  ``pydantic.BaseModel.model_dump``).
-* ``model_validate()`` — constructs an instance from a dict, silently
-  ignoring keys that are not declared fields (mirrors
-  ``pydantic.BaseModel.model_validate``).
-
-Engineers define **project-specific plugin gates** via ``harness.config.yaml``:
-
-.. code-block:: yaml
-
-    profiles:
-      starter:
-        gates:
-          plugins:
-            - gate_id: check_migrations
-              gate_name: "DB Migration Safety"
-              command: "python scripts/check_migrations.py"
-              timeout_seconds: 30
-              fail_on_error: true
-              severity: error
-              env:
-                DATABASE_URL: "${DATABASE_URL}"
-
-Plugin gates are validated and executed by
-:mod:`harness_skills.plugins.gate_plugin`; this module only covers the
-*built-in* gate configurations.
+Each gate configuration class extends :class:`BaseGateConfig` so that gate
+runners can rely on a common interface (``enabled``, ``fail_on_error``) and use
+Pydantic's ``model_dump()`` / ``model_validate()`` for YAML-override merging.
 """
 
 from __future__ import annotations
 
-import dataclasses
-from dataclasses import dataclass, field
-from typing import Any
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
-# BaseGateConfig
+# Base
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class BaseGateConfig:
-    """Base configuration class shared by all built-in evaluation gates.
-
-    Provides two Pydantic-compatible shims (``model_dump`` /
-    ``model_validate``) so that :class:`~harness_skills.gates.runner.\
-HarnessConfigLoader` can merge YAML overrides onto dataclass defaults
-    without requiring Pydantic in every gate module.
+class BaseGateConfig(BaseModel):
+    """Shared base for all gate configuration classes.
 
     Attributes
     ----------
     enabled:
-        Whether the gate is active.  Set to ``False`` in
-        ``harness.config.yaml`` to skip the gate entirely.
+        When ``False`` the gate is skipped entirely (no check, no failure).
+        Defaults to ``True``.
     fail_on_error:
-        When ``True`` (the default), *error*-severity violations produced by
-        the gate cause the overall evaluation to fail.  Setting this to
-        ``False`` downgrades all violations to *warnings* and keeps the run
-        green.
+        When ``True`` (the default), *error*-severity violations cause the
+        gate to return a failing result and exit non-zero.  Setting this to
+        ``False`` downgrades all violations to *warnings* so the build
+        continues regardless.
     """
 
     enabled: bool = True
     fail_on_error: bool = True
 
-    # ------------------------------------------------------------------
-    # Pydantic-compatible shims
-    # ------------------------------------------------------------------
-
-    def model_dump(self) -> dict[str, Any]:
-        """Return all fields as a plain ``dict`` (mirrors Pydantic)."""
-        return dataclasses.asdict(self)
-
-    @classmethod
-    def model_validate(cls, data: dict[str, Any]) -> "BaseGateConfig":
-        """Construct an instance from *data*, ignoring unknown keys.
-
-        Unknown keys present in the YAML (e.g. keys added in a future
-        harness version) are silently dropped rather than raising an error.
-        This ensures forward-compatibility when an older harness binary
-        reads a newer ``harness.config.yaml``.
-        """
-        valid_fields = {f.name for f in dataclasses.fields(cls)}
-        filtered = {k: v for k, v in data.items() if k in valid_fields}
-        return cls(**filtered)
+    model_config = {"extra": "ignore"}
 
 
 # ---------------------------------------------------------------------------
@@ -100,30 +44,21 @@ HarnessConfigLoader` can merge YAML overrides onto dataclass defaults
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class DocsFreshnessGateConfig(BaseGateConfig):
     """Configuration for the documentation-freshness gate.
 
     Attributes
     ----------
-    enabled:
-        Inherited from :class:`BaseGateConfig`.  Defaults to ``True``.
-    fail_on_error:
-        Inherited from :class:`BaseGateConfig`.  Defaults to ``True``.
     max_staleness_days:
         Maximum number of days between the ``generated_at`` timestamp and
         today before the content is considered stale.  Defaults to 30.
     tracked_files:
         File names (basenames only) to scan for freshness timestamps.
         ``AGENTS.md`` is always included; additional names may be appended.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
     """
 
-    enabled: bool = True
     max_staleness_days: int = 30
-    tracked_files: list[str] = field(default_factory=lambda: ["AGENTS.md"])
+    tracked_files: list[str] = Field(default_factory=lambda: ["AGENTS.md"])
 
 
 # ---------------------------------------------------------------------------
@@ -131,18 +66,11 @@ class DocsFreshnessGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class CoverageGateConfig(BaseGateConfig):
     """Configuration for the code-coverage gate.
 
     Attributes
     ----------
-    enabled:
-        Inherited from :class:`BaseGateConfig`.  Defaults to ``True``.
-    fail_on_error:
-        Inherited from :class:`BaseGateConfig`.  Defaults to ``True``.
-        Setting this to ``False`` emits a *warning* violation but still
-        allows the build to continue.
     threshold:
         Minimum required line-coverage percentage expressed as a value
         between 0 and 100 (default: **90.0**).  PRs whose overall coverage
@@ -157,23 +85,19 @@ class CoverageGateConfig(BaseGateConfig):
         ``.info`` / ``.out`` / ``.lcov`` → lcov.  Pass ``"xml"``,
         ``"json"``, or ``"lcov"`` to override auto-detection.
     branch_coverage:
-        When ``True``, measure branch (condition) coverage in addition to
-        line coverage.  Requires ``pytest-cov >= 4``.  Defaults to
-        ``False``.
+        When ``True``, collect and enforce branch coverage in addition to
+        line coverage (used by the runner's inline pytest integration).
+        Defaults to ``False``.
     exclude_patterns:
-        Glob patterns (relative to the project root) to omit from the
-        coverage measurement, e.g. ``["tests/", "migrations/"]``.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
+        Glob patterns passed as ``--omit`` arguments to coverage.py when
+        running the inline pytest gate.  Defaults to empty (no exclusions).
     """
 
-    enabled: bool = True
     threshold: float = 90.0
     coverage_file: str = "coverage.xml"
     report_format: str = "auto"
     branch_coverage: bool = False
-    exclude_patterns: list[str] = field(default_factory=list)
+    exclude_patterns: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -181,24 +105,11 @@ class CoverageGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class RegressionGateConfig(BaseGateConfig):
-    """Configuration for the regression (test-suite) gate.
-
-    Attributes
-    ----------
-    timeout_seconds:
-        Wall-clock time limit (seconds) for the full test suite run.
-    extra_args:
-        Additional arguments appended verbatim to the ``pytest`` (or
-        equivalent) invocation, e.g. ``["--tb=short", "-x"]``.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
+    """Configuration for the regression (test-suite) gate."""
 
     timeout_seconds: int = 300
-    extra_args: list[str] = field(default_factory=list)
+    extra_args: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -206,34 +117,13 @@ class RegressionGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class SecurityGateConfig(BaseGateConfig):
-    """Configuration for the security-scan gate (pip-audit / npm audit / bandit).
-
-    Attributes
-    ----------
-    severity_threshold:
-        Minimum CVE severity to report.  One of ``CRITICAL``, ``HIGH``,
-        ``MEDIUM``, or ``LOW``.  Vulnerabilities below this threshold are
-        suppressed.  Defaults to ``"HIGH"``.
-    scan_dependencies:
-        When ``True`` (default), runs ``pip-audit`` / ``npm audit`` to
-        check installed packages for known CVEs.
-    scan_secrets:
-        When ``True``, runs secret-detection heuristics to flag hardcoded
-        API keys and tokens in source files.  Defaults to ``False``.
-    ignore_ids:
-        List of CVE IDs or Bandit rule IDs to suppress, e.g.
-        ``["CVE-2023-12345", "B101"]``.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
+    """Configuration for the security-scan gate (pip-audit / npm audit / bandit)."""
 
     severity_threshold: str = "HIGH"   # CRITICAL | HIGH | MEDIUM | LOW
     scan_dependencies: bool = True
     scan_secrets: bool = False
-    ignore_ids: list[str] = field(default_factory=list)
+    ignore_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -241,32 +131,12 @@ class SecurityGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class PerformanceGateConfig(BaseGateConfig):
-    """Configuration for the performance-benchmark gate.
+    """Configuration for the performance-benchmark gate."""
 
-    Attributes
-    ----------
-    budget_ms:
-        P95 response-time ceiling in milliseconds.  Benchmark runs that
-        exceed this value are flagged as failures.  Defaults to ``200``.
-    regression_threshold_pct:
-        Maximum allowed percentage degradation vs. the stored baseline
-        before the gate fails.  Defaults to ``10.0`` (10 %).
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
-
-    # Performance gate is off by default — override inherited enabled=True
-    enabled: bool = False
-    fail_on_error: bool = True
+    enabled: bool = False   # off by default; opt-in per profile
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
-    thresholds_file: str = ".harness/perf-thresholds.yml"
-    spans_file: str = "perf-spans.json"
-    baseline_file: str = ""
-    output_file: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -274,33 +144,20 @@ class PerformanceGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class ArchitectureGateConfig(BaseGateConfig):
-    """Configuration for the architecture (import-layer) gate.
+    """Configuration for the architecture (import-layer) gate."""
 
-    Attributes
-    ----------
-    rules:
-        Names of the architectural rules to enforce.
-    layer_order:
-        Ordered list of architectural layers from innermost to outermost.
-        Imports must respect this order (inner layers must not import
-        from outer layers).
-    report_only:
-        When ``True``, violations are emitted as *warnings* rather than
-        *errors*, so the gate never blocks a merge.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
-
-    rules: list[str] = field(default_factory=lambda: [
-        "no_circular_dependencies",
-        "enforce_layer_boundaries",
-    ])
-    layer_order: list[str] = field(default_factory=lambda: [
-        "models", "repositories", "services", "api",
-    ])
+    rules: list[str] = Field(
+        default_factory=lambda: [
+            "no_circular_dependencies",
+            "enforce_layer_boundaries",
+        ]
+    )
+    layer_order: list[str] = Field(
+        default_factory=lambda: [
+            "models", "repositories", "services", "api",
+        ]
+    )
     report_only: bool = False
 
 
@@ -309,26 +166,12 @@ class ArchitectureGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class PrinciplesGateConfig(BaseGateConfig):
-    """Configuration for the golden-principles gate.
+    """Configuration for the golden-principles gate."""
 
-    Attributes
-    ----------
-    principles_file:
-        Path (relative to project root) of the principles definition file.
-    rules:
-        Subset of rule names to enforce.  ``["all"]`` applies every rule
-        defined in *principles_file*.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
-
-    # Advisory by default — override inherited fail_on_error=True
-    fail_on_error: bool = False
+    fail_on_error: bool = False   # advisory by default
     principles_file: str = ".claude/principles.yaml"
-    rules: list[str] = field(default_factory=lambda: ["all"])
+    rules: list[str] = Field(default_factory=lambda: ["all"])
 
 
 # ---------------------------------------------------------------------------
@@ -336,24 +179,11 @@ class PrinciplesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class TypesGateConfig(BaseGateConfig):
-    """Configuration for the static type-checking gate (mypy / tsc / pyright).
-
-    Attributes
-    ----------
-    strict:
-        When ``True``, passes ``--strict`` (mypy) or equivalent flag.
-    ignore_errors:
-        List of mypy/pyright error codes to suppress, e.g.
-        ``["misc", "import-untyped"]``.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
+    """Configuration for the static type-checking gate (mypy / tsc / pyright)."""
 
     strict: bool = False
-    ignore_errors: list[str] = field(default_factory=list)
+    ignore_errors: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -361,124 +191,21 @@ class TypesGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 
-@dataclass
 class LintGateConfig(BaseGateConfig):
-    """Configuration for the linting gate (ruff / eslint / golangci-lint).
-
-    Attributes
-    ----------
-    autofix:
-        When ``True``, attempt ``ruff --fix`` / ``eslint --fix`` before
-        reporting remaining violations.  Defaults to ``False``.
-    select:
-        Rule codes to enable (empty = tool defaults).
-    ignore:
-        Rule codes to suppress, e.g. ``["E501"]`` for line-length.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-    """
+    """Configuration for the linting gate (ruff / eslint / golangci-lint)."""
 
     autofix: bool = False
-    select: list[str] = field(default_factory=list)
-    ignore: list[str] = field(default_factory=list)
+    select: list[str] = Field(default_factory=list)
+    ignore: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
-# FileSizeGate
+# Registry — maps gate IDs to their config classes
 # ---------------------------------------------------------------------------
 
-
-@dataclass
-class FileSizeGateConfig(BaseGateConfig):
-    """Configuration for the file-size gate.
-
-    Prevents monolithic source files that are hard for agents and humans to
-    reason about by enforcing a maximum line-count threshold per file.
-
-    Attributes
-    ----------
-    max_lines:
-        Hard limit — files whose line count **exceeds** this value produce an
-        *error* violation (blocks the gate when ``fail_on_error=True``).
-        Defaults to **500**.
-    warn_lines:
-        Soft limit — files whose line count **exceeds** this value (but is
-        still within ``max_lines``) produce a *warning* violation that is
-        always advisory.  Set to ``0`` to disable the soft limit.
-        Defaults to **300**.
-    include_patterns:
-        Glob patterns (relative to the project root) for files to scan.
-        Defaults to common source-code extensions across popular languages.
-    exclude_patterns:
-        Glob patterns to skip.  Matched against the full path relative to the
-        project root.  Defaults to generated / vendored directories
-        (``node_modules/``, ``dist/``, ``build/``, ``migrations/``, etc.).
-    report_only:
-        When ``True``, *all* violations are downgraded to warnings regardless
-        of ``fail_on_error``, so the gate never blocks a merge.  Useful for
-        gradually introducing the rule into an existing large codebase.
-
-    Inherited from :class:`BaseGateConfig`:
-        ``enabled``, ``fail_on_error``
-
-    Example harness.config.yaml override::
-
-        gates:
-          file_size:
-            enabled: true
-            max_lines: 400
-            warn_lines: 250
-            exclude_patterns:
-              - "tests/fixtures/**"
-              - "src/generated/**"
-    """
-
-    max_lines: int = 500
-    warn_lines: int = 300
-    include_patterns: list[str] = field(default_factory=lambda: [
-        "**/*.py",
-        "**/*.ts",
-        "**/*.tsx",
-        "**/*.js",
-        "**/*.jsx",
-        "**/*.go",
-        "**/*.rs",
-        "**/*.rb",
-        "**/*.java",
-        "**/*.kt",
-        "**/*.swift",
-        "**/*.c",
-        "**/*.cpp",
-        "**/*.cs",
-    ])
-    exclude_patterns: list[str] = field(default_factory=lambda: [
-        ".git/**",
-        "node_modules/**",
-        "__pycache__/**",
-        "*.pyc",
-        "dist/**",
-        "build/**",
-        ".venv/**",
-        "venv/**",
-        "vendor/**",
-        "migrations/**",
-        "*.min.js",
-        "*.min.css",
-        "*.generated.*",
-        "*.g.ts",
-        "*.g.py",
-    ])
-    report_only: bool = False
-
-
-# ---------------------------------------------------------------------------
-# GATE_CONFIG_CLASSES
-# Maps canonical gate IDs (as used in harness.config.yaml) to config classes.
-# Consumed by HarnessConfigLoader to iterate all built-in gates and apply
-# profile defaults + YAML overrides per gate.
-# ---------------------------------------------------------------------------
-
+#: Canonical mapping from gate ID → config class.
+#: Used by :class:`~harness_skills.gates.runner.HarnessConfigLoader` to
+#: enumerate available built-in gates and instantiate their configs.
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
     "regression":     RegressionGateConfig,
     "coverage":       CoverageGateConfig,
@@ -489,7 +216,6 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
     "docs_freshness": DocsFreshnessGateConfig,
     "types":          TypesGateConfig,
     "lint":           LintGateConfig,
-    "file_size":      FileSizeGateConfig,
 }
 
 
@@ -499,20 +225,19 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
 # and HarnessConfigLoader.
 # ---------------------------------------------------------------------------
 
-PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
+PROFILE_GATE_DEFAULTS: dict[str, dict[str, BaseGateConfig]] = {
     "starter": {
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
         "coverage":       CoverageGateConfig(threshold=60.0, fail_on_error=True),
         "security":       SecurityGateConfig(enabled=False),
         "performance":    PerformanceGateConfig(enabled=False),
-        "architecture":   ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
+        "architecture":   ArchitectureGateConfig(
+            enabled=False, fail_on_error=False, report_only=True
+        ),
         "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=False),
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":          TypesGateConfig(enabled=False),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True),
-        # Advisory only in starter — warn at 300 lines, hard limit at 500
-        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=False, report_only=True,
-                                             max_lines=500, warn_lines=300),
     },
     "standard": {
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
@@ -524,9 +249,6 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":          TypesGateConfig(enabled=True, fail_on_error=True),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True),
-        # Blocking in standard — fail on files over 500 lines
-        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=True,
-                                             max_lines=500, warn_lines=300),
     },
     "advanced": {
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
@@ -535,7 +257,9 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
             enabled=True, severity_threshold="MEDIUM",
             scan_dependencies=True, scan_secrets=True,
         ),
-        "performance":    PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
+        "performance":    PerformanceGateConfig(
+            enabled=True, regression_threshold_pct=10.0
+        ),
         "architecture":   ArchitectureGateConfig(
             enabled=True, fail_on_error=True,
             rules=[
@@ -548,9 +272,8 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
         "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
         "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
-        "lint":           LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
-        # Stricter limits in advanced — tighter soft and hard caps
-        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=True,
-                                             max_lines=400, warn_lines=250),
+        "lint":           LintGateConfig(
+            enabled=True, fail_on_error=True, autofix=False
+        ),
     },
 }
