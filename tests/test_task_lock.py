@@ -35,12 +35,12 @@ def proto(tmp_path: Path) -> TaskLockProtocol:
 
 @pytest.fixture
 def short_proto(tmp_path: Path) -> TaskLockProtocol:
-    """A TaskLockProtocol with a 1-second default TTL for expiry tests."""
+    """A TaskLockProtocol with a very short default TTL (1 second) for expiry tests."""
     return TaskLockProtocol(locks_dir=tmp_path / "locks-short", default_timeout_seconds=1)
 
 
 # ---------------------------------------------------------------------------
-# TaskLock model
+# TaskLock model tests
 # ---------------------------------------------------------------------------
 
 
@@ -93,7 +93,8 @@ class TestTaskLockModel:
         lock = short_proto.acquire("task/repr-expired", agent_id="agent-Z")
         assert lock is not None
         time.sleep(1.1)
-        assert "EXPIRED" in repr(lock)
+        r = repr(lock)
+        assert "EXPIRED" in r
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +109,8 @@ class TestAcquireHappyPath:
 
     def test_acquire_creates_lock_file(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/file-exists", agent_id="agent-A")
-        assert len(list(proto.locks_dir.glob("*.lock"))) == 1
+        lock_files = list(proto.locks_dir.glob("*.lock"))
+        assert len(lock_files) == 1
 
     def test_lock_file_contains_valid_json(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/valid-json", agent_id="agent-A")
@@ -126,10 +128,11 @@ class TestAcquireHappyPath:
         assert lock.timeout_seconds == 60.0
 
     def test_task_id_sanitisation(self, proto: TaskLockProtocol) -> None:
-        """Slashes and spaces must not create sub-directories inside locks_dir."""
+        """Slashes and spaces in task IDs must not create sub-directories."""
         proto.acquire("feature/auth refactor", agent_id="agent-A")
         files = list(proto.locks_dir.glob("*.lock"))
         assert len(files) == 1
+        # No sub-directory created
         assert files[0].parent == proto.locks_dir
 
 
@@ -142,8 +145,10 @@ class TestReentrantAcquire:
     def test_same_agent_refreshes_ttl(self, proto: TaskLockProtocol) -> None:
         lock1 = proto.acquire("task/reentrant", agent_id="agent-A", timeout_seconds=10)
         assert lock1 is not None
+        # Second acquire should succeed and refresh expires_at
         lock2 = proto.acquire("task/reentrant", agent_id="agent-A", timeout_seconds=10)
         assert lock2 is not None
+        # The TTL should be at least as long as the first
         assert lock2.seconds_remaining() >= lock1.seconds_remaining() - 1
 
     def test_only_one_lock_file_after_reentrant(self, proto: TaskLockProtocol) -> None:
@@ -160,7 +165,8 @@ class TestReentrantAcquire:
 class TestConflictDetection:
     def test_different_agent_returns_none(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/conflict", agent_id="agent-A")
-        assert proto.acquire("task/conflict", agent_id="agent-B") is None
+        result = proto.acquire("task/conflict", agent_id="agent-B")
+        assert result is None
 
     def test_different_agent_raises_on_conflict(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/raise-conflict", agent_id="agent-A")
@@ -190,15 +196,14 @@ class TestConflictDetection:
 
 class TestAutoExpiry:
     def test_expired_lock_replaced_by_another_agent(self, short_proto: TaskLockProtocol) -> None:
-        short_proto.acquire("task/expiry", agent_id="agent-A", timeout_seconds=1)
+        lock_a = short_proto.acquire("task/expiry", agent_id="agent-A", timeout_seconds=1)
+        assert lock_a is not None
         time.sleep(1.1)
         lock_b = short_proto.acquire("task/expiry", agent_id="agent-B", timeout_seconds=60)
         assert lock_b is not None
         assert lock_b.agent_id == "agent-B"
 
-    def test_only_one_lock_file_after_expiry_replacement(
-        self, short_proto: TaskLockProtocol
-    ) -> None:
+    def test_only_one_lock_file_after_expiry_replacement(self, short_proto: TaskLockProtocol) -> None:
         short_proto.acquire("task/one-expired", agent_id="agent-A", timeout_seconds=1)
         time.sleep(1.1)
         short_proto.acquire("task/one-expired", agent_id="agent-B", timeout_seconds=60)
@@ -224,11 +229,13 @@ class TestAutoExpiry:
 class TestRelease:
     def test_release_removes_lock_file(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/release", agent_id="agent-A")
-        assert proto.release("task/release", agent_id="agent-A") is True
+        released = proto.release("task/release", agent_id="agent-A")
+        assert released is True
         assert not list(proto.locks_dir.glob("*.lock"))
 
     def test_release_returns_false_if_no_lock(self, proto: TaskLockProtocol) -> None:
-        assert proto.release("task/no-lock", agent_id="agent-A") is False
+        result = proto.release("task/no-lock", agent_id="agent-A")
+        assert result is False
 
     def test_release_wrong_agent_raises(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/wrong-agent", agent_id="agent-A")
@@ -241,15 +248,19 @@ class TestRelease:
 
     def test_release_force_removes_any_lock(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/force-release", agent_id="agent-A")
-        assert proto.release("task/force-release", agent_id="agent-B", force=True) is True
+        released = proto.release("task/force-release", agent_id="agent-B", force=True)
+        assert released is True
         assert not proto.is_locked("task/force-release")
 
     def test_release_expired_lock_by_different_agent_ok(
         self, short_proto: TaskLockProtocol
     ) -> None:
+        """Releasing an expired lock held by another agent should succeed (expired = unowned)."""
         short_proto.acquire("task/exp-rel", agent_id="agent-A", timeout_seconds=1)
         time.sleep(1.1)
-        assert short_proto.release("task/exp-rel", agent_id="agent-B") is True
+        # agent-B can release the expired lock of agent-A
+        released = short_proto.release("task/exp-rel", agent_id="agent-B")
+        assert released is True
 
 
 # ---------------------------------------------------------------------------
@@ -285,12 +296,14 @@ class TestExtend:
             proto.extend("task/ext-wrong", agent_id="agent-B", additional_seconds=60)
 
     def test_extend_no_lock_returns_none(self, proto: TaskLockProtocol) -> None:
-        assert proto.extend("task/ext-missing", agent_id="agent-A", additional_seconds=60) is None
+        result = proto.extend("task/ext-missing", agent_id="agent-A", additional_seconds=60)
+        assert result is None
 
     def test_extend_expired_lock_returns_none(self, short_proto: TaskLockProtocol) -> None:
         short_proto.acquire("task/ext-expired", agent_id="agent-A", timeout_seconds=1)
         time.sleep(1.1)
-        assert short_proto.extend("task/ext-expired", agent_id="agent-A", additional_seconds=60) is None
+        result = short_proto.extend("task/ext-expired", agent_id="agent-A", additional_seconds=60)
+        assert result is None
 
 
 # ---------------------------------------------------------------------------
@@ -333,13 +346,15 @@ class TestListLocks:
     def test_returns_all_active_locks(self, proto: TaskLockProtocol) -> None:
         for i in range(3):
             proto.acquire(f"task/list-{i}", agent_id=f"agent-{i}")
-        assert len(proto.list_locks()) == 3
+        locks = proto.list_locks()
+        assert len(locks) == 3
 
     def test_does_not_include_expired(self, short_proto: TaskLockProtocol) -> None:
         short_proto.acquire("task/list-expired", agent_id="agent-X", timeout_seconds=1)
         short_proto.acquire("task/list-active", agent_id="agent-Y", timeout_seconds=120)
         time.sleep(1.1)
-        task_ids = [lk.task_id for lk in short_proto.list_locks()]
+        active = short_proto.list_locks()
+        task_ids = [lk.task_id for lk in active]
         assert "task/list-expired" not in task_ids
         assert "task/list-active" in task_ids
 
@@ -347,6 +362,7 @@ class TestListLocks:
         short_proto.acquire("task/gc-expired", agent_id="agent-X", timeout_seconds=1)
         time.sleep(1.1)
         short_proto.list_locks()
+        # The expired file should have been removed during the scan
         assert not any(short_proto.locks_dir.glob("*.lock"))
 
 
@@ -367,7 +383,8 @@ class TestSweepExpired:
     def test_sweep_returns_task_ids(self, short_proto: TaskLockProtocol) -> None:
         short_proto.acquire("task/sweep-id", agent_id="agent-X", timeout_seconds=1)
         time.sleep(1.1)
-        assert "task/sweep-id" in short_proto.sweep_expired()
+        swept = short_proto.sweep_expired()
+        assert "task/sweep-id" in swept
 
     def test_sweep_preserves_active_locks(self, short_proto: TaskLockProtocol) -> None:
         short_proto.acquire("task/sweep-expired", agent_id="agent-X", timeout_seconds=1)
@@ -379,15 +396,16 @@ class TestSweepExpired:
         assert short_proto.is_locked("task/sweep-active")
 
     def test_sweep_empty_dir_returns_empty_list(self, proto: TaskLockProtocol) -> None:
-        assert proto.sweep_expired() == []
+        result = proto.sweep_expired()
+        assert result == []
 
     def test_sweep_nonexistent_dir_returns_empty_list(self, tmp_path: Path) -> None:
-        p = TaskLockProtocol(locks_dir=tmp_path / "nonexistent", default_timeout_seconds=1)
-        assert p.sweep_expired() == []
+        proto = TaskLockProtocol(locks_dir=tmp_path / "nonexistent", default_timeout_seconds=1)
+        assert proto.sweep_expired() == []
 
 
 # ---------------------------------------------------------------------------
-# repr
+# repr / __repr__
 # ---------------------------------------------------------------------------
 
 
@@ -396,11 +414,12 @@ class TestRepr:
         proto.acquire("task/repr", agent_id="agent-A")
         r = repr(proto)
         assert "TaskLockProtocol" in r
-        assert "120" in r
+        assert "120" in r       # default_timeout
         assert "active_locks=1" in r
 
     def test_repr_no_locks(self, proto: TaskLockProtocol) -> None:
-        assert "active_locks=0" in repr(proto)
+        r = repr(proto)
+        assert "active_locks=0" in r
 
 
 # ---------------------------------------------------------------------------
@@ -412,7 +431,7 @@ class TestSdkHooks:
     def test_acquire_hook_acquires_lock(self, proto: TaskLockProtocol) -> None:
         hook = proto.as_acquire_hook("task/hook-acq", agent_id="agent-SDK")
 
-        async def run() -> None:
+        async def run():
             await hook({}, "tid", {})
 
         asyncio.run(run())
@@ -422,29 +441,33 @@ class TestSdkHooks:
         proto.acquire("task/hook-rel", agent_id="agent-SDK")
         hook = proto.as_release_hook("task/hook-rel", agent_id="agent-SDK")
 
-        async def run() -> None:
+        async def run():
             await hook({}, "tid", {})
 
         asyncio.run(run())
         assert not proto.is_locked("task/hook-rel")
 
     def test_acquire_hook_raises_on_conflict(self, proto: TaskLockProtocol) -> None:
+        """If another agent holds the lock, the acquire hook should raise LockConflictError."""
         proto.acquire("task/hook-conflict", agent_id="agent-A")
-        hook = proto.as_acquire_hook("task/hook-conflict", agent_id="agent-B")
+        hook = proto.as_acquire_hook(
+            "task/hook-conflict", agent_id="agent-B"
+        )
 
-        async def run() -> None:
+        async def run():
             await hook({}, "tid", {})
 
         with pytest.raises(LockConflictError):
             asyncio.run(run())
 
     def test_release_hook_no_op_if_no_lock(self, proto: TaskLockProtocol) -> None:
+        """Release hook on a non-existent lock should not raise."""
         hook = proto.as_release_hook("task/hook-noop", agent_id="agent-X")
 
-        async def run() -> None:
+        async def run():
             await hook({}, "tid", {})
 
-        asyncio.run(run())  # must not raise
+        asyncio.run(run())  # Should complete without error
 
 
 # ---------------------------------------------------------------------------
@@ -461,28 +484,31 @@ class TestEdgeCases:
         assert lock.agent_id == "agent-B"
 
     def test_multiple_distinct_tasks_independent(self, proto: TaskLockProtocol) -> None:
-        for t in ("task/x", "task/y", "task/z"):
-            proto.acquire(t, agent_id="agent-A")
+        proto.acquire("task/x", agent_id="agent-A")
+        proto.acquire("task/y", agent_id="agent-A")
+        proto.acquire("task/z", agent_id="agent-A")
         assert len(proto.list_locks()) == 3
 
     def test_lock_dir_created_on_first_acquire(self, tmp_path: Path) -> None:
         locks_dir = tmp_path / "new" / "nested" / "locks"
-        p = TaskLockProtocol(locks_dir=locks_dir, default_timeout_seconds=60)
-        p.acquire("task/mkdir", agent_id="agent-A")
+        proto = TaskLockProtocol(locks_dir=locks_dir, default_timeout_seconds=60)
+        proto.acquire("task/mkdir", agent_id="agent-A")
         assert locks_dir.exists()
 
-    def test_list_locks_no_dir(self, tmp_path: Path) -> None:
-        p = TaskLockProtocol(locks_dir=tmp_path / "empty", default_timeout_seconds=60)
-        assert p.list_locks() == []
+    def test_list_locks_empty_dir(self, tmp_path: Path) -> None:
+        locks_dir = tmp_path / "empty"
+        proto = TaskLockProtocol(locks_dir=locks_dir, default_timeout_seconds=60)
+        assert proto.list_locks() == []
 
     def test_acquire_uses_default_timeout(self, proto: TaskLockProtocol) -> None:
         lock = proto.acquire("task/default-ttl", agent_id="agent-A")
         assert lock is not None
         assert lock.timeout_seconds == 120.0
 
-    def test_second_acquire_same_agent_updates_timeout(self, proto: TaskLockProtocol) -> None:
+    def test_get_lock_after_second_acquire_same_agent(self, proto: TaskLockProtocol) -> None:
         proto.acquire("task/second", agent_id="agent-A", timeout_seconds=60)
         proto.acquire("task/second", agent_id="agent-A", timeout_seconds=120)
         lock = proto.get_lock("task/second")
         assert lock is not None
+        # TTL should now be 120
         assert lock.timeout_seconds == pytest.approx(120.0)
