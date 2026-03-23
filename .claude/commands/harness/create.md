@@ -309,6 +309,8 @@ fi
 After scaffolding the artifact stubs, write the manifest and its companion schema
 so that downstream tools and agents can validate manifest fragments independently.
 
+Both `patterns` (architectural and design patterns detected) and `conventions` (coding conventions and practices detected) are recorded in the manifest alongside `domains` for downstream generators.
+
 Call the generator directly from Python:
 
 ```python
@@ -319,6 +321,8 @@ manifest_path, schema_path = write_manifest_pair(
     detected_stack=detected_stack,       # DetectedStack model or equivalent dict
     domains=domains_detected,            # list[str] of detected domain names
     artifacts=artifacts_generated,       # list[GeneratedArtifact] written so far
+    patterns=patterns_detected,          # list[str] of architectural patterns
+    conventions=conventions_detected,    # list[str] of coding conventions
     git_sha=HEAD_HASH,                   # from Step 3.5
     git_branch=GIT_BRANCH,              # git rev-parse --abbrev-ref HEAD
     harness_version=HARNESS_VERSION,    # importlib.metadata.version("harness-skills")
@@ -338,6 +342,8 @@ manifest = {
     "git_branch": GIT_BRANCH,
     "detected_stack": detected_stack_dict,
     "domains": domains_detected,
+    "patterns": patterns_detected,
+    "conventions": conventions_detected,
     "artifacts": [a.model_dump() for a in artifacts_generated],
     "manifest_path": "harness_manifest.json",
     "schema_path": "harness_manifest.schema.json",

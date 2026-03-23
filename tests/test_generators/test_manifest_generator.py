@@ -445,3 +445,59 @@ class TestWriteManifestPair:
         data = json.loads(m_path.read_text())
         assert "payments" in data["domains"]
         assert data["artifacts"][0]["artifact_type"] == "harness.config.yaml"
+
+
+# ---------------------------------------------------------------------------
+# generate_manifest — patterns and conventions
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateManifestPatternsConventions:
+    def test_patterns_default_empty(self):
+        m = generate_manifest(VALID_STACK)
+        assert m["patterns"] == []
+
+    def test_patterns_stored(self):
+        m = generate_manifest(VALID_STACK, patterns=["plugin-architecture", "gate-pattern"])
+        assert m["patterns"] == ["plugin-architecture", "gate-pattern"]
+
+    def test_conventions_default_empty(self):
+        m = generate_manifest(VALID_STACK)
+        assert m["conventions"] == []
+
+    def test_conventions_stored(self):
+        m = generate_manifest(VALID_STACK, conventions=["pep8", "type-annotations"])
+        assert m["conventions"] == ["pep8", "type-annotations"]
+
+    def test_patterns_and_conventions_valid_against_schema(self):
+        m = generate_manifest(
+            VALID_STACK,
+            patterns=["plugin-architecture"],
+            conventions=["pep8"],
+        )
+        assert validate_manifest(m) == []
+
+    def test_invalid_patterns_type_rejected(self):
+        """patterns must be an array of strings; non-string item should fail."""
+        m = generate_manifest(VALID_STACK)
+        m["patterns"] = [123]  # integer instead of string
+        errors = validate_manifest(m)
+        assert errors
+
+    def test_invalid_conventions_type_rejected(self):
+        m = generate_manifest(VALID_STACK)
+        m["conventions"] = "not-a-list"  # string instead of array
+        errors = validate_manifest(m)
+        assert errors
+
+    def test_write_manifest_pair_with_patterns_and_conventions(self, tmp_path):
+        m_path, _ = write_manifest_pair(
+            tmp_path,
+            VALID_STACK,
+            patterns=["plugin-architecture"],
+            conventions=["pep8", "type-annotations"],
+        )
+        data = json.loads(m_path.read_text())
+        assert data["patterns"] == ["plugin-architecture"]
+        assert data["conventions"] == ["pep8", "type-annotations"]
+        assert validate_manifest(data) == []

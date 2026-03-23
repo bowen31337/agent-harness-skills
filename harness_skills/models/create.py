@@ -57,6 +57,14 @@ class CreateResponse(HarnessResponse):
         description="Detected subsystem/domain boundaries (e.g. ['auth', 'billing']).",
         default_factory=list,
     )
+    patterns_detected: list[str] = Field(
+        description="Architectural and design patterns detected (e.g. ['plugin-architecture', 'gate-pattern']).",
+        default_factory=list,
+    )
+    conventions_detected: list[str] = Field(
+        description="Coding conventions detected (e.g. ['pep8', 'type-annotations', 'pydantic-models']).",
+        default_factory=list,
+    )
     artifacts_generated: list[GeneratedArtifact] = Field(default_factory=list)
     manifest_path: str | None = Field(
         default=None,

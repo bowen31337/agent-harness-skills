@@ -42,6 +42,18 @@
       "items": { "type": "string" },
       "default": []
     },
+    "patterns": {
+      "type": "array",
+      "description": "Architectural and design patterns detected in the codebase (e.g. ['repository-pattern', 'plugin-architecture', 'gate-pattern', 'cli-command-pattern']).",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "conventions": {
+      "type": "array",
+      "description": "Coding conventions and practices detected in the codebase (e.g. ['pep8', 'type-annotations', 'pydantic-models', 'pytest-fixtures', 'async-ready']).",
+      "items": { "type": "string" },
+      "default": []
+    },
     "artifacts": {
       "type": "array",
       "description": "All files written during harness creation, in generation order.",

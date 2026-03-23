@@ -24,6 +24,19 @@
     "schemas",
     "browser"
   ],
+  "patterns": [
+    "plugin-architecture",
+    "gate-pattern",
+    "skill-based-architecture",
+    "cli-command-pattern"
+  ],
+  "conventions": [
+    "pep8",
+    "type-annotations",
+    "pydantic-models",
+    "pytest-fixtures",
+    "async-ready"
+  ],
   "artifacts": [
     {
       "artifact_path": "harness.config.yaml",

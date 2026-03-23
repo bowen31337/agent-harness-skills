@@ -75,6 +75,8 @@ def generate_manifest(
     domains: list[str] | None = None,
     artifacts: list[Any] | None = None,
     *,
+    patterns: list[str] | None = None,
+    conventions: list[str] | None = None,
     git_sha: str | None = None,
     git_branch: str | None = None,
     harness_version: str | None = None,
@@ -96,6 +98,12 @@ def generate_manifest(
         List of :class:`~harness_skills.models.create.GeneratedArtifact`
         instances **or** plain ``dict`` objects with ``artifact_path`` and
         ``artifact_type`` fields.
+    patterns:
+        List of architectural and design patterns detected in the codebase
+        (e.g. ``['plugin-architecture', 'gate-pattern', 'cli-command-pattern']``).
+    conventions:
+        List of coding conventions and practices detected in the codebase
+        (e.g. ``['pep8', 'type-annotations', 'pydantic-models', 'pytest-fixtures']``).
     git_sha:
         Short git SHA at generation time.
     git_branch:
@@ -130,6 +138,8 @@ def generate_manifest(
         "project_root": project_root,
         "detected_stack": stack_dict,
         "domains": list(domains or []),
+        "patterns": list(patterns or []),
+        "conventions": list(conventions or []),
         "artifacts": artifact_list,
         "manifest_path": manifest_path,
         "schema_path": schema_path,
@@ -264,6 +274,8 @@ def write_manifest_pair(
     domains: list[str] | None = None,
     artifacts: list[Any] | None = None,
     *,
+    patterns: list[str] | None = None,
+    conventions: list[str] | None = None,
     manifest_filename: str = _MANIFEST_FILENAME,
     schema_filename: str = _SCHEMA_FILENAME,
     **metadata: Any,
@@ -289,6 +301,10 @@ def write_manifest_pair(
         Detected domain/subsystem names.
     artifacts:
         ``GeneratedArtifact`` instances or equivalent dicts.
+    patterns:
+        Architectural and design patterns detected in the codebase.
+    conventions:
+        Coding conventions and practices detected in the codebase.
     manifest_filename:
         Override the manifest filename (default ``harness_manifest.json``).
     schema_filename:
@@ -327,6 +343,8 @@ def write_manifest_pair(
         detected_stack=detected_stack,
         domains=domains,
         artifacts=artifacts,
+        patterns=patterns,
+        conventions=conventions,
         manifest_path=manifest_filename,
         schema_path=schema_filename,
         **metadata,
