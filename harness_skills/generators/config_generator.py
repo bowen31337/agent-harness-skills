@@ -55,6 +55,8 @@ _GATE_ORDER = [
     "architecture", "principles", "docs_freshness", "types", "lint",
 ]
 
+# NOTE: leading whitespace is intentional — keeps plugins: at the same 6-space
+# indentation level as all other gate keys in the generated YAML fragment.
 _PLUGIN_COMMENT = (
     "      # ── Custom plugin gates ─────────────────────────────────────────────\n"
     "      # Each entry runs a shell command; exit code 0=pass, non-zero=fail.\n"
@@ -64,8 +66,8 @@ _PLUGIN_COMMENT = (
     "      # Example:\n"
     "      #   plugins:\n"
     "      #     - gate_id: check_migrations\n"
-    "      #       gate_name: \"DB Migration Safety\"\n"
-    "      #       command: \"python scripts/check_migrations.py\"\n"
+    '      #       gate_name: "DB Migration Safety"\n'
+    '      #       command: "python scripts/check_migrations.py"\n'
     "      #       timeout_seconds: 30\n"
     "      #       fail_on_error: true\n"
     "      plugins: []                       # replace [] with gate definitions"
