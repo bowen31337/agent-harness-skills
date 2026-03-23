@@ -18,6 +18,12 @@ from harness_skills.generators.evaluation import (
     Severity,
     run_all_gates,
 )
+from harness_skills.generators.docs_generator import (
+    generate_docs,
+    generate_schemas,
+    generate_api,
+    generate_graphs,
+)
 
 __all__ = [
     # agents_md regeneration
@@ -36,4 +42,9 @@ __all__ = [
     "GateStatus",
     "Severity",
     "run_all_gates",
+    # docs generation
+    "generate_docs",
+    "generate_schemas",
+    "generate_api",
+    "generate_graphs",
 ]

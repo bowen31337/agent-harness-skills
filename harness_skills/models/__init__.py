@@ -25,6 +25,16 @@ from harness_skills.models.errors import (
     DomainOverview,
     ErrorAggregationResponse,
 )
+from harness_skills.models.docs import (
+    GeneratedDocsReport,
+    GeneratedDocsCategories,
+    SchemaCategoryResult,
+    APICategoryResult,
+    GraphCategoryResult,
+    SchemaEntity,
+    RouteEntity,
+    DependencyEdge,
+)
 
 __all__ = [
     # base
@@ -48,4 +58,8 @@ __all__ = [
     "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
     # errors
     "ErrorGroupResponse", "DomainOverview", "ErrorAggregationResponse",
+    # docs generation
+    "GeneratedDocsReport", "GeneratedDocsCategories",
+    "SchemaCategoryResult", "APICategoryResult", "GraphCategoryResult",
+    "SchemaEntity", "RouteEntity", "DependencyEdge",
 ]
