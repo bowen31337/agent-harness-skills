@@ -5,8 +5,8 @@ Public API
     CoverageGate            — line-coverage gate (XML / JSON / lcov)
     DocsFreshnessGate       — documentation-staleness gate
     DocsGateConfig          — configuration for DocsFreshnessGate
-    PrinciplesGate          — golden-principles compliance gate
-    PrinciplesGateConfig    — configuration for PrinciplesGate
+    SecurityGate            — security gate (secret scan / dep audit / input validation)
+    SecurityGateConfig      — configuration for SecurityGate
     EvaluationSummary       — aggregate outcome from run_gates()
     GateEvaluator           — orchestrates gate execution against a config
     GateFailure             — single gate failure descriptor
@@ -18,8 +18,7 @@ Public API
 from harness_skills.gates.coverage import CoverageGate
 from harness_skills.gates.docs_freshness import DocsFreshnessGate
 from harness_skills.gates.docs_freshness import GateConfig as DocsGateConfig
-from harness_skills.gates.principles import PrinciplesGate
-from harness_skills.gates.principles import GateConfig as PrinciplesGateConfig
+from harness_skills.gates.security import SecurityGate
 from harness_skills.gates.runner import (
     EvaluationSummary,
     GateEvaluator,
@@ -28,6 +27,7 @@ from harness_skills.gates.runner import (
     HarnessConfigLoader,
     run_gates,
 )
+from harness_skills.models.gate_configs import SecurityGateConfig
 
 __all__ = [
     # ── coverage gate ────────────────────────────────────────────────────────
@@ -35,9 +35,9 @@ __all__ = [
     # ── docs-freshness gate ──────────────────────────────────────────────────
     "DocsFreshnessGate",
     "DocsGateConfig",
-    # ── principles gate ──────────────────────────────────────────────────────
-    "PrinciplesGate",
-    "PrinciplesGateConfig",
+    # ── security gate ────────────────────────────────────────────────────────
+    "SecurityGate",
+    "SecurityGateConfig",
     # ── runner ──────────────────────────────────────────────────────────────
     "EvaluationSummary",
     "GateEvaluator",

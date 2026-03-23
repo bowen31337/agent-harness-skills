@@ -1,52 +1,29 @@
 """
 tests/gates/test_security.py
 ==============================
-Unit and integration tests for :mod:`harness_skills.gates.security`.
+Unit tests for :mod:`harness_skills.gates.security`.
 
 Test strategy
 -------------
-**Secret scanning (scan_secrets)**
-* Each :data:`~harness_skills.gates.security._SECRET_PATTERNS` rule fires on a
-  minimal synthetic fixture that contains only the target pattern.
-* Benign files (no secrets, template placeholders, placeholder strings) produce
-  zero violations.
-* ``ignore_ids`` suppresses the corresponding rule.
-* ``fail_on_error=False`` downgrades all findings from ``error`` to ``warning``
-  and the sub-gate still passes.
-* Binary files are not scanned (no NUL-containing files are inspected).
-* Files inside ``_SKIP_DIRS`` directories are skipped.
-* The ``summary()`` method returns a human-readable one-liner.
+* **Fixture helpers** write temporary source and audit-report files so the
+  real file-system and parsing logic runs against the actual file system.
+* Each of the three sub-checks is exercised independently:
 
-**Dependency vulnerability audit (audit_dependencies)**
-* A clean ``pip-audit`` run (mocked ``returncode=0``, empty JSON) → passes.
-* A run with one HIGH vulnerability → produces an ``error`` violation.
-* Severity below ``severity_threshold`` → violation suppressed.
-* CVE in ``ignore_ids`` → violation suppressed.
-* ``pip-audit`` not installed (``FileNotFoundError``) → advisory warning, gate passes.
-* ``pip-audit`` timeout → advisory warning, gate passes.
-* ``pip-audit`` exits with unexpected code (e.g. 2) → advisory warning, gate passes.
-* Malformed JSON → gate passes without crashing.
-* ``fail_on_error=False`` → findings become warnings.
+  - :class:`~harness_skills.gates.security._SecretScanner` — hardcoded
+    credential detection using the built-in regex patterns.
+  - :class:`~harness_skills.gates.security._DependencyAuditor` — pip-audit
+    JSON report parsing including threshold filtering and ignore lists.
+  - :class:`~harness_skills.gates.security._InputValidationChecker` —
+    unsafe input-handling pattern detection.
 
-**Input validation verification (verify_input_validation)**
-* Each :data:`~harness_skills.gates.security._INPUT_VALIDATION_PATTERNS` rule
-  fires on a synthetic Python file that imports Flask and contains the
-  dangerous pattern.
-* A clean Python file (no dangerous patterns) → zero violations.
-* ``ignore_ids`` suppresses specific rules.
-* Files that do NOT import a web framework are skipped (AST pre-filter).
-* Non-Python files are not scanned.
-* Unparseable (syntax-error) Python files fall through to regex scan.
-* ``fail_on_error=False`` downgrades findings.
-
-**SecurityGate (integration)**
-* ``run()`` aggregates results from all three sub-gates.
-* Selecting a single sub-gate via ``gates=("secrets",)`` runs only that gate.
-* ``scan_secrets=False`` skips the secrets sub-gate even if it is in ``gates``.
-* ``scan_dependencies=False`` skips the dependency sub-gate.
-* ``GateResult`` stats are populated correctly.
-* ``passed`` is ``False`` when any sub-gate fails.
-* ``passed`` is ``True`` when all sub-gates pass.
+* Severity threshold boundary conditions are verified: a vulnerability at the
+  configured threshold is reported; one below is suppressed.
+* ``ignore_ids`` suppression is tested for both secret-scanner rule IDs and
+  CVE/PYSEC IDs.
+* ``fail_on_error=False`` behaviour is verified: all violations become
+  *warnings* and the gate always passes.
+* A small integration section runs :class:`SecurityGate` end-to-end and
+  checks :class:`~harness_skills.gates.security.GateResult` attributes.
 """
 
 from __future__ import annotations
@@ -54,851 +31,1060 @@ from __future__ import annotations
 import json
 import textwrap
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from harness_skills.gates.security import (
-    ALL_SUB_GATES,
     GateResult,
     SecurityGate,
-    SecurityViolation,
-    SubGateResult,
-    _ast_has_request_import,
-    _collect_python_files,
-    _is_text_file,
-    _repo_rel,
-    _should_scan,
-    audit_dependencies,
-    scan_secrets,
-    verify_input_validation,
+    Violation,
+    _DependencyAuditor,
+    _InputValidationChecker,
+    _SecretScanner,
+    _find_audit_report,
+    _meets_threshold,
+    _parse_pip_audit_report,
+    _scan_file_for_secrets,
+    _scan_file_for_unsafe_input,
+    _AUDIT_REPORT_NAMES,
+    _SECRET_PATTERNS,
+    _UNSAFE_INPUT_PATTERNS,
 )
 from harness_skills.models.gate_configs import SecurityGateConfig
 
 
 # ---------------------------------------------------------------------------
-# Fixture helpers
+# Helpers — file writers
 # ---------------------------------------------------------------------------
 
 
-def _write(tmp_path: Path, name: str, content: str) -> Path:
-    """Write *content* to *tmp_path / name* and return the path."""
-    p = tmp_path / name
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(textwrap.dedent(content), encoding="utf-8")
-    return p
+def write_source_file(path: Path, content: str) -> Path:
+    """Write *content* to *path* (creates parent dirs if needed)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(textwrap.dedent(content), encoding="utf-8")
+    return path
 
 
-def _cfg(**kwargs) -> SecurityGateConfig:
-    """Return a :class:`SecurityGateConfig` with sane test defaults."""
-    defaults = {
-        "severity_threshold": "HIGH",
-        "scan_secrets": True,
-        "scan_dependencies": True,
-        "fail_on_error": True,
-        "ignore_ids": [],
-    }
-    defaults.update(kwargs)
-    return SecurityGateConfig(**defaults)
+def write_audit_report(path: Path, packages: list[dict]) -> Path:
+    """Write a pip-audit JSON report to *path*."""
+    path.write_text(json.dumps(packages), encoding="utf-8")
+    return path
 
 
-# ---------------------------------------------------------------------------
-# Shared helper tests
-# ---------------------------------------------------------------------------
-
-
-class TestHelpers:
-    def test_repo_rel_within_root(self, tmp_path: Path) -> None:
-        child = tmp_path / "src" / "app.py"
-        assert _repo_rel(child, tmp_path) == "src/app.py"
-
-    def test_repo_rel_outside_root(self, tmp_path: Path) -> None:
-        outside = Path("/etc/passwd")
-        result = _repo_rel(outside, tmp_path)
-        assert result == "/etc/passwd"
-
-    def test_is_text_file_text(self, tmp_path: Path) -> None:
-        f = tmp_path / "hello.txt"
-        f.write_text("hello world", encoding="utf-8")
-        assert _is_text_file(f) is True
-
-    def test_is_text_file_binary(self, tmp_path: Path) -> None:
-        f = tmp_path / "data.bin"
-        f.write_bytes(b"\x00\x01\x02\x03")
-        assert _is_text_file(f) is False
-
-    def test_should_scan_py(self, tmp_path: Path) -> None:
-        f = tmp_path / "app.py"
-        f.touch()
-        assert _should_scan(f) is True
-
-    def test_should_scan_skip_venv(self, tmp_path: Path) -> None:
-        f = tmp_path / ".venv" / "lib" / "site-packages" / "pkg.py"
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.touch()
-        assert _should_scan(f) is False
-
-    def test_should_scan_skip_git(self, tmp_path: Path) -> None:
-        f = tmp_path / ".git" / "config"
-        f.parent.mkdir(parents=True, exist_ok=True)
-        f.touch()
-        assert _should_scan(f) is False
-
-    def test_collect_python_files_excludes_venv(self, tmp_path: Path) -> None:
-        (tmp_path / "app.py").write_text("x = 1")
-        venv_file = tmp_path / ".venv" / "lib" / "foo.py"
-        venv_file.parent.mkdir(parents=True, exist_ok=True)
-        venv_file.write_text("x = 1")
-        files = _collect_python_files(tmp_path)
-        assert any(f.name == "app.py" for f in files)
-        assert not any(".venv" in str(f) for f in files)
-
-    def test_ast_has_request_import_flask(self, tmp_path: Path) -> None:
-        import ast
-
-        source = "from flask import request\n\n@app.route('/')\ndef view(): pass\n"
-        tree = ast.parse(source)
-        assert _ast_has_request_import(tree) is True
-
-    def test_ast_has_request_import_no_framework(self, tmp_path: Path) -> None:
-        import ast
-
-        source = "import os\nimport sys\n"
-        tree = ast.parse(source)
-        assert _ast_has_request_import(tree) is False
-
-    def test_security_violation_summary(self) -> None:
-        v = SecurityViolation(
-            kind="secret_detected",
-            severity="error",
-            sub_gate="secrets",
-            message="Hardcoded token",
-            rule_id="SEC001",
-            file_path=Path("src/app.py"),
-            line_number=42,
-        )
-        s = v.summary()
-        assert "ERROR" in s
-        assert "SEC001" in s
-        assert "src/app.py" in s
-        assert "42" in s
-
-
-# ---------------------------------------------------------------------------
-# Sub-gate 1: Secret scanning
-# ---------------------------------------------------------------------------
-
-
-class TestScanSecrets:
-    # ── Rule fires ──────────────────────────────────────────────────────────
-
-    def test_sec001_generic_password(self, tmp_path: Path) -> None:
-        _write(tmp_path, "config.py", 'password = "SuperSecret123!"\n')
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC001" in rule_ids
-        assert not result.passed
-
-    def test_sec002_private_key(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "key.py",
-            '"""-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAK...\n"""\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC002" in rule_ids
-
-    def test_sec003_aws_credentials(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "aws.py",
-            'AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC003" in rule_ids
-
-    def test_sec004_openai_key(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "ai.py",
-            'OPENAI_API_KEY = "sk-abcdefghijklmnopqrstuvwxyz1234567890abcd"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC004" in rule_ids
-
-    def test_sec005_github_pat(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "ci.py",
-            'token = "ghp_' + "A" * 36 + '"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC005" in rule_ids
-
-    def test_sec006_database_url(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "settings.py",
-            'DATABASE_URL = "postgres://admin:s3cr3t@db.example.com:5432/prod"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC006" in rule_ids
-
-    def test_sec007_bearer_token(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "auth.py",
-            'AUTH_HEADER = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9xxxxxxxx"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC007" in rule_ids
-
-    def test_sec008_hex_secret(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "app.py",
-            'secret_key = "a3f1e2d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f0e1d2c3b4a5f6e7d8c9b0a1b2"\n',
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "SEC008" in rule_ids
-
-    # ── No false positive on clean file ─────────────────────────────────────
-
-    def test_clean_file_passes(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "clean.py",
-            """\
-            import os
-
-            SECRET_KEY = os.environ["SECRET_KEY"]
-            DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///dev.db")
-            """,
-        )
-        result = scan_secrets(tmp_path, _cfg())
-        assert result.passed
-        assert result.violations == []
-
-    # ── ignore_ids suppresses specific rule ─────────────────────────────────
-
-    def test_ignore_ids_suppresses_rule(self, tmp_path: Path) -> None:
-        _write(tmp_path, "cfg.py", 'password = "MyPassword12345!"\n')
-        result = scan_secrets(tmp_path, _cfg(ignore_ids=["SEC001"]))
-        assert "SEC001" not in {v.rule_id for v in result.violations}
-
-    # ── fail_on_error=False → advisory mode ─────────────────────────────────
-
-    def test_fail_on_error_false_makes_advisory(self, tmp_path: Path) -> None:
-        _write(tmp_path, "cfg.py", 'password = "HardCodedSecret99!"\n')
-        result = scan_secrets(tmp_path, _cfg(fail_on_error=False))
-        assert result.passed  # gate passes in advisory mode
-        assert all(v.severity == "warning" for v in result.violations)
-
-    # ── Binary files are not scanned ─────────────────────────────────────────
-
-    def test_binary_file_skipped(self, tmp_path: Path) -> None:
-        f = tmp_path / "data.bin"
-        f.write_bytes(b"\x00\x01\x02password = 'abc'\x03")
-        result = scan_secrets(tmp_path, _cfg())
-        assert result.passed
-
-    # ── Files inside skip dirs are not scanned ───────────────────────────────
-
-    def test_skip_venv_directory(self, tmp_path: Path) -> None:
-        venv_file = tmp_path / ".venv" / "lib" / "cfg.py"
-        venv_file.parent.mkdir(parents=True, exist_ok=True)
-        venv_file.write_text('password = "ShouldBeIgnored123!"\n', encoding="utf-8")
-        result = scan_secrets(tmp_path, _cfg())
-        assert result.passed
-
-    # ── File path and line number are populated ──────────────────────────────
-
-    def test_file_path_and_line_number_populated(self, tmp_path: Path) -> None:
-        _write(tmp_path, "app.py", 'x = 1\npassword = "SomeSecret!"\n')
-        result = scan_secrets(tmp_path, _cfg())
-        assert result.violations
-        v = result.violations[0]
-        assert v.file_path is not None
-        assert v.line_number == 2
-
-    # ── YAML and .env files are scanned ─────────────────────────────────────
-
-    def test_yaml_file_scanned(self, tmp_path: Path) -> None:
-        _write(tmp_path, "config.yaml", 'db:\n  password: "HardCodedPwd123!"\n')
-        result = scan_secrets(tmp_path, _cfg())
-        assert not result.passed
-
-    def test_env_file_scanned(self, tmp_path: Path) -> None:
-        _write(tmp_path, ".env", 'API_KEY="sk-abcdefgh1234567890abcdef1234567890ab"\n')
-        result = scan_secrets(tmp_path, _cfg())
-        assert not result.passed
-
-
-# ---------------------------------------------------------------------------
-# Sub-gate 2: Dependency vulnerability audit
-# ---------------------------------------------------------------------------
-
-
-def _pip_audit_output(vulns: list[dict]) -> str:
-    """Build a pip-audit JSON response with the supplied vulnerabilities."""
-    deps = []
-    for v in vulns:
-        deps.append(
+def make_vuln(
+    pkg_name: str = "vulnerable-pkg",
+    version: str = "1.0.0",
+    vuln_id: str = "CVE-2023-99999",
+    description: str = "A test vulnerability.",
+    fix_versions: list[str] | None = None,
+    severity: str = "HIGH",
+    aliases: list[str] | None = None,
+) -> dict:
+    """Return a single pip-audit package entry with one vulnerability."""
+    return {
+        "name": pkg_name,
+        "version": version,
+        "vulns": [
             {
-                "name": v.get("name", "example-pkg"),
-                "version": v.get("version", "1.0.0"),
+                "id": vuln_id,
+                "description": description,
+                "fix_versions": fix_versions if fix_versions is not None else ["2.0.0"],
+                "severity": severity,
+                "aliases": aliases or [],
+            }
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# _meets_threshold
+# ---------------------------------------------------------------------------
+
+
+class TestMeetsThreshold:
+    def test_critical_meets_high_threshold(self):
+        assert _meets_threshold("CRITICAL", "HIGH") is True
+
+    def test_high_meets_high_threshold(self):
+        assert _meets_threshold("HIGH", "HIGH") is True
+
+    def test_medium_does_not_meet_high_threshold(self):
+        assert _meets_threshold("MEDIUM", "HIGH") is False
+
+    def test_low_does_not_meet_high_threshold(self):
+        assert _meets_threshold("LOW", "HIGH") is False
+
+    def test_medium_meets_medium_threshold(self):
+        assert _meets_threshold("MEDIUM", "MEDIUM") is True
+
+    def test_low_does_not_meet_medium_threshold(self):
+        assert _meets_threshold("LOW", "MEDIUM") is False
+
+    def test_low_meets_low_threshold(self):
+        assert _meets_threshold("LOW", "LOW") is True
+
+    def test_unknown_severity_defaults_to_high(self):
+        """Unknown severity should NOT be silently suppressed at HIGH threshold."""
+        assert _meets_threshold("UNKNOWN", "HIGH") is True
+
+    def test_unknown_severity_suppressed_at_critical_threshold(self):
+        assert _meets_threshold("UNKNOWN", "CRITICAL") is False
+
+    def test_case_insensitive(self):
+        assert _meets_threshold("high", "HIGH") is True
+        assert _meets_threshold("MEDIUM", "medium") is True
+
+
+# ---------------------------------------------------------------------------
+# Secret scanning — individual pattern tests
+# ---------------------------------------------------------------------------
+
+
+class TestSecretPatterns:
+    """Each regex in _SECRET_PATTERNS is exercised with positive and negative samples."""
+
+    def _check_pattern(self, rule_id: str, text: str) -> bool:
+        for rid, pattern in _SECRET_PATTERNS:
+            if rid == rule_id:
+                return bool(pattern.search(text))
+        raise KeyError(f"Rule '{rule_id}' not found in _SECRET_PATTERNS")
+
+    # hardcoded-password
+    def test_password_matches_real_value(self):
+        assert self._check_pattern("hardcoded-password", 'password = "s3cr3tPass!"')
+
+    def test_password_ignores_placeholder(self):
+        assert not self._check_pattern("hardcoded-password", 'password = "changeme"')
+        assert not self._check_pattern("hardcoded-password", 'password = "your_password"')
+        assert not self._check_pattern("hardcoded-password", 'password = "example_pass"')
+
+    def test_password_ignores_short_value(self):
+        # Values shorter than 6 chars are not flagged
+        assert not self._check_pattern("hardcoded-password", 'password = "abc"')
+
+    def test_passwd_alias_matches(self):
+        assert self._check_pattern("hardcoded-password", 'passwd = "superSecure123"')
+
+    # hardcoded-api-key
+    def test_api_key_matches(self):
+        assert self._check_pattern("hardcoded-api-key", 'api_key = "a1b2c3d4e5f6g7h8"')
+
+    def test_apikey_no_underscore_matches(self):
+        assert self._check_pattern("hardcoded-api-key", 'apikey = "long_key_value_here"')
+
+    def test_access_key_matches(self):
+        assert self._check_pattern("hardcoded-api-key", 'access_key = "LONGACCESSKEYVAL"')
+
+    def test_api_key_too_short_ignored(self):
+        assert not self._check_pattern("hardcoded-api-key", 'api_key = "short"')
+
+    # hardcoded-token
+    def test_auth_token_matches(self):
+        assert self._check_pattern("hardcoded-token", 'auth_token = "eyJhbGciOiJIUzI1NiJ9"')
+
+    def test_secret_token_matches(self):
+        assert self._check_pattern("hardcoded-token", 'secret_token = "mysecrettoken12"')
+
+    # pem-private-key
+    def test_rsa_private_key_header_matches(self):
+        assert self._check_pattern("pem-private-key", "-----BEGIN RSA PRIVATE KEY-----")
+
+    def test_ec_private_key_header_matches(self):
+        assert self._check_pattern("pem-private-key", "-----BEGIN EC PRIVATE KEY-----")
+
+    def test_generic_private_key_header_matches(self):
+        assert self._check_pattern("pem-private-key", "-----BEGIN PRIVATE KEY-----")
+
+    # aws-access-key-id
+    def test_aws_access_key_matches(self):
+        assert self._check_pattern("aws-access-key-id", "AKIAIOSFODNN7EXAMPLE")
+
+    def test_aws_key_wrong_prefix_ignored(self):
+        assert not self._check_pattern("aws-access-key-id", "BKIAIOSFODNN7EXAMPLE")
+
+    # github-personal-access-token
+    def test_github_pat_matches(self):
+        assert self._check_pattern(
+            "github-personal-access-token",
+            "ghp_" + "A" * 36,
+        )
+
+    def test_github_pat_too_short_ignored(self):
+        assert not self._check_pattern(
+            "github-personal-access-token",
+            "ghp_SHORTTOKEN",
+        )
+
+
+# ---------------------------------------------------------------------------
+# _scan_file_for_secrets
+# ---------------------------------------------------------------------------
+
+
+class TestScanFileForSecrets:
+    def test_clean_file_returns_no_violations(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "clean.py",
+            'password = os.environ["DB_PASSWORD"]\n',
+        )
+        result = _scan_file_for_secrets(f, [], "error")
+        assert result == []
+
+    def test_hardcoded_password_detected(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "app.py", 'password = "SuperSecret99!"\n')
+        violations = _scan_file_for_secrets(f, [], "error")
+        assert len(violations) == 1
+        assert violations[0].kind == "hardcoded_secret"
+        assert violations[0].rule_id == "hardcoded-password"
+        assert violations[0].line_number == 1
+
+    def test_violation_contains_file_path(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "cfg.py", 'api_key = "MY_REAL_KEY_1234"\n')
+        violations = _scan_file_for_secrets(f, [], "error")
+        assert violations[0].file_path == f
+
+    def test_ignore_id_suppresses_violation(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        violations = _scan_file_for_secrets(f, ["hardcoded-password"], "error")
+        assert violations == []
+
+    def test_fail_on_error_false_yields_warning(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "app.py", "-----BEGIN RSA PRIVATE KEY-----\n")
+        violations = _scan_file_for_secrets(f, [], "warning")
+        assert violations[0].severity == "warning"
+
+    def test_multiple_secrets_on_different_lines(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "multi.py",
+            textwrap.dedent("""\
+                api_key = "key_abcdefghij"
+                auth_token = "tokentokentok"
+            """),
+        )
+        violations = _scan_file_for_secrets(f, [], "error")
+        assert len(violations) == 2
+        assert {v.line_number for v in violations} == {1, 2}
+
+    def test_pem_key_multiline_detected_on_header_line(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "key.py",
+            textwrap.dedent("""\
+                private_key = \"\"\"
+                -----BEGIN EC PRIVATE KEY-----
+                MHQCAQEEIBkg4EXAMPLEKEY
+                -----END EC PRIVATE KEY-----
+                \"\"\"
+            """),
+        )
+        violations = _scan_file_for_secrets(f, [], "error")
+        assert any(v.rule_id == "pem-private-key" for v in violations)
+
+    def test_aws_access_key_detected(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "cfg.py", "key = AKIAIOSFODNN7EXAMPLE\n")
+        violations = _scan_file_for_secrets(f, [], "error")
+        assert any(v.rule_id == "aws-access-key-id" for v in violations)
+
+
+# ---------------------------------------------------------------------------
+# _SecretScanner (whole-tree scan)
+# ---------------------------------------------------------------------------
+
+
+class TestSecretScanner:
+    def test_empty_repo_returns_no_violations(self, tmp_path: Path):
+        scanner = _SecretScanner([], fail_on_error=True)
+        assert scanner.scan(tmp_path) == []
+
+    def test_clean_repo_returns_no_violations(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "app.py",
+            'password = os.environ.get("DB_PASS")\n',
+        )
+        scanner = _SecretScanner([], fail_on_error=True)
+        assert scanner.scan(tmp_path) == []
+
+    def test_secret_in_nested_file_detected(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "src" / "config.py",
+            'api_key = "realapikey99999"\n',
+        )
+        scanner = _SecretScanner([], fail_on_error=True)
+        violations = scanner.scan(tmp_path)
+        assert len(violations) == 1
+        assert violations[0].kind == "hardcoded_secret"
+
+    def test_venv_directory_skipped(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / ".venv" / "lib" / "site.py",
+            'password = "venv_should_be_skipped"\n',
+        )
+        scanner = _SecretScanner([], fail_on_error=True)
+        assert scanner.scan(tmp_path) == []
+
+    def test_node_modules_directory_skipped(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "node_modules" / "pkg" / "index.js",
+            'const api_key = "shouldbefiltered123";\n',
+        )
+        scanner = _SecretScanner([], fail_on_error=True)
+        assert scanner.scan(tmp_path) == []
+
+    def test_multiple_files_aggregated(self, tmp_path: Path):
+        write_source_file(tmp_path / "a.py", 'password = "pass_from_a"\n')
+        write_source_file(tmp_path / "b.py", 'password = "pass_from_b"\n')
+        scanner = _SecretScanner([], fail_on_error=True)
+        violations = scanner.scan(tmp_path)
+        assert len(violations) == 2
+
+
+# ---------------------------------------------------------------------------
+# _find_audit_report
+# ---------------------------------------------------------------------------
+
+
+class TestFindAuditReport:
+    def test_returns_none_when_no_report(self, tmp_path: Path):
+        assert _find_audit_report(tmp_path) is None
+
+    def test_finds_pip_audit_report(self, tmp_path: Path):
+        rpt = tmp_path / "pip-audit-report.json"
+        rpt.write_text("[]", encoding="utf-8")
+        assert _find_audit_report(tmp_path) == rpt
+
+    def test_finds_npm_audit_report(self, tmp_path: Path):
+        rpt = tmp_path / "npm-audit.json"
+        rpt.write_text("{}", encoding="utf-8")
+        assert _find_audit_report(tmp_path) == rpt
+
+    def test_first_match_returned(self, tmp_path: Path):
+        """When multiple report files exist, the first in _AUDIT_REPORT_NAMES wins."""
+        first_name = _AUDIT_REPORT_NAMES[0]
+        (tmp_path / first_name).write_text("[]", encoding="utf-8")
+        (tmp_path / "npm-audit.json").write_text("{}", encoding="utf-8")
+        assert _find_audit_report(tmp_path) == tmp_path / first_name
+
+
+# ---------------------------------------------------------------------------
+# _parse_pip_audit_report
+# ---------------------------------------------------------------------------
+
+
+class TestParsePipAuditReport:
+    def test_no_vulns_returns_empty(self):
+        data = [{"name": "safe-pkg", "version": "1.0.0", "vulns": []}]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert result == []
+
+    def test_high_severity_vuln_at_high_threshold_reported(self):
+        data = [make_vuln(severity="HIGH")]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert len(result) == 1
+        assert result[0].kind == "vulnerable_dependency"
+
+    def test_medium_severity_vuln_suppressed_at_high_threshold(self):
+        data = [make_vuln(severity="MEDIUM")]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert result == []
+
+    def test_medium_severity_vuln_reported_at_medium_threshold(self):
+        data = [make_vuln(severity="MEDIUM")]
+        result = _parse_pip_audit_report(data, "MEDIUM", [], "error")
+        assert len(result) == 1
+
+    def test_critical_vuln_always_reported_above_any_threshold(self):
+        data = [make_vuln(severity="CRITICAL")]
+        for threshold in ("CRITICAL", "HIGH", "MEDIUM", "LOW"):
+            result = _parse_pip_audit_report(data, threshold, [], "error")
+            assert len(result) == 1, f"CRITICAL should be reported at threshold {threshold}"
+
+    def test_unknown_severity_treated_as_high(self):
+        data = [make_vuln(severity="UNKNOWN")]
+        # Should appear at HIGH threshold
+        assert len(_parse_pip_audit_report(data, "HIGH", [], "error")) == 1
+        # Should NOT appear at CRITICAL threshold
+        assert _parse_pip_audit_report(data, "CRITICAL", [], "error") == []
+
+    def test_ignore_by_primary_id(self):
+        data = [make_vuln(vuln_id="CVE-2023-99999")]
+        result = _parse_pip_audit_report(data, "HIGH", ["CVE-2023-99999"], "error")
+        assert result == []
+
+    def test_ignore_by_alias(self):
+        data = [make_vuln(vuln_id="PYSEC-2023-74", aliases=["CVE-2023-32681"])]
+        result = _parse_pip_audit_report(data, "HIGH", ["CVE-2023-32681"], "error")
+        assert result == []
+
+    def test_violation_message_contains_package_and_version(self):
+        data = [make_vuln(pkg_name="requests", version="2.28.0")]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert "requests" in result[0].message
+        assert "2.28.0" in result[0].message
+
+    def test_violation_message_contains_fix_versions(self):
+        data = [make_vuln(fix_versions=["2.31.0", "3.0.0"])]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert "2.31.0" in result[0].message
+
+    def test_long_description_truncated(self):
+        long_desc = "X" * 300
+        data = [make_vuln(description=long_desc)]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        # message should not exceed reasonable length
+        assert len(result[0].message) < 400
+
+    def test_rule_id_set_to_vuln_id(self):
+        data = [make_vuln(vuln_id="PYSEC-2024-42")]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert result[0].rule_id == "PYSEC-2024-42"
+
+    def test_fail_on_error_false_yields_warning(self):
+        data = [make_vuln(severity="HIGH")]
+        result = _parse_pip_audit_report(data, "HIGH", [], "warning")
+        assert result[0].severity == "warning"
+
+    def test_non_list_data_returns_empty(self):
+        assert _parse_pip_audit_report({"error": "not a list"}, "HIGH", [], "error") == []
+
+    def test_multiple_packages_multiple_vulns(self):
+        data = [
+            make_vuln("pkg-a", "1.0", "CVE-A"),
+            make_vuln("pkg-b", "2.0", "CVE-B"),
+        ]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert len(result) == 2
+
+    def test_vuln_without_fix_versions(self):
+        data = [make_vuln(fix_versions=[])]
+        result = _parse_pip_audit_report(data, "HIGH", [], "error")
+        assert len(result) == 1
+        assert "Upgrade to" not in result[0].message
+
+    def test_pkg_without_explicit_severity_defaults_high(self):
+        """Vulnerability entries missing 'severity' key should default to HIGH."""
+        data = [
+            {
+                "name": "legacy-pkg",
+                "version": "0.1.0",
                 "vulns": [
                     {
-                        "id": v.get("id", "CVE-2024-99999"),
-                        "description": v.get("desc", "A test vulnerability"),
-                        "severity": v.get("severity", "HIGH"),
-                        "fix_versions": v.get("fix", ["2.0.0"]),
+                        "id": "PYSEC-OLD-1",
+                        "description": "Old advisory without severity.",
+                        "fix_versions": [],
+                        "aliases": [],
+                        # 'severity' key intentionally absent
                     }
                 ],
             }
+        ]
+        # Should appear at HIGH threshold
+        assert len(_parse_pip_audit_report(data, "HIGH", [], "error")) == 1
+        # Should be suppressed at CRITICAL threshold
+        assert _parse_pip_audit_report(data, "CRITICAL", [], "error") == []
+
+
+# ---------------------------------------------------------------------------
+# _DependencyAuditor
+# ---------------------------------------------------------------------------
+
+
+class TestDependencyAuditor:
+    def test_missing_report_returns_warning_violation(self, tmp_path: Path):
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        violations = auditor.audit(tmp_path)
+        assert len(violations) == 1
+        assert violations[0].kind == "missing_audit_report"
+        assert violations[0].severity == "warning"  # always advisory
+
+    def test_missing_report_message_lists_expected_names(self, tmp_path: Path):
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        violations = auditor.audit(tmp_path)
+        assert "pip-audit-report.json" in violations[0].message
+
+    def test_corrupt_report_returns_error_violation(self, tmp_path: Path):
+        (tmp_path / "pip-audit-report.json").write_text("{not valid json", encoding="utf-8")
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        violations = auditor.audit(tmp_path)
+        assert len(violations) == 1
+        assert violations[0].kind == "missing_audit_report"
+        assert violations[0].severity == "error"
+
+    def test_clean_report_returns_no_violations(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [{"name": "safe-lib", "version": "1.0", "vulns": []}],
         )
-    return json.dumps({"dependencies": deps})
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        assert auditor.audit(tmp_path) == []
+
+    def test_high_severity_vuln_reported(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="HIGH")],
+        )
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        violations = auditor.audit(tmp_path)
+        assert len(violations) == 1
+        assert violations[0].kind == "vulnerable_dependency"
+
+    def test_medium_vuln_suppressed_at_high_threshold(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="MEDIUM")],
+        )
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=True)
+        assert auditor.audit(tmp_path) == []
+
+    def test_ignore_id_suppresses_vuln(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(vuln_id="CVE-2023-00001")],
+        )
+        auditor = _DependencyAuditor("HIGH", ["CVE-2023-00001"], fail_on_error=True)
+        assert auditor.audit(tmp_path) == []
+
+    def test_fail_on_error_false_yields_warning(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="HIGH")],
+        )
+        auditor = _DependencyAuditor("HIGH", [], fail_on_error=False)
+        violations = auditor.audit(tmp_path)
+        assert violations[0].severity == "warning"
 
 
-class TestAuditDependencies:
-    # ── Clean run ────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Unsafe input handling patterns
+# ---------------------------------------------------------------------------
 
-    def test_clean_run_passes(self, tmp_path: Path) -> None:
-        output = json.dumps({"dependencies": []})
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg())
+
+class TestUnsafeInputPatterns:
+    """Each regex in _UNSAFE_INPUT_PATTERNS is exercised with positive and negative samples."""
+
+    def _check_pattern(self, rule_id: str, text: str) -> bool:
+        for rid, pattern in _UNSAFE_INPUT_PATTERNS:
+            if rid == rule_id:
+                return bool(pattern.search(text))
+        raise KeyError(f"Rule '{rule_id}' not found in _UNSAFE_INPUT_PATTERNS")
+
+    def test_eval_user_input_matches(self):
+        assert self._check_pattern("eval-user-input", "result = eval(request.data)")
+
+    def test_eval_with_method_call_matches(self):
+        assert self._check_pattern("eval-user-input", "eval(request.get_json()['cmd'])")
+
+    def test_eval_without_request_ignored(self):
+        assert not self._check_pattern("eval-user-input", "result = eval('1 + 1')")
+
+    def test_exec_user_input_matches(self):
+        assert self._check_pattern("exec-user-input", "exec(request.form['code'])")
+
+    def test_exec_without_request_ignored(self):
+        assert not self._check_pattern("exec-user-input", "exec('print(42)')")
+
+    def test_sql_string_format_cursor_matches(self):
+        assert self._check_pattern(
+            "sql-string-format",
+            "cursor.execute('SELECT * FROM t WHERE id=' + request.args.get('id'))",
+        )
+
+    def test_sql_string_format_connection_matches(self):
+        assert self._check_pattern(
+            "sql-string-format",
+            "connection.execute(f\"SELECT ... {request.json['q']}\")",
+        )
+
+    def test_sql_safe_parameterised_query_ignored(self):
+        assert not self._check_pattern(
+            "sql-string-format",
+            "cursor.execute('SELECT * FROM t WHERE id = ?', (user_id,))",
+        )
+
+    def test_pickle_user_input_matches(self):
+        assert self._check_pattern("pickle-user-input", "pickle.load(request.data)")
+        assert self._check_pattern("pickle-user-input", "pickle.loads(request.get_data())")
+
+    def test_pickle_without_request_ignored(self):
+        assert not self._check_pattern("pickle-user-input", "pickle.loads(cached_bytes)")
+
+    def test_shell_injection_os_system_matches(self):
+        assert self._check_pattern(
+            "shell-injection",
+            "os.system('ls ' + request.args.get('dir'))",
+        )
+
+    def test_shell_injection_subprocess_run_matches(self):
+        assert self._check_pattern(
+            "shell-injection",
+            "subprocess.run(['cmd', request.form['arg']])",
+        )
+
+    def test_shell_injection_without_request_ignored(self):
+        assert not self._check_pattern(
+            "shell-injection",
+            "subprocess.run(['pytest', '--tb=short'])",
+        )
+
+
+# ---------------------------------------------------------------------------
+# _scan_file_for_unsafe_input
+# ---------------------------------------------------------------------------
+
+
+class TestScanFileForUnsafeInput:
+    def test_clean_file_returns_no_violations(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "views.py",
+            textwrap.dedent("""\
+                user_id = int(request.args.get("id", 0))
+                cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            """),
+        )
+        result = _scan_file_for_unsafe_input(f, [], "error")
+        assert result == []
+
+    def test_eval_detected(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "unsafe.py",
+            "output = eval(request.data)\n",
+        )
+        violations = _scan_file_for_unsafe_input(f, [], "error")
+        assert len(violations) == 1
+        assert violations[0].rule_id == "eval-user-input"
+        assert violations[0].kind == "unsafe_input_handling"
+        assert violations[0].line_number == 1
+
+    def test_violation_contains_file_path(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "bad.py", "exec(request.form['cmd'])\n")
+        violations = _scan_file_for_unsafe_input(f, [], "error")
+        assert violations[0].file_path == f
+
+    def test_ignore_id_suppresses_violation(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "bad.py", "exec(request.form['cmd'])\n")
+        violations = _scan_file_for_unsafe_input(f, ["exec-user-input"], "error")
+        assert violations == []
+
+    def test_fail_on_error_false_yields_warning(self, tmp_path: Path):
+        f = write_source_file(tmp_path / "bad.py", "eval(request.data)\n")
+        violations = _scan_file_for_unsafe_input(f, [], "warning")
+        assert violations[0].severity == "warning"
+
+    def test_multiple_patterns_on_different_lines(self, tmp_path: Path):
+        f = write_source_file(
+            tmp_path / "multi.py",
+            textwrap.dedent("""\
+                eval(request.data)
+                os.system('rm ' + request.args.get('path'))
+            """),
+        )
+        violations = _scan_file_for_unsafe_input(f, [], "error")
+        assert len(violations) == 2
+        rule_ids = {v.rule_id for v in violations}
+        assert "eval-user-input" in rule_ids
+        assert "shell-injection" in rule_ids
+
+
+# ---------------------------------------------------------------------------
+# _InputValidationChecker (whole-tree scan)
+# ---------------------------------------------------------------------------
+
+
+class TestInputValidationChecker:
+    def test_empty_repo_returns_no_violations(self, tmp_path: Path):
+        checker = _InputValidationChecker([], fail_on_error=True)
+        assert checker.check(tmp_path) == []
+
+    def test_clean_repo_returns_no_violations(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "app.py",
+            "user_id = int(request.args.get('id', 0))\n",
+        )
+        checker = _InputValidationChecker([], fail_on_error=True)
+        assert checker.check(tmp_path) == []
+
+    def test_unsafe_pattern_in_py_file_detected(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "views.py",
+            "result = eval(request.data)\n",
+        )
+        checker = _InputValidationChecker([], fail_on_error=True)
+        violations = checker.check(tmp_path)
+        assert len(violations) == 1
+        assert violations[0].kind == "unsafe_input_handling"
+
+    def test_unsafe_pattern_in_ts_file_detected(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "api.ts",
+            "eval(request.body.code);\n",
+        )
+        checker = _InputValidationChecker([], fail_on_error=True)
+        violations = checker.check(tmp_path)
+        assert len(violations) == 1
+
+    def test_non_source_files_skipped(self, tmp_path: Path):
+        # .md file with pattern should not be scanned for input validation
+        f = tmp_path / "NOTES.md"
+        f.write_text("eval(request.data)\n", encoding="utf-8")
+        checker = _InputValidationChecker([], fail_on_error=True)
+        # .md is not in _INPUT_SCAN_EXTENSIONS
+        assert checker.check(tmp_path) == []
+
+    def test_venv_directory_skipped(self, tmp_path: Path):
+        write_source_file(
+            tmp_path / "venv" / "lib" / "evil.py",
+            "eval(request.data)\n",
+        )
+        checker = _InputValidationChecker([], fail_on_error=True)
+        assert checker.check(tmp_path) == []
+
+
+# ---------------------------------------------------------------------------
+# SecurityGate — disabled sub-checks
+# ---------------------------------------------------------------------------
+
+
+class TestDisabledSubChecks:
+    def test_secrets_disabled_does_not_scan(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "S3cr3tPass!"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert result.violations == []
+        assert result.stats["secrets_found"] == 0
+
+    def test_dependencies_disabled_skips_audit(self, tmp_path: Path):
+        # No audit report on disk → would normally produce a warning
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
         assert result.passed
         assert result.violations == []
 
-    # ── Vulnerability detected ────────────────────────────────────────────────
-
-    def test_high_vuln_detected(self, tmp_path: Path) -> None:
-        output = _pip_audit_output(
-            [{"name": "vuln-pkg", "version": "1.0", "severity": "HIGH"}]
+    def test_input_validation_disabled_skips_check(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", "eval(request.data)\n")
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=False,
+            scan_input_validation=False,
         )
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg())
-        assert not result.passed
-        assert result.violations[0].kind == "vulnerable_dependency"
-        assert result.violations[0].severity == "error"
-        assert "CVE-2024-99999" in result.violations[0].message
-
-    def test_critical_vuln_detected(self, tmp_path: Path) -> None:
-        output = _pip_audit_output(
-            [{"severity": "CRITICAL", "id": "CVE-2024-11111"}]
-        )
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg(severity_threshold="MEDIUM"))
-        assert not result.passed
-
-    # ── Severity below threshold is suppressed ───────────────────────────────
-
-    def test_low_vuln_below_high_threshold_suppressed(self, tmp_path: Path) -> None:
-        output = _pip_audit_output([{"severity": "LOW", "id": "CVE-2024-22222"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg(severity_threshold="HIGH"))
+        result = SecurityGate(cfg).run(tmp_path)
         assert result.passed
         assert result.violations == []
 
-    def test_medium_below_high_threshold_suppressed(self, tmp_path: Path) -> None:
-        output = _pip_audit_output([{"severity": "MEDIUM", "id": "CVE-2024-33333"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg(severity_threshold="HIGH"))
-        assert result.passed
-
-    def test_medium_at_medium_threshold_reported(self, tmp_path: Path) -> None:
-        output = _pip_audit_output([{"severity": "MEDIUM", "id": "CVE-2024-44444"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg(severity_threshold="MEDIUM"))
-        assert not result.passed
-
-    # ── ignore_ids suppresses specific CVE ───────────────────────────────────
-
-    def test_ignore_ids_suppresses_cve(self, tmp_path: Path) -> None:
-        output = _pip_audit_output([{"id": "CVE-2024-55555", "severity": "HIGH"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(
-                tmp_path, _cfg(ignore_ids=["CVE-2024-55555"])
-            )
-        assert result.passed
-        assert result.violations == []
-
-    # ── Tool not installed ────────────────────────────────────────────────────
-
-    def test_tool_not_found_advisory_pass(self, tmp_path: Path) -> None:
-        with patch("subprocess.run", side_effect=FileNotFoundError):
-            result = audit_dependencies(tmp_path, _cfg())
-        assert result.passed
-        assert result.violations[0].kind == "tool_not_found"
-        assert result.violations[0].severity == "warning"
-
-    # ── Timeout ──────────────────────────────────────────────────────────────
-
-    def test_timeout_advisory_pass(self, tmp_path: Path) -> None:
-        import subprocess
-
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("pip_audit", 120)):
-            result = audit_dependencies(tmp_path, _cfg())
-        assert result.passed
-        assert result.violations[0].rule_id == "DEP001"
-
-    # ── Unexpected exit code ─────────────────────────────────────────────────
-
-    def test_unexpected_exit_code_advisory_pass(self, tmp_path: Path) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=2, stdout="", stderr="crash")
-            result = audit_dependencies(tmp_path, _cfg())
-        assert result.passed
-        assert result.violations[0].rule_id == "DEP002"
-
-    # ── Malformed JSON ────────────────────────────────────────────────────────
-
-    def test_malformed_json_passes(self, tmp_path: Path) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout="{INVALID", stderr="")
-            result = audit_dependencies(tmp_path, _cfg())
-        assert result.passed
-
-    # ── fail_on_error=False → advisory mode ──────────────────────────────────
-
-    def test_fail_on_error_false_advisory(self, tmp_path: Path) -> None:
-        output = _pip_audit_output([{"severity": "HIGH"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg(fail_on_error=False))
-        assert result.passed
-        assert all(v.severity == "warning" for v in result.violations)
-
-    # ── CVE fields are populated ──────────────────────────────────────────────
-
-    def test_cve_field_populated(self, tmp_path: Path) -> None:
-        cve = "CVE-2024-77777"
-        output = _pip_audit_output([{"id": cve, "severity": "HIGH"}])
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg())
-        v = result.violations[0]
-        assert v.cve == cve
-        assert v.rule_id == cve
-
-    # ── Suggestion includes fix version ──────────────────────────────────────
-
-    def test_suggestion_includes_fix_version(self, tmp_path: Path) -> None:
-        output = _pip_audit_output(
-            [{"name": "mypkg", "fix": ["3.1.4"], "severity": "HIGH"}]
-        )
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout=output, stderr="")
-            result = audit_dependencies(tmp_path, _cfg())
-        assert result.violations
-        assert "3.1.4" in (result.violations[0].suggestion or "")
-
 
 # ---------------------------------------------------------------------------
-# Sub-gate 3: Input validation verification
-# ---------------------------------------------------------------------------
-
-#: Minimal Flask app header used in synthetic fixtures.
-_FLASK_HEADER = "from flask import request, Flask\napp = Flask(__name__)\n\n"
-
-
-def _flask_file(tmp_path: Path, name: str, body: str) -> Path:
-    """Write a Flask route file to *tmp_path*."""
-    return _write(tmp_path, name, _FLASK_HEADER + body)
-
-
-class TestVerifyInputValidation:
-    # ── Rule fires on dangerous patterns ────────────────────────────────────
-
-    def test_inv001_sql_fstring(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                @app.route('/search')
-                def search():
-                    q = request.args.get('q')
-                    cursor.execute(f"SELECT * FROM items WHERE name = '{q}'")
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV001" in rule_ids
-
-    def test_inv002_sql_direct_request(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                @app.route('/user')
-                def get_user():
-                    cursor.execute("SELECT * FROM users WHERE id = " + request.args['id'])
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV002" in rule_ids
-
-    def test_inv003_subprocess_request(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                import subprocess
-                @app.route('/run')
-                def run_cmd():
-                    subprocess.run(request.form['cmd'], shell=True)
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV003" in rule_ids
-
-    def test_inv004_eval_request(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                @app.route('/calc')
-                def calc():
-                    return str(eval(request.args.get('expr')))
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV004" in rule_ids
-
-    def test_inv005_open_request(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                @app.route('/file')
-                def read_file():
-                    with open(request.args['path']) as f:
-                        return f.read()
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV005" in rule_ids
-
-    def test_inv006_ssrf_requests(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "proxy.py",
-            textwrap.dedent(
-                """\
-                import requests as http
-                @app.route('/fetch')
-                def fetch():
-                    return http.get(request.args['url']).text
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV006" in rule_ids
-
-    def test_inv007_ssti_render_template_string(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                from flask import render_template_string
-                @app.route('/greet')
-                def greet():
-                    return render_template_string(request.args['tmpl'])
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV007" in rule_ids
-
-    def test_inv008_pickle_loads_request(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                import pickle
-                @app.route('/load')
-                def load():
-                    return str(pickle.loads(request.data))
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV008" in rule_ids
-
-    # ── Clean file passes ────────────────────────────────────────────────────
-
-    def test_clean_flask_file_passes(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            textwrap.dedent(
-                """\
-                from flask import abort, jsonify
-
-                @app.route('/user/<int:user_id>')
-                def get_user(user_id: int):
-                    user = db.get_user(user_id)
-                    if user is None:
-                        abort(404)
-                    return jsonify(user.to_dict())
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        assert result.passed
-
-    # ── Non-framework file is skipped ────────────────────────────────────────
-
-    def test_non_framework_file_skipped(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "util.py",
-            textwrap.dedent(
-                """\
-                import os
-                def run(cmd):
-                    # no framework import — should be skipped
-                    subprocess.run(request.args['x'])
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        # The file has no web-framework import — AST pre-filter skips it
-        assert result.passed
-
-    # ── Non-Python files are not scanned ────────────────────────────────────
-
-    def test_non_python_file_not_scanned(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "views.js",
-            "const sql = `SELECT * FROM t WHERE id = ${req.query.id}`;\n",
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        assert result.passed  # JS files not in scope
-
-    # ── ignore_ids suppresses specific rule ─────────────────────────────────
-
-    def test_ignore_ids_suppresses_inv004(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            "@app.route('/calc')\ndef calc():\n    return str(eval(request.args['expr']))\n",
-        )
-        result = verify_input_validation(tmp_path, _cfg(ignore_ids=["INV004"]))
-        assert "INV004" not in {v.rule_id for v in result.violations}
-
-    # ── fail_on_error=False → advisory mode ─────────────────────────────────
-
-    def test_fail_on_error_false_advisory(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            "@app.route('/eval')\ndef ev():\n    return eval(request.args['x'])\n",
-        )
-        result = verify_input_validation(tmp_path, _cfg(fail_on_error=False))
-        assert result.passed
-        assert all(v.severity == "warning" for v in result.violations)
-
-    # ── Syntax-error Python files fall through to regex scan ─────────────────
-
-    def test_syntax_error_file_still_scanned(self, tmp_path: Path) -> None:
-        _write(
-            tmp_path,
-            "broken.py",
-            textwrap.dedent(
-                """\
-                from flask import request
-                def view(
-                    cursor.execute(f"SELECT * FROM t WHERE x = '{request.args['x']}'")
-                """
-            ),
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        # Broken AST falls through to regex — INV001 or similar should fire
-        rule_ids = {v.rule_id for v in result.violations}
-        assert "INV001" in rule_ids
-
-    # ── File path and line number are populated ──────────────────────────────
-
-    def test_file_path_and_line_number(self, tmp_path: Path) -> None:
-        _flask_file(
-            tmp_path,
-            "views.py",
-            "\n\n\n@app.route('/')\ndef v():\n    return eval(request.args['x'])\n",
-        )
-        result = verify_input_validation(tmp_path, _cfg())
-        v = next((x for x in result.violations if x.rule_id == "INV004"), None)
-        assert v is not None
-        assert v.file_path is not None
-        assert v.line_number is not None and v.line_number > 0
-
-
-# ---------------------------------------------------------------------------
-# SecurityGate integration
+# SecurityGate — fail_on_error=False (advisory mode)
 # ---------------------------------------------------------------------------
 
 
-class TestSecurityGate:
-    # ── Default construction ─────────────────────────────────────────────────
-
-    def test_default_config(self) -> None:
-        gate = SecurityGate()
-        assert gate.config is not None
-        assert gate.gates == ALL_SUB_GATES
-
-    # ── All sub-gates pass on empty repo ────────────────────────────────────
-
-    def test_empty_repo_passes(self, tmp_path: Path) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps({"dependencies": []}),
-                stderr="",
-            )
-            cfg = SecurityGateConfig(
-                scan_secrets=True,
-                scan_dependencies=True,
-                severity_threshold="HIGH",
-            )
-            result = SecurityGate(cfg).run(tmp_path)
-        assert result.passed
-
-    # ── Selecting a single sub-gate ──────────────────────────────────────────
-
-    def test_run_only_secrets_gate(self, tmp_path: Path) -> None:
-        _write(tmp_path, "clean.py", "x = 1\n")
-        cfg = SecurityGateConfig(scan_secrets=True, scan_dependencies=False)
-        result = SecurityGate(cfg, gates=("secrets",)).run(tmp_path)
-        sub_gate_names = {sg.sub_gate for sg in result.sub_gate_results}
-        assert "secrets" in sub_gate_names
-        assert "dependencies" not in sub_gate_names
-        assert "input-validation" not in sub_gate_names
-
-    def test_run_only_input_validation_gate(self, tmp_path: Path) -> None:
-        _write(tmp_path, "app.py", "x = 1\n")
-        cfg = SecurityGateConfig(scan_secrets=False, scan_dependencies=False)
-        result = SecurityGate(cfg, gates=("input-validation",)).run(tmp_path)
-        sub_gate_names = {sg.sub_gate for sg in result.sub_gate_results}
-        assert "input-validation" in sub_gate_names
-        assert "secrets" not in sub_gate_names
-
-    # ── scan_secrets=False skips secrets sub-gate ────────────────────────────
-
-    def test_scan_secrets_false_skips_secrets(self, tmp_path: Path) -> None:
-        _write(tmp_path, "cfg.py", 'password = "HardCodedPwd999!"\n')
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps({"dependencies": []}),
-                stderr="",
-            )
-            cfg = SecurityGateConfig(
-                scan_secrets=False,
-                scan_dependencies=True,
-            )
-            result = SecurityGate(cfg).run(tmp_path)
-        # No secrets sub-gate → should still pass (secret ignored)
-        assert result.passed
-        sub_gate_names = {sg.sub_gate for sg in result.sub_gate_results}
-        assert "secrets" not in sub_gate_names
-
-    # ── scan_dependencies=False skips dependency sub-gate ────────────────────
-
-    def test_scan_dependencies_false_skips_deps(self, tmp_path: Path) -> None:
-        cfg = SecurityGateConfig(scan_secrets=False, scan_dependencies=False)
-        result = SecurityGate(cfg, gates=("secrets", "dependencies")).run(tmp_path)
-        sub_gate_names = {sg.sub_gate for sg in result.sub_gate_results}
-        assert "dependencies" not in sub_gate_names
-
-    # ── Stats are populated ──────────────────────────────────────────────────
-
-    def test_stats_populated(self, tmp_path: Path) -> None:
-        _write(tmp_path, "cfg.py", 'password = "SomeSecret2024!"\n')
-        cfg = SecurityGateConfig(scan_secrets=True, scan_dependencies=False)
-        result = SecurityGate(cfg, gates=("secrets",)).run(tmp_path)
-        assert "total" in result.stats
-        assert "errors" in result.stats
-        assert "warnings" in result.stats
-
-    # ── passed=False when any sub-gate fails ─────────────────────────────────
-
-    def test_failed_sub_gate_fails_overall(self, tmp_path: Path) -> None:
-        _write(tmp_path, "cfg.py", 'password = "HardCodedSecret123!"\n')
+class TestAdvisoryMode:
+    def test_secrets_advisory_mode_passes_with_warnings(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPassword123"\n')
         cfg = SecurityGateConfig(
             scan_secrets=True,
             scan_dependencies=False,
+            scan_input_validation=False,
+            fail_on_error=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert len(result.violations) == 1
+        assert result.violations[0].severity == "warning"
+
+    def test_vulnerable_deps_advisory_mode_passes_with_warnings(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="CRITICAL")],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=True,
+            scan_input_validation=False,
+            fail_on_error=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert result.violations[0].severity == "warning"
+
+    def test_unsafe_input_advisory_mode_passes_with_warnings(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", "eval(request.data)\n")
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=False,
+            scan_input_validation=True,
+            fail_on_error=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert result.violations[0].severity == "warning"
+
+
+# ---------------------------------------------------------------------------
+# SecurityGate — GateResult attributes
+# ---------------------------------------------------------------------------
+
+
+class TestGateResultAttributes:
+    def test_stats_contains_expected_keys(self, tmp_path: Path):
+        cfg = SecurityGateConfig(
+            scan_secrets=False, scan_dependencies=False, scan_input_validation=False
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        for key in (
+            "secrets_found",
+            "vulnerable_dependencies",
+            "unsafe_input_patterns",
+            "total_violations",
+            "severity_threshold",
+            "scan_secrets",
+            "scan_dependencies",
+            "scan_input_validation",
+        ):
+            assert key in result.stats, f"Missing stat key: {key}"
+
+    def test_errors_helper_returns_error_severity(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
             fail_on_error=True,
         )
-        result = SecurityGate(cfg, gates=("secrets",)).run(tmp_path)
-        assert not result.passed
+        result = SecurityGate(cfg).run(tmp_path)
+        assert all(v.severity == "error" for v in result.errors())
 
-    # ── passed=True when all sub-gates pass ─────────────────────────────────
+    def test_warnings_helper_returns_warning_severity(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+            fail_on_error=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert all(v.severity == "warning" for v in result.warnings())
 
-    def test_all_pass_overall_pass(self, tmp_path: Path) -> None:
-        _write(tmp_path, "app.py", 'import os\nSECRET = os.environ["SECRET"]\n')
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps({"dependencies": []}),
-                stderr="",
-            )
-            cfg = SecurityGateConfig(scan_secrets=True, scan_dependencies=True)
-            result = SecurityGate(cfg).run(tmp_path)
+    def test_by_kind_filters_correctly(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        write_source_file(tmp_path / "views.py", "eval(request.data)\n")
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="HIGH")],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=True,
+            scan_input_validation=True,
+            fail_on_error=True,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert all(v.kind == "hardcoded_secret" for v in result.by_kind("hardcoded_secret"))
+        assert all(
+            v.kind == "vulnerable_dependency"
+            for v in result.by_kind("vulnerable_dependency")
+        )
+        assert all(
+            v.kind == "unsafe_input_handling"
+            for v in result.by_kind("unsafe_input_handling")
+        )
+
+    def test_total_violations_count_matches(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.stats["total_violations"] == len(result.violations)
+
+    def test_violation_summary_contains_kind(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        summary = result.violations[0].summary()
+        assert "hardcoded_secret" in summary
+
+    def test_violation_summary_contains_file_path(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        summary = result.violations[0].summary()
+        assert "app.py" in summary
+
+    def test_violation_summary_contains_rule_id(self, tmp_path: Path):
+        write_source_file(tmp_path / "app.py", 'password = "RealPass123"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        summary = result.violations[0].summary()
+        assert "hardcoded-password" in summary
+
+
+# ---------------------------------------------------------------------------
+# SecurityGate — default configuration
+# ---------------------------------------------------------------------------
+
+
+class TestDefaultConfig:
+    def test_default_severity_threshold_is_high(self):
+        cfg = SecurityGateConfig()
+        assert cfg.severity_threshold == "HIGH"
+
+    def test_default_scan_dependencies_is_true(self):
+        cfg = SecurityGateConfig()
+        assert cfg.scan_dependencies is True
+
+    def test_default_scan_secrets_is_false(self):
+        cfg = SecurityGateConfig()
+        assert cfg.scan_secrets is False
+
+    def test_default_scan_input_validation_is_true(self):
+        cfg = SecurityGateConfig()
+        assert cfg.scan_input_validation is True
+
+    def test_default_fail_on_error_is_true(self):
+        cfg = SecurityGateConfig()
+        assert cfg.fail_on_error is True
+
+    def test_gate_uses_default_config_when_none_passed(self, tmp_path: Path):
+        """SecurityGate() with no args should use SecurityGateConfig defaults."""
+        result = SecurityGate().run(tmp_path)
+        # Default: scan_dependencies=True → missing report → warning (not error)
+        # No secrets or input violations in empty repo
         assert result.passed
+        assert result.stats["severity_threshold"] == "HIGH"
 
-    # ── Sub-gate results list is correct length ──────────────────────────────
 
-    def test_sub_gate_results_count(self, tmp_path: Path) -> None:
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(
-                returncode=0,
-                stdout=json.dumps({"dependencies": []}),
-                stderr="",
-            )
-            cfg = SecurityGateConfig(scan_secrets=True, scan_dependencies=True)
-            result = SecurityGate(cfg, gates=ALL_SUB_GATES).run(tmp_path)
-        # 3 sub-gates configured and enabled
-        assert len(result.sub_gate_results) == 3
+# ---------------------------------------------------------------------------
+# Integration: end-to-end scenarios
+# ---------------------------------------------------------------------------
 
-    # ── GateResult __str__ ───────────────────────────────────────────────────
 
-    def test_gate_result_str_contains_gate_name(self, tmp_path: Path) -> None:
-        sg = SubGateResult(passed=True, sub_gate="secrets")
-        gr = GateResult(passed=True, sub_gate_results=[sg])
-        s = str(gr)
-        assert "SecurityGate" in s
-        assert "secrets" in s
+class TestIntegration:
+    def test_fully_clean_repo_passes_all_checks(self, tmp_path: Path):
+        """A repo with safe code, clean deps, and no unsafe input should pass."""
+        write_source_file(
+            tmp_path / "app.py",
+            textwrap.dedent("""\
+                import os
+                DB_PASS = os.environ["DB_PASSWORD"]
+                user_id = int(request.args.get("id", 0))
+                cursor.execute("SELECT * FROM t WHERE id = ?", (user_id,))
+            """),
+        )
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [{"name": "safe-lib", "version": "1.0.0", "vulns": []}],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=True,
+            scan_input_validation=True,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert result.violations == []
+
+    def test_repo_with_all_three_issues_fails(self, tmp_path: Path):
+        """A repo with a secret, a CVE, and unsafe input should fail."""
+        write_source_file(
+            tmp_path / "app.py",
+            textwrap.dedent("""\
+                password = "HardcodedPass99"
+                eval(request.data)
+            """),
+        )
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(severity="HIGH")],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=True,
+            scan_input_validation=True,
+            fail_on_error=True,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert not result.passed
+        kinds = {v.kind for v in result.violations}
+        assert "hardcoded_secret" in kinds
+        assert "vulnerable_dependency" in kinds
+        assert "unsafe_input_handling" in kinds
+
+    def test_ignore_list_suppresses_all_known_issues(self, tmp_path: Path):
+        """When every violation is ignored, the gate should pass cleanly."""
+        write_source_file(tmp_path / "app.py", 'password = "HardcodedPass99"\n')
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [make_vuln(vuln_id="CVE-2023-KNOWN")],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=True,
+            scan_input_validation=False,
+            fail_on_error=True,
+            ignore_ids=["hardcoded-password", "CVE-2023-KNOWN"],
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.passed
+        assert result.by_kind("hardcoded_secret") == []
+        assert result.by_kind("vulnerable_dependency") == []
+
+    def test_missing_report_produces_warning_not_error(self, tmp_path: Path):
+        """A missing audit report is always advisory — never blocks the gate."""
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=True,
+            scan_input_validation=False,
+            fail_on_error=True,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        # Gate should still pass because missing_audit_report is a warning
+        assert result.passed
+        assert result.violations[0].kind == "missing_audit_report"
+        assert result.violations[0].severity == "warning"
+
+    def test_stats_secrets_found_incremented(self, tmp_path: Path):
+        write_source_file(tmp_path / "a.py", 'password = "PassA123456"\n')
+        write_source_file(tmp_path / "b.py", 'password = "PassB654321"\n')
+        cfg = SecurityGateConfig(
+            scan_secrets=True,
+            scan_dependencies=False,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.stats["secrets_found"] == 2
+
+    def test_stats_vulnerable_deps_count_matches(self, tmp_path: Path):
+        write_audit_report(
+            tmp_path / "pip-audit-report.json",
+            [
+                make_vuln("pkg-a", vuln_id="CVE-A"),
+                make_vuln("pkg-b", vuln_id="CVE-B"),
+            ],
+        )
+        cfg = SecurityGateConfig(
+            scan_secrets=False,
+            scan_dependencies=True,
+            scan_input_validation=False,
+        )
+        result = SecurityGate(cfg).run(tmp_path)
+        assert result.stats["vulnerable_dependencies"] == 2
