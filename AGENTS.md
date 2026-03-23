@@ -1,7 +1,7 @@
 # AGENTS.md
 
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-22
+last_updated: 2026-03-23
 head: 157af7b
 service: agent-harness-skills
 <!-- /harness:auto-generated -->
@@ -113,153 +113,170 @@ Both `playwright` and `pytest-playwright` are already listed in `requirements.tx
 
 ---
 
-## Security Protocols
+## Testing Conventions
 
-### Secret Handling
+Test runner: **pytest** + **pytest-playwright**
+Coverage threshold: **80 %** (configured in `harness.config.yaml`)
 
-Never commit credentials, API keys, tokens, or passwords to source control.
-Use environment variables for all sensitive values.
+### Test file naming
 
-**Required pattern — always use `os.environ`:**
+| Category | Location | Pattern | Example |
+|---|---|---|---|
+| Unit (top-level modules) | `tests/` | `test_<module>.py` | `tests/test_exec_plan.py` |
+| Gate tests | `tests/gates/` | `test_<gate>.py` | `tests/gates/test_docs_freshness.py` |
+| CLI command tests | `tests/test_cli/` | `test_<command>.py` | `tests/test_cli/test_status_cmd.py` |
+| Generator tests | `tests/test_generators/` | `test_<generator>.py` | `tests/test_generators/test_config_generator.py` |
+| Browser / e2e tests | `tests/browser/` | `test_<feature>.py` | `tests/browser/test_smoke.py` |
+| Model tests | `tests/test_models/` | `test_<model>.py` | `tests/test_models/test_gate_configs.py` |
 
-```python
-import os
+Rules:
+- All test files use the `test_` prefix (pytest discovery default).
+- Mirror the source module path under `tests/`.  A module at
+  `harness_skills/gates/coverage.py` has its tests at
+  `tests/gates/test_coverage.py`.
+- Browser/e2e tests live in `tests/browser/` and require `pytest-playwright`.
 
-# Good — loaded from the environment
-api_key    = os.environ["ANTHROPIC_API_KEY"]
-db_url     = os.environ["DATABASE_URL"]
-jwt_secret = os.environ["JWT_SECRET"]
+### Assertion style
 
-# Bad — never do this
-api_key = "sk-abc123..."                      # SEC003 — hardcoded API key
-db_url  = "postgres://user:pass@host/db"      # SEC006 — credentials in URL
-```
-
-The security gate (`/harness:security-check-gate --scan-secrets`) flags these rule IDs:
-
-| Rule ID | Pattern caught |
-|---------|----------------|
-| SEC001  | Generic `password =` / `secret =` literal assignments |
-| SEC002  | PEM private keys (`-----BEGIN … PRIVATE KEY-----`) |
-| SEC003  | AI provider API keys (Anthropic, OpenAI, Cohere …) |
-| SEC004  | AWS credentials (`AKIA…`) |
-| SEC005  | GitHub personal access tokens |
-| SEC006  | Database URLs with embedded credentials |
-| SEC007  | `Authorization: Bearer <token>` string literals |
-| SEC008  | High-entropy hex strings (≥ 32 chars) |
-
-If a secret is accidentally committed, **rotate it immediately** — treat it as
-compromised.  Then scrub git history with `git filter-repo` or BFG Repo Cleaner.
-
-**Environment variables used by this service:**
-
-| Variable            | Purpose                                        | Required |
-|---------------------|------------------------------------------------|----------|
-| `STATE_SERVICE_URL` | claw-forge state service endpoint              | Yes      |
-| `FEATURE_ID`        | Current feature ID for state updates           | Yes      |
-| `BASE_URL`          | Target URL for browser automation              | Optional |
-| `ANTHROPIC_API_KEY` | Anthropic API key for the agent SDK            | Optional |
-| `SCREENSHOT_DIR`    | Directory where browser PNGs are saved         | Optional |
-
----
-
-### Input Validation Patterns
-
-All user-supplied data must be validated before use.  This project uses
-**Pydantic ≥ 2.0** as the standard validation layer.
-
-**Always validate request payloads with Pydantic:**
+Use **plain pytest assertions** — never `unittest`-style `self.assert*` methods.
 
 ```python
-from pydantic import BaseModel, HttpUrl, field_validator
+# ✅ correct
+assert result.passed
+assert len(violations) == 1
+assert "dead_ref" in violation.message
 
-class TaskRequest(BaseModel):
-    feature_id: str
-    target_url: HttpUrl | None = None
-    tags: list[str] = []
-
-    @field_validator("feature_id")
-    @classmethod
-    def feature_id_alphanumeric(cls, v: str) -> str:
-        if not v.replace("-", "").isalnum():
-            raise ValueError("feature_id must be alphanumeric with dashes only")
-        return v
+# ❌ avoid
+self.assertTrue(result.passed)
+self.assertEqual(len(violations), 1)
 ```
 
-**Unsafe patterns the security gate catches (INV rules):**
+Group related assertions in a single test function; each test should exercise
+one logical behaviour:
 
-| Rule ID | Dangerous pattern | Safe alternative |
-|---------|-------------------|-----------------|
-| INV001  | `cursor.execute(f"… {request…}")` | Parameterised query: `cursor.execute("…", (value,))` |
-| INV002  | `"… %s" % request_data` in SQL context | Parameterised query |
-| INV003  | `subprocess.call(user_input, shell=True)` | `subprocess.run([cmd, arg], shell=False)` with validated args |
-| INV004  | `eval(request.data)` / `exec(user_input)` | Never pass user input to `eval`/`exec` |
-| INV005  | `open(request.args["path"])` (path traversal) | `(Path(root) / path).resolve()` + allow-list check |
-| INV006  | `requests.get(request.args["url"])` (SSRF) | Validate scheme + hostname against an explicit allow-list |
-| INV007  | `Template(user_input).render()` (SSTI) | Never use user data as a template string |
-| INV008  | `pickle.loads(request.body)` | Use JSON or Pydantic for deserialisation |
+```python
+def test_missing_ref_violation(tmp_path):
+    agents(tmp_path, TS + "\n[ghost](src/ghost.py)\n")
+    r = DocsFreshnessGate().run(tmp_path)
+    dead = [v for v in r.violations if v.kind == "dead_ref"]
+    assert len(dead) == 1
+    assert "src/ghost.py" in dead[0].message
+```
 
-Run the gate locally before pushing:
+### Coverage expectations
+
+| Profile | Line coverage | Branch coverage |
+|---|---|---|
+| `starter` | **80 %** | optional |
+| `standard` | **80 %** | optional |
+| `advanced` | **90 %** | enabled |
+
+The active threshold is set in `harness.config.yaml`:
+
+```yaml
+gates:
+  coverage:
+    threshold: 80        # minimum line coverage %
+    branch_coverage: false
+```
+
+New tests should bring the module they exercise to **≥ 80 % line coverage**.
+Aim for **boundary tests** (exactly at threshold, one over) for any
+threshold-based logic.
+
+### Fixture patterns
+
+#### `tmp_path` — filesystem isolation
+
+Use the built-in `tmp_path` fixture for any test that reads or writes files.
+Never use real project paths in tests.
+
+```python
+def test_existing_ref_ok(tmp_path):
+    touch(tmp_path / "src" / "models" / "foo.py")
+    agents(tmp_path, TS + "\n[foo](src/models/foo.py)\n")
+    r = DocsFreshnessGate().run(tmp_path)
+    assert not [v for v in r.violations if v.kind == "dead_ref"]
+```
+
+#### `monkeypatch` — deterministic state
+
+Use `monkeypatch` to freeze time-dependent values so tests are repeatable:
+
+```python
+@pytest.fixture(autouse=True)
+def freeze_today(monkeypatch):
+    monkeypatch.setattr(
+        "harness_skills.gates.docs_freshness._today",
+        lambda: date(2025, 6, 15),
+    )
+```
+
+Mark cross-cutting fixtures `autouse=True` so all tests in the module benefit
+automatically.
+
+#### Helper factory functions
+
+Prefer lightweight factory helpers over complex fixtures when setup is short
+and test-local:
+
+```python
+def agents(tmp_path, content, sub=""):
+    """Write an AGENTS.md file under tmp_path (optionally in a subdirectory)."""
+    d = tmp_path / sub if sub else tmp_path
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / "AGENTS.md"
+    f.write_text(textwrap.dedent(content))
+    return f
+
+def touch(p: Path) -> Path:
+    """Create an empty file, making parent directories as needed."""
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.touch()
+    return p
+```
+
+#### Session-scoped fixtures — expensive resources
+
+Use `scope="session"` for anything expensive to set up (browser instances,
+server processes, network connections):
+
+```python
+@pytest.fixture(scope="session")
+def base_url():
+    return os.environ.get("BASE_URL", "http://localhost:3000")
+```
+
+#### `autouse` failure hooks
+
+Register failure-capture logic as `autouse` fixtures in `conftest.py` so it
+applies automatically to every test in the suite:
+
+```python
+# tests/browser/conftest.py
+@pytest.fixture(autouse=True)
+def screenshot_on_failure(page, request):
+    yield
+    if request.node.rep_call.failed:
+        capture_screenshot(page, f"failures/{request.node.nodeid}")
+```
+
+### Running tests
 
 ```bash
-/harness:security-check-gate --scan-secrets --scan-input-validation
+# All tests
+pytest tests/ -v
+
+# Specific category
+pytest tests/gates/ -v
+pytest tests/browser/ -v
+
+# With coverage report
+pytest tests/ --cov=harness_skills --cov-report=term-missing
+
+# Browser tests headed (shows window — useful for local debugging)
+pytest tests/browser/ --headed
+
+# Target a different environment
+BASE_URL=https://staging.example.com pytest tests/browser/ -v
 ```
-
----
-
-### Auth Conventions
-
-All authenticated requests use **Bearer token** authentication via the
-`Authorization` header.
-
-**Standard pattern (using `requests`):**
-
-```python
-import os
-import requests
-
-def authenticated_get(path: str) -> dict:
-    token   = os.environ["API_TOKEN"]          # never hardcode
-    base    = os.environ["BASE_URL"]
-    resp    = requests.get(
-        f"{base}{path}",
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()
-```
-
-**claw-forge state service (no token — local only):**
-
-```python
-import os
-import requests
-
-STATE_URL  = os.environ.get("STATE_SERVICE_URL", "http://localhost:8888")
-FEATURE_ID = os.environ["FEATURE_ID"]
-
-# Report task complete
-requests.patch(
-    f"{STATE_URL}/features/{FEATURE_ID}",
-    json={"status": "done"},
-    timeout=10,
-).raise_for_status()
-
-# Request human input
-requests.post(
-    f"{STATE_URL}/features/{FEATURE_ID}/human-input",
-    json={"question": "Which environment should this run against?"},
-    timeout=10,
-).raise_for_status()
-```
-
-**Auth conventions at a glance:**
-
-| Convention       | Rule                                                               |
-|------------------|--------------------------------------------------------------------|
-| Token source     | Always `os.environ["VAR"]` — never a string literal               |
-| Header name      | `Authorization: Bearer <token>`                                    |
-| Timeout          | `timeout=30` for external services; `timeout=10` for localhost     |
-| TLS              | Production endpoints must use `https://`; `http://` only for localhost |
-| Credential rotation | Rotate immediately if a token appears in logs, errors, or commits |

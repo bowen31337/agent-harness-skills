@@ -1,500 +1,382 @@
+# AGENTS.md Generator
+
+Generate or update `AGENTS.md` so AI agents have an accurate, up-to-date reference
+for working in this repository.  The skill scans the codebase, detects frameworks and
+conventions in use, and writes (or refreshes) well-structured sections covering:
+
+- **Browser Automation** — Playwright/Puppeteer helpers, screenshots, e2e commands
+- **Testing Conventions** — file naming, assertion style, coverage expectations, fixture patterns
+
+Use this skill whenever `AGENTS.md` is missing, stale, or after significant changes to
+the test suite or browser automation setup.
+
 ---
-name: agents-md
-description: "Cross-link all generated documentation so agents can navigate between related files via relative paths. Discovers every auto-generated and specification document in the repository, builds a relationship map, appends or refreshes machine-delimited cross-link sections, and regenerates DOCS_INDEX.md as a central navigation hub. Also writes or refreshes the Git Workflow section in AGENTS.md covering branch naming conventions, commit message format, and PR process. Use when: (1) a new generated doc has been added, (2) relationships between docs have changed, (3) DOCS_INDEX.md is stale or missing, (4) onboarding a new agent that needs to discover all documentation, (5) after running /module-boundaries, /define-principles, /logging-convention, /health-check-endpoint, or /harness:evaluate. Triggers on: cross-link docs, update doc index, refresh documentation links, agents-md, docs navigation, generated documentation index, git workflow, branch naming, commit message format, PR process."
----
 
-# Agents MD — Documentation Cross-Linker
+## Usage
 
-Discover every generated and specification document, build a relationship graph,
-stitch relative-path navigation links into each file so agents can jump between
-related documents without a full codebase search, and write the canonical **Git
-Workflow** section into `AGENTS.md` so every agent session has branch naming,
-commit format, and PR process at hand.
+```bash
+# Generate (or update) AGENTS.md with all sections
+/agents-md
 
----
+# Regenerate only the Testing Conventions section
+/agents-md --section testing
 
-## What this skill manages
+# Regenerate only the Browser Automation section
+/agents-md --section browser
 
-| Artefact | Location | Managed by |
-|---|---|---|
-| `DOCS_INDEX.md` | repo root | Created / refreshed on every run |
-| `<!-- harness:cross-links -->` blocks | inside each generated doc | Appended or replaced on every run |
-| `<!-- harness:git-workflow -->` block | `AGENTS.md` | Written or refreshed on every run |
+# Preview without writing to disk
+/agents-md --dry-run
 
-The cross-link block and the git-workflow block are both machine-delimited so they
-can be safely replaced on re-runs without touching hand-written content.
+# Write to a non-default path
+/agents-md --output docs/AGENTS.md
+```
 
 ---
 
 ## Instructions
 
-### Step 1 — Discover generated documents
+### Step 1 — Detect the test runner and framework
 
-Collect every document that is either:
-
-**a) Stamped with the `harness:auto-generated` comment:**
 ```bash
-grep -rl "harness:auto-generated" . \
-  --include="*.md" \
-  --exclude-dir=".git" \
-  --exclude-dir="node_modules"
+# Detect Python test runner
+[ -f "pytest.ini" ] || [ -f "conftest.py" ] || grep -q "pytest" requirements*.txt 2>/dev/null \
+  && echo "test_runner: pytest"
+
+# Detect JavaScript test runner
+grep -q '"jest"'   package.json 2>/dev/null && echo "test_runner: jest"
+grep -q '"vitest"' package.json 2>/dev/null && echo "test_runner: vitest"
+
+# Detect browser testing framework
+grep -q "playwright"       requirements*.txt 2>/dev/null && echo "browser: playwright-python"
+grep -q "@playwright/test" package.json      2>/dev/null && echo "browser: playwright-node"
+grep -q "puppeteer"        package.json      2>/dev/null && echo "browser: puppeteer"
 ```
 
-**b) Listed in the static manifest** (always include these regardless of markers):
+Also scan for:
+- `tests/` or `test/` directory layout (subdirectories reveal test categories)
+- `conftest.py` files to understand shared fixtures
+- `harness.config.yaml` for the configured coverage threshold
 
-| File | Generator skill |
+---
+
+### Step 2 — Scan test conventions
+
+Inspect the `tests/` directory and up to 5 representative test files to extract
+real conventions actually used in this codebase:
+
+```bash
+# List test categories
+ls tests/ 2>/dev/null
+
+# Sample test file names to infer naming pattern
+find tests/ -name "test_*.py" | head -20 2>/dev/null
+
+# Check conftest for shared fixtures
+cat tests/conftest.py tests/browser/conftest.py 2>/dev/null | head -80
+```
+
+Record:
+
+| Convention | How to detect |
 |---|---|
-| `AGENTS.md` | `/browser-automation` |
-| `ARCHITECTURE.md` | `/module-boundaries` |
-| `PRINCIPLES.md` | `/define-principles` |
-| `EVALUATION.md` | `/harness:evaluate` |
-| `SPEC.md` | `/logging-convention` |
-| `ERROR_HANDLING_RULES.md` | auto-generated for the stack |
-| `HEALTH_CHECK_SPEC.md` | `/health-check-endpoint` |
-| `docs/plan-to-pr-convention.md` | `/execution-plans` |
-| `docs/health-check-endpoint-spec.md` | `/health-check-endpoint` |
-| `docs/harness-changelog.md` | `/harness-changelog` |
-| `docs/exec-plans/progress.md` | `/progress-log` |
-| `docs/design-docs/README.md` | `/create-spec` |
-
-Combine both lists; deduplicate. Store as **DOCS** (list of repo-relative paths).
+| File naming pattern | File names: `test_<module>.py` vs `<module>.test.ts` etc. |
+| Assertion style | Presence of `assert ` vs `expect(` vs `self.assert` |
+| Coverage threshold | `harness.config.yaml → coverage.threshold`, `pytest.ini`, `.nycrc` |
+| Fixture style | `@pytest.fixture`, `beforeEach`, helper factory functions |
+| Special fixtures | `tmp_path`, `monkeypatch`, `autouse=True` fixtures in conftest |
 
 ---
 
-### Step 2 — Build the relationship map
+### Step 3 — Build the Testing Conventions section
 
-For each document in DOCS, apply the rules below to produce a list of
-`(source, target, relationship_label)` triples.
+Using the detected conventions, generate the **Testing Conventions** section.
+Use the template below, replacing `<…>` tokens with discovered values:
 
-#### Hard-coded relationship rules
+````markdown
+## Testing Conventions
 
-```
-AGENTS.md
-  → ARCHITECTURE.md          "project structure and package map"
-  → PRINCIPLES.md            "agent behaviour rules"
-  → SPEC.md                  "logging convention"
-  → docs/plan-to-pr-convention.md  "git workflow: branch naming, commits, PRs"
-  → .claude/commands/browser-automation.md   "browser automation skill"
-  → .claude/commands/harness/screenshot.md   "screenshot helper skill"
-  → .claude/commands/harness/observe.md      "log observation skill"
-  → DOCS_INDEX.md            "full documentation index"
+Test runner: **<pytest | jest | vitest>**
+Coverage threshold: **<N>%** (configured in `harness.config.yaml`)
 
-ARCHITECTURE.md
-  → PRINCIPLES.md            "module boundary rules §11 (MB001–MB014)"
-  → ERROR_HANDLING_RULES.md  "error patterns used in these packages"
-  → AGENTS.md                "agent-facing quick-start"
-  → .claude/commands/module-boundaries.md  "skill that regenerates this file"
-  → .claude/commands/check-code.md         "enforces MB* rules on staged files"
-  → .claude/commands/review-pr.md          "enforces MB* rules in PR diffs"
-  → DOCS_INDEX.md            "full documentation index"
+### Test file naming
 
-PRINCIPLES.md
-  → ARCHITECTURE.md                         "module boundary detail (§11)"
-  → docs/plan-to-pr-convention.md           "plan-to-PR traceability (§10)"
-  → ERROR_HANDLING_RULES.md                 "code quality and error handling"
-  → .claude/commands/define-principles.md   "skill that regenerates this file"
-  → .claude/commands/check-code.md          "enforces all principles"
-  → .claude/commands/review-pr.md           "enforces all principles in PRs"
-  → DOCS_INDEX.md                           "full documentation index"
+| Category | Location | Pattern | Example |
+|---|---|---|---|
+| Unit (top-level modules) | `tests/` | `test_<module>.py` | `tests/test_exec_plan.py` |
+| Gate tests | `tests/gates/` | `test_<gate>.py` | `tests/gates/test_docs_freshness.py` |
+| CLI command tests | `tests/test_cli/` | `test_<command>.py` | `tests/test_cli/test_status_cmd.py` |
+| Generator tests | `tests/test_generators/` | `test_<generator>.py` | `tests/test_generators/test_config_generator.py` |
+| Browser / e2e tests | `tests/browser/` | `test_<feature>.py` | `tests/browser/test_smoke.py` |
+| Model tests | `tests/test_models/` | `test_<model>.py` | `tests/test_models/test_gate_configs.py` |
 
-SPEC.md  (Logging Convention)
-  → ERROR_HANDLING_RULES.md              "logging format conventions (§6)"
-  → HEALTH_CHECK_SPEC.md                 "related observability specification"
-  → PRINCIPLES.md                        "logging provider rule MB011"
-  → .claude/commands/logging-convention.md  "skill that regenerated this file"
-  → .claude/commands/log-format-linter.md   "CI linter that validates against this spec"
-  → DOCS_INDEX.md                        "full documentation index"
+Rules:
+- All test files use the `test_` prefix (pytest discovery default).
+- Mirror the source module path under `tests/`.  A module at
+  `harness_skills/gates/coverage.py` has its tests at
+  `tests/gates/test_coverage.py`.
+- Browser/e2e tests live in `tests/browser/` and require `pytest-playwright`.
 
-ERROR_HANDLING_RULES.md
-  → ARCHITECTURE.md          "package structure these rules apply to"
-  → PRINCIPLES.md            "code quality and tool usage rules"
-  → SPEC.md                  "structured logging spec (§6)"
-  → EVALUATION.md            "latest gate run results"
-  → DOCS_INDEX.md            "full documentation index"
+### Assertion style
 
-HEALTH_CHECK_SPEC.md
-  → SPEC.md                  "logging convention (observability peer)"
-  → AGENTS.md                "agents poll the health endpoint"
-  → docs/health-check-endpoint-spec.md            "extended spec with ADR context"
-  → .claude/commands/health-check-endpoint.md     "skill that generated this file"
-  → .claude/commands/harness/observe.md           "log observation for health events"
-  → DOCS_INDEX.md            "full documentation index"
+Use **plain pytest assertions** — never `unittest`-style `self.assert*` methods.
 
-EVALUATION.md
-  → PRINCIPLES.md            "principles gate — rules being evaluated"
-  → ARCHITECTURE.md          "architecture gate — boundaries being checked"
-  → ERROR_HANDLING_RULES.md  "error patterns checked in the lint gate"
-  → .claude/commands/harness/evaluate.md  "skill that regenerated this file"
-  → .claude/commands/harness/coverage-gate.md     "coverage gate detail"
-  → DOCS_INDEX.md            "full documentation index"
+```python
+# ✅ correct
+assert result.passed
+assert len(violations) == 1
+assert "dead_ref" in violation.message
 
-docs/plan-to-pr-convention.md
-  → ../PRINCIPLES.md                            "rules §10 that formalise this convention"
-  → exec-plans/progress.md                      "live plan progress log"
-  → ../.claude/commands/execution-plans.md      "skill that manages execution plans"
-  → ../.claude/commands/review-pr.md            "enforces plan-to-PR traceability"
-  → ../AGENTS.md                                "git workflow section in agent reference"
-  → ../DOCS_INDEX.md                            "full documentation index"
-
-docs/health-check-endpoint-spec.md
-  → ../HEALTH_CHECK_SPEC.md                     "canonical root-level spec"
-  → ../.claude/commands/health-check-endpoint.md "generating skill"
-  → ../DOCS_INDEX.md                            "full documentation index"
-
-docs/harness-changelog.md
-  → ../EVALUATION.md                            "current evaluation state"
-  → ../.claude/commands/harness-changelog.md    "skill that manages this changelog"
-  → ../DOCS_INDEX.md                            "full documentation index"
-
-docs/exec-plans/progress.md
-  → ../plan-to-pr-convention.md                 "PR linking convention"
-  → ../../.claude/commands/progress-log.md      "skill that manages this log"
-  → ../../DOCS_INDEX.md                         "full documentation index"
+# ❌ avoid
+self.assertTrue(result.passed)
+self.assertEqual(len(violations), 1)
 ```
 
-#### Dynamic relationship discovery (supplement hard-coded rules)
+Group related assertions in a single test function; each test should exercise
+one logical behaviour:
 
-For each document in DOCS, scan for references to other docs in DOCS using:
+```python
+def test_missing_ref_violation(tmp_path):
+    agents(tmp_path, TS + "\n[ghost](src/ghost.py)\n")
+    r = DocsFreshnessGate().run(tmp_path)
+    dead = [v for v in r.violations if v.kind == "dead_ref"]
+    assert len(dead) == 1
+    assert "src/ghost.py" in dead[0].message
+```
+
+### Coverage expectations
+
+| Profile | Line coverage | Branch coverage |
+|---|---|---|
+| `starter` | **80 %** | optional |
+| `standard` | **80 %** | optional |
+| `advanced` | **90 %** | enabled |
+
+The active threshold is set in `harness.config.yaml`:
+
+```yaml
+gates:
+  coverage:
+    threshold: 80        # minimum line coverage %
+    branch_coverage: false
+```
+
+New tests should bring the module they exercise to **≥ 80 % line coverage**.
+Aim for **boundary tests** (exactly at threshold, one over) for any
+threshold-based logic.
+
+### Fixture patterns
+
+#### `tmp_path` — filesystem isolation
+
+Use the built-in `tmp_path` fixture for any test that reads or writes files.
+Never use real project paths in tests.
+
+```python
+def test_existing_ref_ok(tmp_path):
+    touch(tmp_path / "src" / "models" / "foo.py")
+    agents(tmp_path, TS + "\n[foo](src/models/foo.py)\n")
+    r = DocsFreshnessGate().run(tmp_path)
+    assert not [v for v in r.violations if v.kind == "dead_ref"]
+```
+
+#### `monkeypatch` — deterministic state
+
+Use `monkeypatch` to freeze time-dependent values so tests are repeatable:
+
+```python
+@pytest.fixture(autouse=True)
+def freeze_today(monkeypatch):
+    monkeypatch.setattr(
+        "harness_skills.gates.docs_freshness._today",
+        lambda: date(2025, 6, 15),
+    )
+```
+
+Mark cross-cutting fixtures `autouse=True` so all tests in the module benefit
+automatically.
+
+#### Helper factory functions
+
+Prefer lightweight factory helpers over complex fixtures when the setup is
+short and test-local:
+
+```python
+def agents(tmp_path, content, sub=""):
+    """Write an AGENTS.md file under tmp_path (optionally in a subdirectory)."""
+    d = tmp_path / sub if sub else tmp_path
+    d.mkdir(parents=True, exist_ok=True)
+    f = d / "AGENTS.md"
+    f.write_text(textwrap.dedent(content))
+    return f
+
+def touch(p: Path) -> Path:
+    """Create an empty file, making parent directories as needed."""
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.touch()
+    return p
+```
+
+#### Session-scoped fixtures — expensive resources
+
+Use `scope="session"` for anything expensive to set up (browser instances,
+server processes, network connections):
+
+```python
+@pytest.fixture(scope="session")
+def base_url():
+    return os.environ.get("BASE_URL", "http://localhost:3000")
+```
+
+#### `autouse` failure hooks
+
+Register failure-capture logic as `autouse` fixtures in `conftest.py` so it
+applies automatically to every test in the suite:
+
+```python
+# tests/browser/conftest.py
+@pytest.fixture(autouse=True)
+def screenshot_on_failure(page, request):
+    yield
+    if request.node.rep_call.failed:
+        capture_screenshot(page, f"failures/{request.node.nodeid}")
+```
+
+### Running tests
 
 ```bash
-grep -oE '\[([^\]]+)\]\(([^)]+\.md)\)' <file>
-```
+# All tests
+pytest tests/ -v
 
-Any `target.md` resolved relative to `<file>` that exists in DOCS gets an
-additional edge with label `"referenced inline"` — unless the edge already
-exists from the hard-coded rules.
+# Specific category
+pytest tests/gates/ -v
+pytest tests/browser/ -v
+
+# With coverage report
+pytest tests/ --cov=harness_skills --cov-report=term-missing
+
+# Browser tests headed (shows window — useful for local debugging)
+pytest tests/browser/ --headed
+
+# Target a different environment
+BASE_URL=https://staging.example.com pytest tests/browser/ -v
+```
+````
 
 ---
 
-### Step 3 — Write or refresh the Git Workflow section in AGENTS.md
+### Step 4 — Build the Browser Automation section (if applicable)
 
-This step runs **before** the general cross-link pass so the workflow block is
-in place before any other edits.
+If a browser testing framework was detected in Step 1, include (or refresh) a
+**Browser Automation** section using the same conventions already documented in
+the `browser-automation` skill.  See `/browser-automation` for the full
+template.
 
-#### 3a — Build the block content
-
-The git workflow block is derived from `docs/plan-to-pr-convention.md`.  Render
-it as a concise reference (not a full copy) so agents have the essentials without
-leaving `AGENTS.md`:
-
-```markdown
-<!-- harness:git-workflow — do not edit this block manually -->
+If no browser framework is detected, skip this section.
 
 ---
 
-## Git Workflow
+### Step 5 — Assemble and write AGENTS.md
 
-> Full convention: [docs/plan-to-pr-convention.md](docs/plan-to-pr-convention.md)
+Compose the final `AGENTS.md` in this order:
 
-### Branch naming
-
-```
-feat/PLAN-NNN-<kebab-slug-of-title>
-```
-
-Examples:
-- `feat/PLAN-001-auth-refresh-token`
-- `feat/PLAN-007-logging-structured-output`
-
-### Commit message format
-
-```
-<type>: <imperative short description>
-
-<body — what and why, not how>
-
-Plan: PLAN-NNN
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
-```
-
-- **type**: `feat` | `fix` | `chore` | `docs` | `refactor` | `test`
-- **Plan trailer**: required for every commit that belongs to an execution plan
-- **Co-Authored-By trailer**: always include the agent attribution line
-
-### PR process
-
-1. **Title**: `[PLAN-NNN] <imperative short description>`
-2. **Body**: must include the traceability table (Plan ID, Plan file, Tasks closed, Plan status)
-3. **After `gh pr create`**: update the plan YAML `linked_prs` list with the returned PR URL
-4. **Before marking a task `done`**: verify the checklist in `docs/plan-to-pr-convention.md §6`
-
-### Quick traceability queries
+1. **Auto-generated header block** — always write fresh metadata:
 
 ```bash
-# All PRs for a plan
-gh pr list --search "[PLAN-001]" --json number,title,url,state
-
-# Plan for a given PR (from PR body)
-gh pr view 42 --json body | jq '.body' | grep "Plan ID"
-
-# All open plan PRs
-grep -r "pr_url" docs/exec-plans/ | grep -v "Example"
+RUN_DATE=$(date '+%Y-%m-%d')
+HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+SERVICE=$(basename "$(pwd)")
 ```
-
-<!-- /harness:git-workflow -->
-```
-
-#### 3b — Apply the block
-
-1. **Read `AGENTS.md`.**
-2. **Check for an existing `<!-- harness:git-workflow -->` block.**
-   - **If it exists**: replace it in-place using the Edit tool
-     (`old_string` = full existing block, `new_string` = new block).
-   - **If it does not exist**: append it after the last non-blank line using
-     the Edit tool.
-3. **Do not touch** the `<!-- harness:auto-generated -->` header or any
-   other content outside the delimited block.
-
----
-
-### Step 4 — Write cross-link blocks into each document
-
-For each file in DOCS:
-
-1. **Read the file.**
-2. **Check for an existing cross-link block:**
-   ```
-   <!-- harness:cross-links — do not edit this block manually -->
-   ...
-   <!-- /harness:cross-links -->
-   ```
-3. **Build the replacement block** from the outgoing edges for this file:
-
-```markdown
-<!-- harness:cross-links — do not edit this block manually -->
-
----
-
-## Related Documents
-
-| Document | Relationship |
-|---|---|
-| [PRINCIPLES.md](PRINCIPLES.md) | agent behaviour rules |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | project structure and package map |
-| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
-
-<!-- /harness:cross-links -->
-```
-
-4. **Apply the block:**
-   - If the file already contains a `<!-- harness:cross-links -->` block: replace it in-place using the Edit tool (old_string = full existing block, new_string = new block).
-   - If no block exists: append the block at the end of the file using the Edit tool (append after the last non-blank line).
-5. **Preserve the auto-generated header** at the top of the file — do not touch it.
-6. **Skip the `<!-- harness:git-workflow -->` block** in `AGENTS.md` — it was written in Step 3.
-
----
-
-### Step 5 — Generate DOCS_INDEX.md
-
-Write (or overwrite) `DOCS_INDEX.md` at the repository root:
 
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: <YYYY-MM-DD>
-head: <git rev-parse --short HEAD>
-artifact: docs-index
+last_updated: <RUN_DATE>
+head: <HEAD_HASH>
+service: <SERVICE>
 <!-- /harness:auto-generated -->
 
-# Documentation Index
-
-> Central navigation hub for all generated and specification documents.
-> Re-run `/agents-md` any time a new document is added or relationships change.
+Agent-facing reference for this repository.
 
 ---
-
-## Agent Reference
-
-| Document | Purpose |
-|---|---|
-| [AGENTS.md](AGENTS.md) | Browser automation quick-start, git workflow, screenshot helpers, e2e test runner |
-| [CLAUDE.md](CLAUDE.md) | Project stack, build/test commands, claw-forge agent notes |
-
----
-
-## Architecture & Design
-
-| Document | Purpose |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Domain map, dependency graph, module boundary violations |
-| [docs/design-docs/README.md](docs/design-docs/README.md) | Architectural Decision Records (ADR) directory |
-| [docs/design-docs/adr/0001-adopt-playwright-for-browser-testing.md](docs/design-docs/adr/0001-adopt-playwright-for-browser-testing.md) | ADR-0001: Playwright for browser testing |
-
----
-
-## Principles & Rules
-
-| Document | Purpose |
-|---|---|
-| [PRINCIPLES.md](PRINCIPLES.md) | Mechanical rules for AI agents — task lifecycle, git, safety, skills |
-| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | Structured error model, GateResult patterns, severity levels |
-
----
-
-## Specifications
-
-| Document | Purpose |
-|---|---|
-| [SPEC.md](SPEC.md) | Logging convention — five required fields, JSON Schema, adoption guide |
-| [HEALTH_CHECK_SPEC.md](HEALTH_CHECK_SPEC.md) | Health check endpoint contract — response format, polling protocol |
-| [docs/health-check-endpoint-spec.md](docs/health-check-endpoint-spec.md) | Extended health check spec with ADR context |
-
----
-
-## Process & Conventions
-
-| Document | Purpose |
-|---|---|
-| [docs/plan-to-pr-convention.md](docs/plan-to-pr-convention.md) | Plan-to-PR traceability: branch naming, PR title, commit trailers |
-| [docs/harness-changelog.md](docs/harness-changelog.md) | Harness changelog — version history |
-
----
-
-## Execution & Progress
-
-| Document | Purpose |
-|---|---|
-| [EVALUATION.md](EVALUATION.md) | Latest gate evaluation report — coverage, lint, regression |
-| [docs/exec-plans/progress.md](docs/exec-plans/progress.md) | Live execution plan progress log |
-| [docs/exec-plans/debt.md](docs/exec-plans/debt.md) | Technical debt backlog |
-| [docs/exec-plans/perf.md](docs/exec-plans/perf.md) | Performance improvement plan |
-
----
-
-## Skill Commands (`.claude/commands/`)
-
-### Core
-
-| Skill | Purpose |
-|---|---|
-| [`/agents-md`](.claude/commands/agents-md.md) | Cross-link all generated docs and refresh git workflow section (this skill) |
-| [`/check-code`](.claude/commands/check-code.md) | Run linters, type checker, tests, and enforce principles |
-| [`/review-pr`](.claude/commands/review-pr.md) | Review a PR against principles and module boundaries |
-| [`/checkpoint`](.claude/commands/checkpoint.md) | Git commit + state snapshot before risky operations |
-| [`/module-boundaries`](.claude/commands/module-boundaries.md) | Scan packages, enforce `__all__`, write MB* principles |
-| [`/define-principles`](.claude/commands/define-principles.md) | Generate or refresh PRINCIPLES.md |
-
-### Browser & Observability
-
-| Skill | Purpose |
-|---|---|
-| [`/browser-automation`](.claude/commands/browser-automation.md) | Set up Playwright browser automation |
-| [`/harness:screenshot`](.claude/commands/harness/screenshot.md) | Capture browser screenshots |
-| [`/harness:observe`](.claude/commands/harness/observe.md) | Tail and filter structured logs |
-| [`/dom-snapshot`](.claude/commands/dom-snapshot.md) | Extract DOM snapshot for inspection |
-
-### Planning & Execution
-
-| Skill | Purpose |
-|---|---|
-| [`/execution-plans`](.claude/commands/execution-plans.md) | Create and manage execution plans |
-| [`/harness:context`](.claude/commands/harness/context.md) | Build minimal context manifest for a plan or domain |
-| [`/harness:evaluate`](.claude/commands/harness/evaluate.md) | Run all evaluation gates; regenerate EVALUATION.md |
-| [`/harness:status`](.claude/commands/harness/status.md) | Show current harness status |
-| [`/coordinate`](.claude/commands/coordinate.md) | Cross-agent task conflict dashboard |
-| [`/context-handoff`](.claude/commands/context-handoff.md) | Write or resume a session handoff |
-| [`/harness:resume`](.claude/commands/harness/resume.md) | Resume from a previous agent session |
-
-### Specifications & Standards
-
-| Skill | Purpose |
-|---|---|
-| [`/logging-convention`](.claude/commands/logging-convention.md) | Generate SPEC.md (logging convention) |
-| [`/log-format-linter`](.claude/commands/log-format-linter.md) | Lint structured log files against SPEC.md |
-| [`/health-check-endpoint`](.claude/commands/health-check-endpoint.md) | Generate HEALTH_CHECK_SPEC.md |
-| [`/create-spec`](.claude/commands/create-spec.md) | Create a project specification (XML) |
-| [`/detect-api-style`](.claude/commands/detect-api-style.md) | Detect REST / GraphQL / gRPC API style |
-
-### Quality Gates
-
-| Skill | Purpose |
-|---|---|
-| [`/harness:coverage-gate`](.claude/commands/harness/coverage-gate.md) | Evaluate test coverage gate |
-| [`/harness:lint`](.claude/commands/harness/lint.md) | Run harness lint checks |
-| [`/type-safety-gate`](.claude/commands/type-safety-gate.md) | Enforce type annotation completeness |
-| [`/harness:security-check-gate`](.claude/commands/harness/security-check-gate.md) | Run security checks |
-| [`/harness:principles-gate`](.claude/commands/harness/principles-gate.md) | Verify principles compliance |
-| [`/doc-freshness-gate`](.claude/commands/doc-freshness-gate.md) | Check documentation freshness |
-| [`/harness:docs-freshness`](.claude/commands/harness/docs-freshness.md) | Harness docs freshness gate |
-
-### Infrastructure & Lifecycle
-
-| Skill | Purpose |
-|---|---|
-| [`/harness:boot`](.claude/commands/harness/boot.md) | Boot agent instance in isolated worktree |
-| [`/harness:create`](.claude/commands/harness/create.md) | Create a new harness task |
-| [`/harness:update`](.claude/commands/harness/update.md) | Update harness task state |
-| [`/harness:handoff`](.claude/commands/harness/handoff.md) | Structured handoff between agent sessions |
-| [`/harness:task-lock`](.claude/commands/harness/task-lock.md) | Acquire or release a task lock |
-| [`/harness:shared-state`](.claude/commands/harness/shared-state.md) | Read / write shared agent state |
-| [`/harness:telemetry`](.claude/commands/harness/telemetry.md) | Emit and query harness telemetry |
-| [`/harness:performance`](.claude/commands/harness/performance.md) | Run performance benchmarks |
-| [`/harness:completion-report`](.claude/commands/harness/completion-report.md) | Generate task completion report |
-| [`/harness:effectiveness`](.claude/commands/harness/effectiveness.md) | Effectiveness dashboard |
-| [`/harness:detect-stale`](.claude/commands/harness/detect-stale.md) | Detect stale execution plans |
-| [`/harness:error-aggregation`](.claude/commands/harness/error-aggregation.md) | Aggregate and query error logs |
-| [`/harness-init`](.claude/commands/harness-init.md) | Initialise a new harness project |
-| [`/harness-changelog`](.claude/commands/harness-changelog.md) | Update the harness changelog |
-| [`/progress-log`](.claude/commands/progress-log.md) | Append to the execution progress log |
-| [`/observability`](.claude/commands/observability.md) | Observability stack setup |
-| [`/harness:observability`](.claude/commands/harness/observability.md) | Harness observability configuration |
-| [`/ci-pipeline`](.claude/commands/ci-pipeline.md) | CI pipeline integration |
-| [`/expand-project`](.claude/commands/expand-project.md) | Expand project scaffolding |
-| [`/pool-status`](.claude/commands/pool-status.md) | Agent pool status |
-| [`/module-boundaries`](.claude/commands/module-boundaries.md) | Module boundary enforcement |
-| [`/claw-forge-status`](.claude/commands/claw-forge-status.md) | claw-forge orchestrator status |
-| [`/create-bug-report`](.claude/commands/create-bug-report.md) | Create structured bug report |
-
----
-
-*Generated by `/agents-md`. Re-run to refresh after adding new documents or skills.*
 ```
 
-Use `git rev-parse --short HEAD 2>/dev/null || echo "unknown"` to get the HEAD SHA.
-Use today's date for `last_updated`.
+2. **Browser Automation** section (if detected — Step 4)
+3. **Testing Conventions** section (always — Step 3)
+
+When updating an existing `AGENTS.md`:
+- Re-write the auto-generated header block in-place (between the comment markers).
+- Replace sections that already exist with the freshly generated content.
+- Preserve any manually-written sections that are not listed above.
+
+When `--section testing` is passed, update only the Testing Conventions section
+and the header timestamp; leave all other sections untouched.
+
+When `--dry-run` is passed, print the full file to stdout; do not write to disk.
 
 ---
 
-### Step 6 — Report
-
-Print a summary:
+### Step 6 — Emit a summary
 
 ```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  /agents-md — Documentation Cross-Linker
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  AGENTS.md Generator — complete
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Documents discovered: <N>
-  Cross-link blocks written/updated: <N>
-  Relationship edges added: <N>
-  Git workflow block in AGENTS.md: refreshed
-  DOCS_INDEX.md: refreshed
+  Sections written
+  ─────────────────────────────────────────────────────
+  ✅ Auto-generated header   (last_updated: <date>)
+  ✅ Browser Automation      (framework: <playwright|none>)
+  ✅ Testing Conventions     (runner: <pytest>, coverage: <N>%)
+  ─────────────────────────────────────────────────────
 
-  Navigation hub: DOCS_INDEX.md
-  Re-run any time: /agents-md
+  Output: <path>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Next steps
+  • Commit: git add <path>
+  • Validate freshness: /harness:docs-freshness
+  • Run quality gates:  /harness:evaluate
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## Flags
+## Options
 
-| Flag | Behaviour |
+| Flag | Default | Effect |
+|---|---|---|
+| `--section SECTION` | all | Regenerate only `testing` or `browser`; leave other sections untouched |
+| `--output PATH` | `AGENTS.md` | Destination file path |
+| `--dry-run` | off | Print to stdout; do not write to disk |
+
+---
+
+## Output artifacts
+
+| Artifact | Description |
 |---|---|
-| `--dry-run` | Print what would be changed without writing any files |
-| `--file <path>` | Update cross-links for a single file only |
-| `--no-index` | Skip regenerating DOCS_INDEX.md |
-| `--index-only` | Regenerate DOCS_INDEX.md only; skip per-file cross-link updates |
-| `--no-git-workflow` | Skip refreshing the git workflow block in AGENTS.md |
-| `--git-workflow-only` | Refresh the git workflow block in AGENTS.md only |
+| `AGENTS.md` | Created or updated with Browser Automation and Testing Conventions sections |
+
+---
+
+## When to use this skill
+
+| Scenario | Recommended skill |
+|---|---|
+| AGENTS.md is missing or has no testing conventions | **`/agents-md`** ← you are here |
+| AGENTS.md exists but testing section is stale | **`/agents-md --section testing`** |
+| Check whether AGENTS.md references are still valid | `/harness:docs-freshness` |
+| Run all quality gates including docs freshness | `/harness:evaluate` |
+| Regenerate just the browser automation section | `/browser-automation` |
 
 ---
 
 ## Notes
 
-- **Idempotent** — safe to re-run any time. Existing blocks are replaced, not duplicated.
-- **Read-only check** — the skill reads every file before editing it (satisfies PRINCIPLES.md §3.1).
-- **Relative paths only** — all links use paths relative to the file being edited so they work in any clone location.
-- **Does not commit** — stage and commit with `/checkpoint` after reviewing the diff.
-- **Git workflow source** — the workflow block in `AGENTS.md` is derived from `docs/plan-to-pr-convention.md`. Edit the convention there; re-run `/agents-md` to propagate changes.
-- **Trigger events** — re-run after: `/module-boundaries`, `/define-principles`, `/logging-convention`, `/health-check-endpoint`, `/harness:evaluate`, or any time a new `*.md` file is added to the root or `docs/` directory.
+- **Merge-safe** — existing sections not targeted by this invocation are
+  preserved verbatim; only the auto-generated header and selected sections are
+  replaced.
+- **Never auto-commits** — review the generated content before committing.
+- **Idempotent** — running `/agents-md` twice on an unchanged codebase produces
+  an identical file on the second run (same date, same HEAD, same conventions).
+- **Validation** — after writing, run `/harness:docs-freshness` to confirm all
+  file references in the new content are resolvable.
