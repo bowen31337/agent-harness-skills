@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""Generate harness_symbols.json — a symbol index for the project.
+
+Walks all Python files under the project root, extracts class names,
+function names (sync and async), and maps each to its file path and
+line number.  The output file can be used by agents to look up a symbol
+without scanning the entire codebase.
+
+Usage:
+    python scripts/generate_symbol_index.py
+    python scripts/generate_symbol_index.py --output harness_symbols.json
+    python scripts/generate_symbol_index.py --root src/ --exclude "tests/**"
+    python scripts/generate_symbol_index.py --include-private
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import fnmatch
+import json
+import sys
+from datetime import date, timezone, datetime
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+
+DEFAULT_OUTPUT = "harness_symbols.json"
+
+EXCLUDE_DIRS: frozenset[str] = frozenset(
+    {
+        "__pycache__",
+        ".git",
+        ".tox",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".pytest_cache",
+        "node_modules",
+        "dist",
+        "build",
+        ".venv",
+        "venv",
+        "env",
+        ".env",
+        "site-packages",
+    }
+)
+
+SCHEMA_VERSION = "1.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Symbol extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_symbols(
+    source: str,
+    rel_path: str,
+    *,
+    include_private: bool = False,
+) -> list[dict]:
+    """Return a list of symbol records from *source* (Python source text).
+
+    Each record has the shape::
+
+        {"name": str, "type": "class" | "function" | "async_function",
+         "file": str, "line": int}
+    """
+    try:
+        tree = ast.parse(source, filename=rel_path)
+    except SyntaxError:
+        return []
+
+    symbols: list[dict] = []
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            name = node.name
+            if not include_private and name.startswith("_"):
+                continue
+            symbols.append(
+                {
+                    "name": name,
+                    "type": "class",
+                    "file": rel_path,
+                    "line": node.lineno,
+                }
+            )
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            name = node.name
+            if not include_private and name.startswith("_"):
+                continue
+            sym_type = (
+                "async_function"
+                if isinstance(node, ast.AsyncFunctionDef)
+                else "function"
+            )
+            symbols.append(
+                {
+                    "name": name,
+                    "type": sym_type,
+                    "file": rel_path,
+                    "line": node.lineno,
+                }
+            )
+
+    # Sort by line number so the index reads top-to-bottom per file
+    symbols.sort(key=lambda s: s["line"])
+    return symbols
+
+
+def _is_excluded(path: Path, exclude_globs: list[str]) -> bool:
+    """Return True if *path* matches any exclusion glob or sits inside an excluded dir."""
+    parts = path.parts
+    for part in parts:
+        if part in EXCLUDE_DIRS:
+            return True
+    rel_str = str(path)
+    return any(fnmatch.fnmatch(rel_str, g) for g in exclude_globs)
+
+
+# ---------------------------------------------------------------------------
+# Main logic
+# ---------------------------------------------------------------------------
+
+
+def build_index(
+    root: Path,
+    output: Path,
+    *,
+    include_globs: list[str],
+    exclude_globs: list[str],
+    include_private: bool,
+) -> dict:
+    """Walk *root*, collect symbols, write *output*, return the index dict."""
+    all_symbols: list[dict] = []
+
+    py_files = sorted(root.rglob("*.py"))
+    processed = 0
+
+    for abs_path in py_files:
+        rel_path = abs_path.relative_to(root)
+
+        if _is_excluded(rel_path, exclude_globs):
+            continue
+
+        if include_globs and not any(
+            fnmatch.fnmatch(str(rel_path), g) for g in include_globs
+        ):
+            continue
+
+        try:
+            source = abs_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        symbols = extract_symbols(
+            source,
+            rel_path=str(rel_path),
+            include_private=include_private,
+        )
+        all_symbols.extend(symbols)
+        processed += 1
+
+    index = {
+        "version": SCHEMA_VERSION,
+        "generated_at": date.today().isoformat(),
+        "description": (
+            "Symbol index mapping function names, class names, and key identifiers "
+            "to file paths and line numbers. "
+            "Generated by /harness:symbol-index skill."
+        ),
+        "project_root": ".",
+        "total_symbols": len(all_symbols),
+        "symbols": all_symbols,
+    }
+
+    output.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
+    return index
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Generate harness_symbols.json symbol index for Python codebases.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    p.add_argument(
+        "--root",
+        default=".",
+        metavar="DIR",
+        help="Project root to scan (default: current directory).",
+    )
+    p.add_argument(
+        "--output",
+        default=DEFAULT_OUTPUT,
+        metavar="FILE",
+        help=f"Output path for the symbol index (default: {DEFAULT_OUTPUT}).",
+    )
+    p.add_argument(
+        "--include",
+        dest="include_globs",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="Only index files matching GLOB (relative path). May be repeated.",
+    )
+    p.add_argument(
+        "--exclude",
+        dest="exclude_globs",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="Exclude files matching GLOB (relative path). May be repeated.",
+    )
+    p.add_argument(
+        "--include-private",
+        action="store_true",
+        default=False,
+        help="Also index private symbols (names starting with '_').",
+    )
+    p.add_argument(
+        "--quiet",
+        action="store_true",
+        default=False,
+        help="Suppress progress output.",
+    )
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+
+    root = Path(args.root).resolve()
+    if not root.is_dir():
+        print(f"error: root directory not found: {root}", file=sys.stderr)
+        return 1
+
+    output = Path(args.output)
+    if not output.is_absolute():
+        output = root / output
+
+    if not args.quiet:
+        print(f"Scanning {root} …", flush=True)
+
+    index = build_index(
+        root,
+        output,
+        include_globs=args.include_globs,
+        exclude_globs=args.exclude_globs,
+        include_private=args.include_private,
+    )
+
+    if not args.quiet:
+        print(
+            f"✅  harness_symbols.json written — "
+            f"{index['total_symbols']} symbols indexed "
+            f"→ {output.relative_to(root) if output.is_relative_to(root) else output}"
+        )
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
