@@ -257,11 +257,17 @@ Consumers should:
 
 ---
 
-### Step 3.5: Write EVALUATION.md with version identifier and generation timestamp
+### Step 3.5: Write EVALUATION.md — provenance block, completion criteria, and live results
 
-After emitting the structured JSON block, write (or update) `EVALUATION.md` so
-every harness artifact carries a machine-readable provenance block that enables
-staleness detection.
+After emitting the structured JSON block, write (or update) `EVALUATION.md`.
+This file serves **two purposes simultaneously**:
+
+1. **Standing completion criteria** — a stable checklist of what every agent must
+   satisfy before opening a PR, derived from the active profile in `harness.config.yaml`.
+2. **Live evaluation results** — the outcome of the most recent gate run, so reviewers
+   can see at a glance whether the branch is ready.
+
+#### 3.5.1 — Gather provenance data
 
 ```bash
 RUN_DATE=$(date '+%Y-%m-%d')
@@ -271,6 +277,32 @@ HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
 HEAD_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "no-git")
 SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 ```
+
+#### 3.5.2 — Read the active profile from harness.config.yaml
+
+Parse `harness.config.yaml` to determine which gates are enabled, their
+`fail_on_error` setting, and any thresholds (coverage %, staleness days, etc.).
+Build two lists from the active profile's `gates:` section:
+
+- **blocking_gates** — gates where `enabled: true` AND `fail_on_error: true`
+- **advisory_gates** — gates where `enabled: true` AND `fail_on_error: false`
+- **disabled_gates** — gates where `enabled: false`
+
+Map each blocking/advisory gate to a human-readable requirement string:
+
+| Gate | Requirement string |
+|---|---|
+| `regression` | `All tests pass — zero failures in the full suite` |
+| `coverage` | `Project-wide line coverage ≥ <threshold> %` |
+| `security` | `No CVEs ≥ <severity_threshold>; no hardcoded secrets` |
+| `performance` | `P95 response time ≤ <budget_ms> ms; ≤ <regression_threshold_pct> % regression` |
+| `architecture` | `No circular dependencies, layer violations, or coupling violations` |
+| `principles` | `No violations of rules in <principles_file>` |
+| `docs_freshness` | `<tracked_files> updated within the last <max_staleness_days> days` |
+| `types` | `Zero type errors (mypy/pyright${strict ? " --strict" : ""})` |
+| `lint` | `No ruff violations` |
+
+#### 3.5.3 — Write the file
 
 Write `EVALUATION.md` using this exact structure:
 
@@ -285,7 +317,64 @@ artifact: evaluation
 
 # Evaluation Report
 
+> Profile: `<active_profile>` · Config: `harness.config.yaml`
 > Last run: <RUN_DATE> <RUN_TIME>  ·  Branch: <HEAD_BRANCH>  ·  SHA: <HEAD_HASH>
+
+---
+
+## PR Completion Criteria
+
+All agents **must** satisfy the following criteria before opening a pull request.
+Items marked 🔴 **BLOCKING** prevent merge; 🟡 **ADVISORY** items are strongly recommended.
+
+| # | Gate | Requirement | Severity |
+|---|---|---|---|
+<for each blocking gate, in execution order:>
+| <n> | **<gate_id>** | <requirement string> | 🔴 BLOCKING |
+<for each advisory gate, in execution order:>
+| <n> | **<gate_id>** | <requirement string> | 🟡 ADVISORY |
+
+> Gates disabled in the `<active_profile>` profile and therefore **not** required:
+> `<comma-separated disabled gate names>`
+>
+> Upgrade the profile in `harness.config.yaml` to enable them.
+
+---
+
+### Criteria Definitions
+
+<For each enabled gate (blocking + advisory), emit a subsection:>
+
+#### <N>. <Gate name> Gate — 🔴 BLOCKING / 🟡 ADVISORY
+
+| Setting | Value |
+|---|---|
+| Tool | `<tool name>` |
+| `fail_on_error` | `<true/false>` |
+| <gate-specific threshold rows…> | |
+
+**Requirement:** <requirement string, expanded with actionable detail>
+
+**How to verify:**
+```bash
+<the relevant harness evaluate --gate <id> command>
+```
+
+**Fix:** <one-sentence actionable fix hint>
+
+---
+
+<end per-gate loop>
+
+## Merge Readiness Decision Table
+
+| Blocking failures | Warnings / Advisory | Decision |
+|---|---|---|
+| 0 | 0 | ✅ **Ready to merge** |
+| 0 | > 0 | 🟡 **May merge** — address warnings before review |
+| > 0 | any | 🔴 **Not ready** — fix all blocking violations first |
+
+---
 
 ## Summary
 
@@ -298,31 +387,54 @@ artifact: evaluation
 | Skipped | <skipped_gates> |
 | Blocking failures | <blocking_failures> |
 | Total violations | <total_failures> |
+| Branch | <HEAD_BRANCH> |
+| SHA | <HEAD_HASH> |
+| Generated at | <RUN_DATE> <RUN_TIME> |
+
+---
 
 ## Gate Results
 
 | Gate | Status | Duration | Failures |
 |---|---|---|---|
-| regression | ✅ / ❌ / ⏭ | <N ms> | <K> |
-| coverage | … | … | … |
-| security | … | … | … |
-| performance | … | … | … |
-| architecture | … | … | … |
-| principles | … | … | … |
-| docs_freshness | … | … | … |
-| types | … | … | … |
-| lint | … | … | … |
+<for each gate in execution order — use live gate_results[] data:>
+| <gate_id> | ✅ / ❌ / ⏭ / ⚠️ | <N ms> | <K> |
+<for each disabled gate:>
+| <gate_id> | ⏭ disabled (<active_profile>) | — | — |
 
-*Populate table rows from `gate_results[]` in the `EvaluationReport`.*
+<If there are blocking failures (severity == "error"), add:>
+
+### 🔴 Blocking Violations — Must fix before merge
+
+<list each error-severity GateFailure in the same format as Step 2>
+
+<If there are warnings (severity == "warning"), add:>
+
+### 🟡 Warnings — Advisory
+
+<list each warning-severity GateFailure>
+
+---
+
+<!-- CUSTOM-START -->
+<!-- Add any project-specific notes or exceptions below this line.
+     This section is preserved verbatim when /harness:evaluate regenerates the file. -->
+<!-- CUSTOM-END -->
 ```
 
 **Rules:**
 - If `EVALUATION.md` already exists and has a `<!-- harness:auto-generated … -->`
-  block, replace that block and the Summary + Gate Results sections in-place.
-  Any content below a `<!-- CUSTOM-START -->` marker is preserved verbatim.
+  block, replace the auto-generated block, the **PR Completion Criteria** section,
+  the **Merge Readiness Decision Table**, **Summary**, and **Gate Results** sections
+  in-place. Any content between `<!-- CUSTOM-START -->` and `<!-- CUSTOM-END -->`
+  markers is preserved verbatim — never overwrite it.
+- The **Criteria Definitions** subsections (per-gate detail) are also regenerated
+  from the active profile on each run, so they stay in sync with `harness.config.yaml`.
 - Stage the file with `git add EVALUATION.md` but do **not** auto-commit.
 - In `--format json` mode (CI/agent invocations), still write the file but
   suppress the ASCII banner to keep stdout clean.
+- If `harness.config.yaml` cannot be read, fall back to listing all 9 standard
+  gates as "SKIPPED (config unavailable)" in the criteria table.
 
 ---
 
