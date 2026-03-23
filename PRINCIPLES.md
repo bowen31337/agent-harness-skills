@@ -1,8 +1,66 @@
-<!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-23
-head: module-boundaries-rescan
+<\!-- harness:auto-generated — do not edit this block manually -->
+last_updated: 2026-03-22
+head: 1ac8ffa
 artifact: principles
-<!-- /harness:auto-generated -->
+<\!-- /harness:auto-generated -->
+
+# Project Principles
+
+> Source of truth: `.claude/principles.yaml` — edit principles with `/define-principles`.
+
+| ID | Category | Severity | Applies to | Rule |
+|---|---|---|---|---|
+| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan that produced it |
+| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to the `plans/` directory before a PR is opened |
+| P003 | traceability | 🟡 suggestion | review-pr, check-code | The plan reference must appear as a structured field `Plan: <path-or-url>` at the top of the PR body |
+| P004 | traceability | 🟡 suggestion | review-pr | If a PR deviates from its source plan, a `Deviations:` section must be included in the PR body |
+| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft` |
+| P006 | ci | 🔴 blocking | review-pr, check-code | The CI pipeline must include a principles compliance gate step that exits non-zero on any blocking violation |
+| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow the Arrange-Act-Assert (AAA) structure with blank lines separating each phase |
+| P008 | testing | 🔴 blocking | review-pr, check-code | Test function names must follow `test_<unit>_<scenario>_<expected_outcome>` |
+| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible; shared mutable fixtures must live in conftest.py |
+| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test |
+| P011 | style | 🔴 blocking | review-pr, check-code | No magic numbers: every numeric literal with domain or configuration meaning must be extracted to a named constant in UPPER_SNAKE_CASE (pure constants → `src/<pkg>/constants.py`; runtime-tunable values → config object or env var) |
+| P012 | style | 🔴 blocking | review-pr, check-code | No hardcoded strings: config strings (URLs, hostnames, queue names) must come from env vars via `src/config.py` (Pydantic BaseSettings); shared string constants go in `constants.py` or a `StrEnum`; test-only sentinels go in the test file or `tests/constants.py` |
+| P013 | style | 🟡 suggestion | review-pr, check-code | Imports: four-group isort order (future → stdlib → third-party → first-party); `from __future__ import annotations` first |
+| P014 | naming | 🔴 blocking | review-pr, check-code | All Python functions and methods must use `snake_case`; private helpers must be prefixed `_snake_case` |
+| P015 | naming | 🔴 blocking | review-pr, check-code | All local variables and parameters must use descriptive `snake_case`; single-letter names forbidden outside loop counters |
+| P016 | naming | 🔴 blocking | review-pr, check-code | All class names must use `PascalCase`; test classes must begin with `Test` |
+| P017 | naming | 🔴 blocking | review-pr, check-code | All Python source files must use `snake_case.py`; directories must use `snake_case/` |
+| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants: public `UPPER_SNAKE_CASE`, private `_UPPER_SNAKE_CASE` |
+| P019 | naming | 🔴 blocking | review-pr, check-code | All Enum and StrEnum members must use `UPPER_SNAKE_CASE` |
+| P020 | naming | 🔴 blocking | review-pr, check-code | All Pydantic model fields and ORM column names must use `snake_case` |
+| P021 | error-handling | 🔴 blocking | review-pr, check-code | All application errors must be structured exception classes with `code`, `message`, and `context` fields |
+| P022 | error-handling | 🔴 blocking | review-pr, check-code | Every error code must follow `<DOMAIN>_<NOUN>_<VERB>` UPPER_SNAKE_CASE and be declared in a `StrEnum` |
+| P023 | error-handling | 🔴 blocking | review-pr, check-code | All log statements must use the structured logging format via `logging.getLogger(__name__)` |
+| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations must be async/await; blocking calls forbidden inside coroutines |
+| P025 | concurrency | 🔴 blocking | review-pr, check-code | All mutable state shared between coroutines must be protected by `asyncio.Lock` used as async context manager |
+| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background poll loops must implement graceful shutdown via `asyncio.Event` + `asyncio.wait_for` |
+| P027 | concurrency | 🔴 blocking | review-pr, check-code | Cross-process/multi-agent coordination must use filesystem locks (atomic file creation or fcntl.flock) |
+| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O must use `httpx.AsyncClient` as async context manager with explicit timeout |
+| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions must be driven from async context; entry point must use `anyio.run(main)` |
+| P030 | concurrency | 🟡 suggestion | review-pr, check-code | `sync_playwright()` is permitted only inside test files and test-support helpers |
+| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation must occur exclusively at system boundaries; not inside domain services or repositories |
+| P032 | architecture | 🔴 blocking | review-pr, check-code | Before writing a new helper, check shared packages for an equivalent; duplicates are a blocking violation |
+| MB001 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills` root: import from sub-package roots only; never from `harness_skills.<submodule>` directly |
+| MB002 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/cli`: all external imports via `harness_skills.cli`; `_emit` must not be imported outside the cli subpackage |
+| MB003 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/gates`: all external imports via `harness_skills.gates`; fix deep-import and private-symbol test violations |
+| MB004 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/generators`: all external imports via `harness_skills.generators` subpackage root |
+| MB005 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/models`: all external imports via `harness_skills.models`; migrate all submodule-direct violations |
+| MB006 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/plugins`: all external imports via `harness_skills.plugins`; `_record_telemetry` must not be imported externally |
+| MB007 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/utils`: do not import from `harness_skills.utils.<module>` outside the utils package |
+| MB008 | architecture | 🔴 blocking | review-pr, check-code | `harness_dashboard`: all external imports via `harness_dashboard` package root |
+| MB009 | architecture | 🔴 blocking | review-pr, check-code | `dom_snapshot_utility`: all external imports via `dom_snapshot_utility` package root |
+| MB010 | architecture | 🔴 blocking | review-pr, check-code | `log_format_linter`: all external imports via `log_format_linter` package root |
+| MB011 | architecture | 🔴 blocking | review-pr, check-code | LOGGING PROVIDER: all production code must obtain loggers via `get_logger()` from `harness_skills.logging_config` only |
+| MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER: all harness.config.yaml reads must go through `HarnessConfigLoader`; no raw `yaml.safe_load()` |
+| MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: `os.environ.get()` for sensitive values permitted only in designated bootstrap/entry-point modules |
+| MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: logging, config, and secrets must always flow through their designated provider; no bypass |
+
+*46 principles active.*
+
+---
+
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
 > Each rule is stated as a short imperative, followed by its rationale and a concrete example.
@@ -572,11 +630,11 @@ deliverable.
 ---
 
 ## 11. Module Boundary Rules
-> Generated by `/module-boundaries`. IDs MB001–MB014. Last updated: 2026-03-22 (re-run). Re-run `/module-boundaries` to refresh.
+> Generated by `/module-boundaries`. IDs MB001–MB014. Last updated: 2026-03-20 (re-run). Re-run `/module-boundaries` to refresh.
 
-10 Python packages scanned. `__all__` declared in all 10 packages. Two new production
-violations discovered in MB002 (cli) and MB004 (generators) since the 2026-03-20 scan.
-Open violations remain and are listed per-domain in the principles below — migrate them on next touch.
+10 Python packages scanned. `__all__` has now been declared in all 10 packages.
+Open violations (callers that still bypass `__init__` via deep submodule imports) remain
+and are listed per-domain in the principles below — migrate them on next touch.
 
 ### 11.1 Never bypass a package's `__init__.py` with deep submodule imports (MB001–MB010)
 
@@ -585,20 +643,20 @@ couples callers to implementation details, makes refactoring painful, and defeat
 the purpose of the package boundary. Every symbol a caller needs must be re-exported
 through the package root's `__all__`.
 
-**Status per domain (2026-03-22 scan):**
+**Status per domain (current, post-fix):**
 
 | Domain | Surface | Open violations |
 |--------|---------|-----------------|
 | `harness_skills` | ✅ EXPLICIT (`__all__ = []`) | 0 |
-| `harness_skills/cli` | ✅ EXPLICIT (5 symbols) | 5 (telemetry_reporter + resume bypass cli.fmt/cli.verbosity; test imports `_emit`; +2 line # shifts) |
-| `harness_skills/gates` | ✅ EXPLICIT (9 public symbols) | 5 (1 deep import in gates/runner + 4 private-symbol tests) |
-| `harness_skills/generators` | ✅ EXPLICIT | 8 (cli: lint/evaluate/create/manifest bypasses + 3 test bypasses; manifest/config symbols absent from `__all__`) |
+| `harness_skills/cli` | ✅ EXPLICIT (`cli`, `PipelineGroup`) | 1 (test imports `_emit`) |
+| `harness_skills/gates` | ✅ EXPLICIT (9 public symbols) | 5 (1 deep import + 4 private-symbol tests) |
+| `harness_skills/generators` | ✅ EXPLICIT | 7 (cli: evaluate/create/manifest bypasses + 3 test bypasses; manifest/config symbols absent from `__all__`) |
 | `harness_skills/models` | ✅ EXPLICIT (gate_configs now included) | ~17 (production + tests) |
 | `harness_skills/plugins` | ✅ EXPLICIT | 7 (tests bypass + import `_record_telemetry`) |
 | `harness_skills/utils` | ✅ EXPLICIT (`__all__ = []`) | 0 |
 | `harness_dashboard` | ✅ EXPLICIT (6 public symbols) | 5 (tests bypass) |
-| `dom_snapshot_utility` | ✅ EXPLICIT | 1 (test bypasses `dom_snapshot_utility.snapshot`) |
-| `log_format_linter` | ✅ EXPLICIT | 1 (test bypasses `log_format_linter.cli`) |
+| `dom_snapshot_utility` | ✅ EXPLICIT | 1 (test bypasses) |
+| `log_format_linter` | ✅ EXPLICIT | 1 (test bypasses) |
 
 **Example:**
 - DO: `from harness_skills.plugins import PluginGateConfig, run_plugin_gates`
