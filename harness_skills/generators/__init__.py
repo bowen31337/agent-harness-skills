@@ -10,6 +10,11 @@ from harness_skills.generators.evaluation import (
     Severity,
     run_all_gates,
 )
+from harness_skills.generators.import_convention_detector import (
+    ImportConventionResult,
+    detect_import_conventions,
+    generate_import_principle,
+)
 
 __all__ = [
     "detect_stack",
@@ -18,6 +23,9 @@ __all__ = [
     "GateId",
     "GateResult",
     "GateStatus",
+    "ImportConventionResult",
     "Severity",
+    "detect_import_conventions",
+    "generate_import_principle",
     "run_all_gates",
 ]
