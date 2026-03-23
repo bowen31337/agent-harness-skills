@@ -143,16 +143,41 @@ def _render_performance(cfg: PerformanceGateConfig) -> str:
 
 def _render_architecture(cfg: ArchitectureGateConfig) -> str:
     rules = "\n".join(f"          - {r}" for r in cfg.rules)
-    layers = ", ".join(cfg.layer_order)
-    return (
+    out = (
         "      architecture:                     # Import layer-violation detection (AST)\n"
         f"        enabled: {_b(cfg.enabled)}\n"
         f"        fail_on_error: {_b(cfg.fail_on_error)}\n"
         f"        rules:\n{rules}\n"
-        f"        layer_order: [{layers}]\n"
+    )
+    if cfg.layer_definitions:
+        # Fully custom layer definitions with aliases take highest priority
+        out += "        layer_definitions:            # custom layers; overrides arch_style and layer_order\n"
+        for ld in cfg.layer_definitions:
+            aliases = ld.get("aliases", [])
+            out += f"          - name: {ld['name']}\n"
+            out += f"            rank: {ld.get('rank', 0)}\n"
+            if aliases:
+                out += "            aliases:\n"
+                for alias in aliases:
+                    out += f"              - {alias}\n"
+    elif cfg.arch_style:
+        # Named preset — use arch_style instead of layer_order
+        out += (
+            f"        arch_style: {cfg.arch_style}"
+            "              # clean | hexagonal | mvc | ddd | layered\n"
+        )
+    else:
+        # Backward-compatible plain layer_order list
+        layers = ", ".join(cfg.layer_order)
+        out += (
+            f"        layer_order: [{layers}]"
+            "          # or use arch_style / layer_definitions for richer control\n"
+        )
+    out += (
         f"        report_only: {_b(cfg.report_only)}"
         "            # set true to warn without failing\n"
     )
+    return out
 
 
 def _render_principles(cfg: PrinciplesGateConfig) -> str:

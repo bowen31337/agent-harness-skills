@@ -78,6 +78,7 @@ from harness_skills.models.gate_configs import (
     TypesGateConfig,
     GATE_CONFIG_CLASSES,
     PROFILE_GATE_DEFAULTS,
+    ARCHITECTURE_STYLE_PRESETS,
 )
 from harness_skills.models.base import GateResult as BaseGateResult, Status
 from harness_skills.plugins.loader import load_plugin_gates
@@ -608,30 +609,100 @@ def check_performance(
     return []
 
 
+def _resolve_layer_definitions(
+    cfg: ArchitectureGateConfig,
+) -> list[dict[str, Any]]:
+    """Return the final ordered layer definitions to use for enforcement.
+
+    Resolution priority (highest to lowest):
+
+    1. ``cfg.layer_definitions`` — explicit per-layer dicts with ``name``,
+       ``rank``, and ``aliases``.  Allows engineers to define any layer stack
+       for custom architectural styles.
+    2. ``cfg.arch_style``        — named preset from
+       :data:`~harness_skills.models.gate_configs.ARCHITECTURE_STYLE_PRESETS`
+       (e.g. ``"hexagonal"``, ``"ddd"``).  An unrecognised style name falls
+       through to the next option.
+    3. ``cfg.layer_order``       — plain ordered name list; backward-compatible
+       default with no alias support.
+
+    Returns
+    -------
+    list[dict]
+        Dicts with keys ``name`` (str), ``rank`` (int), and ``aliases``
+        (list[str]), sorted ascending by ``rank``.
+    """
+    # 1. Explicit layer_definitions override everything
+    if cfg.layer_definitions:
+        result: list[dict[str, Any]] = []
+        for i, ld in enumerate(cfg.layer_definitions):
+            if not isinstance(ld, dict):
+                continue
+            result.append({
+                "name": str(ld.get("name", f"layer_{i}")),
+                "rank": int(ld.get("rank", i)),
+                "aliases": [str(a) for a in ld.get("aliases", [])],
+            })
+        return sorted(result, key=lambda x: x["rank"])
+
+    # 2. Named architecture style preset
+    if cfg.arch_style and cfg.arch_style in ARCHITECTURE_STYLE_PRESETS:
+        return list(ARCHITECTURE_STYLE_PRESETS[cfg.arch_style])
+
+    # 3. Backward-compatible plain layer_order list
+    return [
+        {"name": layer, "rank": i, "aliases": []}
+        for i, layer in enumerate(cfg.layer_order)
+    ]
+
+
 def check_architecture(
     project_root: Path, cfg: ArchitectureGateConfig
 ) -> list[GateFailure]:
-    """Detect import layer violations via AST analysis."""
+    """Detect import layer violations via AST analysis.
+
+    Supports three ways to configure the layer stack (highest priority first):
+
+    1. ``cfg.layer_definitions`` — fully custom layers with name aliases.
+    2. ``cfg.arch_style``        — a named preset such as ``"hexagonal"`` or
+       ``"ddd"`` (see :data:`~harness_skills.models.gate_configs.\
+ARCHITECTURE_STYLE_PRESETS`).
+    3. ``cfg.layer_order``       — plain ordered list (backward-compatible).
+    """
     import ast as _ast
 
-    layer_order = cfg.layer_order
-    layer_rank = {layer: i for i, layer in enumerate(layer_order)}
+    layer_defs = _resolve_layer_definitions(cfg)
+
+    # Build term → canonical layer name mapping (canonical name + all aliases)
+    term_to_layer: dict[str, str] = {}
+    layer_rank: dict[str, int] = {}
+    for ld in layer_defs:
+        canonical = ld["name"]
+        layer_rank[canonical] = ld["rank"]
+        term_to_layer[canonical] = canonical
+        for alias in ld.get("aliases", []):
+            term_to_layer[alias] = canonical
+
     sev = "warning" if cfg.report_only else "error"
     failures: list[GateFailure] = []
 
     def _detect_layer(py_file: Path) -> str | None:
+        """Return the canonical layer name for *py_file*, or ``None``."""
         parts = py_file.relative_to(project_root).parts
         for part in parts:
-            for layer in layer_order:
-                if layer in part.lower():
-                    return layer
+            part_lower = part.lower()
+            for term, canonical in term_to_layer.items():
+                if term in part_lower:
+                    return canonical
         return None
 
     def _module_to_layer(module: str) -> str | None:
+        """Return the canonical layer name for *module*, or ``None``."""
         for segment in module.split("."):
-            for layer in layer_order:
-                if layer in segment.lower():
-                    return layer
+            segment_lower = segment.lower()
+            for term, canonical in term_to_layer.items():
+                if term in segment_lower:
+                    return canonical
         return None
 
     for py_file in sorted(project_root.rglob("*.py")):
@@ -659,6 +730,10 @@ def check_architecture(
                 continue
             if layer_rank.get(imported_layer, -1) > layer_rank.get(file_layer, -1):
                 rel = _repo_rel(py_file, project_root)
+                allowed = ", ".join(
+                    ld["name"] for ld in layer_defs
+                    if ld["rank"] <= layer_rank[file_layer] and ld["name"] != file_layer
+                )
                 failures.append(GateFailure(
                     gate_id="architecture", severity=sev,
                     message=(
@@ -669,10 +744,7 @@ def check_architecture(
                     suggestion=(
                         f"Move `{imported_module}` behind an interface or inject "
                         f"it from a higher layer. {file_layer!r} may only import from: "
-                        + ", ".join(
-                            ll for ll in layer_order
-                            if layer_rank[ll] <= layer_rank[file_layer] and ll != file_layer
-                        ) + "."
+                        + (allowed or "(none — this is the innermost layer)") + "."
                     ),
                     rule_id="arch/layer-violation",
                 ))

@@ -180,7 +180,22 @@ profiles:
           - no_circular_dependencies
           - enforce_layer_boundaries
           - require_interface_contracts
+        # ── Layer stack — choose ONE of the three options below ──────────────
+        # Option 1 (default): plain ordered list, innermost layer first
         layer_order: [domain, application, infrastructure, presentation]
+        # Option 2: named preset — clean | hexagonal | mvc | ddd | layered
+        #   arch_style: hexagonal
+        # Option 3: custom layers with aliases for non-standard directory names
+        #   layer_definitions:
+        #     - name: core
+        #       rank: 0
+        #       aliases: [domain, entities]
+        #     - name: services
+        #       rank: 1
+        #       aliases: [use_cases, application]
+        #     - name: api
+        #       rank: 2
+        #       aliases: [controllers, routes, web]
         report_only: false              # set true to warn without failing
 
       principles:                       # Scan for coding-principle violations
@@ -304,7 +319,25 @@ profiles:
           - require_interface_contracts
           - enforce_naming_conventions
           - max_component_coupling: 5
+        # ── Layer stack — choose ONE of the three options below ──────────────
+        # Option 1 (default): plain ordered list, innermost layer first
         layer_order: [domain, application, infrastructure, presentation]
+        # Option 2: named preset — clean | hexagonal | mvc | ddd | layered
+        #   arch_style: ddd
+        # Option 3: custom layers with aliases for non-standard directory names
+        #   layer_definitions:
+        #     - name: domain
+        #       rank: 0
+        #       aliases: [core, entities, aggregates]
+        #     - name: application
+        #       rank: 1
+        #       aliases: [use_cases, services, commands]
+        #     - name: infrastructure
+        #       rank: 2
+        #       aliases: [repositories, adapters, persistence]
+        #     - name: presentation
+        #       rank: 3
+        #       aliases: [api, controllers, web, ui]
         report_only: false              # set true to warn without failing
 
       principles:                       # Scan for coding-principle violations

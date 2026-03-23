@@ -45,6 +45,56 @@ from typing import Any
 
 
 # ---------------------------------------------------------------------------
+# ARCHITECTURE_STYLE_PRESETS
+# Built-in layer stacks for common architectural styles.  Engineers set
+# ``arch_style`` in harness.config.yaml to use one of these presets instead
+# of specifying a plain ``layer_order`` list.
+#
+# Each entry is a list of layer dicts with the keys:
+#   name    — canonical layer name used in violation messages
+#   rank    — integer ordering; lower rank = more inner / foundational
+#   aliases — additional directory/module name fragments that map to this layer
+# ---------------------------------------------------------------------------
+
+ARCHITECTURE_STYLE_PRESETS: dict[str, list[dict[str, Any]]] = {
+    # Traditional layered architecture
+    "layered": [
+        {"name": "models",       "rank": 0, "aliases": ["model", "entity", "entities"]},
+        {"name": "repositories", "rank": 1, "aliases": ["repo", "repository", "persistence"]},
+        {"name": "services",     "rank": 2, "aliases": ["service", "use_cases", "usecases"]},
+        {"name": "api",          "rank": 3, "aliases": ["controllers", "routes", "views", "handlers"]},
+    ],
+    # Clean Architecture (Uncle Bob)
+    "clean": [
+        {"name": "entities",           "rank": 0, "aliases": ["domain", "core", "model"]},
+        {"name": "use_cases",          "rank": 1, "aliases": ["usecases", "interactors", "application", "services"]},
+        {"name": "interface_adapters", "rank": 2, "aliases": ["adapters", "controllers", "presenters", "gateways"]},
+        {"name": "frameworks_drivers", "rank": 3, "aliases": ["infrastructure", "frameworks", "drivers", "external"]},
+    ],
+    # Hexagonal / Ports-and-Adapters Architecture
+    "hexagonal": [
+        {"name": "domain",         "rank": 0, "aliases": ["core", "entities", "model"]},
+        {"name": "application",    "rank": 1, "aliases": ["use_cases", "services", "ports"]},
+        {"name": "adapters",       "rank": 2, "aliases": ["adapter", "secondary", "primary", "driven", "driving"]},
+        {"name": "infrastructure", "rank": 3, "aliases": ["frameworks", "external", "drivers", "repositories"]},
+    ],
+    # Model-View-Controller
+    "mvc": [
+        {"name": "models",      "rank": 0, "aliases": ["model", "entities", "domain", "data"]},
+        {"name": "controllers", "rank": 1, "aliases": ["controller", "handlers", "routes"]},
+        {"name": "views",       "rank": 2, "aliases": ["view", "templates", "presenters", "ui"]},
+    ],
+    # Domain-Driven Design
+    "ddd": [
+        {"name": "domain",         "rank": 0, "aliases": ["entities", "core", "value_objects", "aggregates"]},
+        {"name": "application",    "rank": 1, "aliases": ["use_cases", "services", "commands", "queries", "handlers"]},
+        {"name": "infrastructure", "rank": 2, "aliases": ["repositories", "adapters", "persistence", "external"]},
+        {"name": "presentation",   "rank": 3, "aliases": ["api", "controllers", "views", "ui", "web"]},
+    ],
+}
+
+
+# ---------------------------------------------------------------------------
 # BaseGateConfig
 # ---------------------------------------------------------------------------
 
@@ -266,12 +316,37 @@ class ArchitectureGateConfig(BaseGateConfig):
     rules:
         Names of the architectural rules to enforce.
     layer_order:
-        Ordered list of architectural layers from innermost to outermost.
-        Imports must respect this order (inner layers must not import
-        from outer layers).
+        Ordered list of architectural layer names from innermost to outermost.
+        Imports must respect this order (inner layers must not import from
+        outer layers).  Used when neither ``arch_style`` nor
+        ``layer_definitions`` is set.
+    arch_style:
+        Named preset that overrides ``layer_order`` with a well-known layer
+        stack.  Supported values: ``"layered"``, ``"clean"``,
+        ``"hexagonal"``, ``"mvc"``, ``"ddd"``.  When set, the preset's
+        layer order *and* name aliases are applied automatically.  An
+        unrecognised value silently falls back to ``layer_order``.
+    layer_definitions:
+        Fully custom layer definitions with optional aliases.  Each entry
+        is a dict with keys:
+
+        * ``name`` (str) — canonical layer name used in messages.
+        * ``rank`` (int) — ordering: lower rank = more inner / foundational.
+        * ``aliases`` (list[str]) — extra directory/module name fragments
+          that map to this layer (e.g. ``["repo", "persistence"]`` for a
+          layer named ``"repositories"``).
+
+        When set, this takes priority over both ``arch_style`` and
+        ``layer_order``.
     report_only:
         When ``True``, violations are emitted as *warnings* rather than
         *errors*, so the gate never blocks a merge.
+
+    Resolution priority (highest to lowest)
+    ----------------------------------------
+    1. ``layer_definitions`` — explicit custom definitions with aliases
+    2. ``arch_style``        — named preset from ARCHITECTURE_STYLE_PRESETS
+    3. ``layer_order``       — plain ordered name list (backward-compatible)
 
     Inherited from :class:`BaseGateConfig`:
         ``enabled``, ``fail_on_error``
@@ -284,6 +359,8 @@ class ArchitectureGateConfig(BaseGateConfig):
     layer_order: list[str] = field(default_factory=lambda: [
         "models", "repositories", "services", "api",
     ])
+    arch_style: str | None = None
+    layer_definitions: list[dict[str, Any]] | None = None
     report_only: bool = False
 
 
