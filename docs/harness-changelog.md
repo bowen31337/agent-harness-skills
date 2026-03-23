@@ -6,45 +6,6 @@ the exact state at that point in time.
 
 ---
 
-## 2026-03-23 — `0e893bd` — feat/architecture-do-skill-generates-an-artifact-changelog-d
-
-> Run at 07:48:24  ·  Diffed from `0bae125`
-
-### Skills  (18 total)
-- ✅ `detect-api-style.md` — Added
-- ✅ `module-boundaries.md` — Added
-- 📝 `define-principles.md` — Modified
-- 📝 `harness/create.md` — Modified
-- 📝 `harness/detect-stale.md` — Modified
-- 📝 `harness/evaluate.md` — Modified
-- 📝 `harness/update.md` — Modified
-
-### Config
-- 📝 `harness-init.sh` — Modified
-- 📝 `harness.config.yaml` — Modified
-
-### Docs
-- 📝 `docs/agent_tool_desig_guidelines.md` — Modified
-- 📝 `docs/harness-changelog.md` — Modified
-- ✅ `docs/design-docs/README.md` — Added
-- ✅ `docs/design-docs/adr/0001-adopt-playwright-for-browser-testing.md` — Added
-- ✅ `docs/design-docs/drafts/.gitkeep` — Added
-- ✅ `docs/design-docs/template.md` — Added
-
-### Spec
-- No spec changes
-
-### Commits
-- `0e893bd` — Skill registers as /harness:plan for creating a new execution plan from a description or ticket reference
-- `7446a2f` — Skill registers as /harness:status for showing current state of all plans, gates, and harness health metrics
-- `e0f047c` — Skill generates a harness.config.yaml with config profiles (starter, standard, advanced) providing progressive complexity; starter profile enables only essential gates and documentation, standard adds architecture enforcement, advanced unlocks all features including telemetry and multi-agent coordination
-- `22f4812` — Skill supports command composition where harness create, harness lint, and harness evaluate can be chained in a single invocation (e.g., harness create --then lint --then evaluate), reducing the number of separate tool invocations agents must reason about
-- `593a28d` — Skill generates a harness init shell script for teams not using Claude Code providing the same functionality via standalone CLI
-- `9c7e5db` — Apply stashed changes from harness update skill branch
-
----
-
-
 ## 2026-03-20 — `0bae125` — feat/architecture-do-skill-generates-an-artifact-changelog-d
 
 > Run at 15:04:18  ·  Diffed from `af3945f`
@@ -200,60 +161,6 @@ the exact state at that point in time.
 
 ---
 
-## 2026-03-14 — `280d7a4` — feat/coding-886b39ee
-
-> Run at 19:08:09  ·  Diffed from `d4656f1`
-
-### Skills  (14 total)
-
-- No skill changes
-
-### Config
-
-- No config changes
-
-### Docs
-
-- ✅ `docs/harness-init.sh` — Added  *(standalone CLI init script for non-Claude Code teams)*
-
-### Spec
-
-- No spec changes
-
-### Commits
-
-- `280d7a4` — Skill registers as /harness:screenshot for capturing application state as a visual artifact
-
----
-
-## 2026-03-14 — `d4656f1` — feat/coding-e4908d0c
-
-> Run at 19:07:53  ·  Diffed from `74b33e7`
-
-### Skills  (14 total)
-
-- ✅ `harness-changelog.md` — Added
-
-### Config
-
-- 📝 `harness.config.yaml` — Modified  *(profiles: starter → standard → advanced)*
-
-### Docs
-
-- 📝 `docs/exec-plans/debt.md` — Modified
-- 📝 `docs/harness-changelog.md` — Modified
-
-### Spec
-
-- No spec changes
-
-### Commits
-
-- `d4656f1` — All CLI commands support a --output-format flag (json, yaml, table) defaulting to table for humans and json when stdout is not a TTY, enabling structured consumption by agents and scripts
-- `4481f54` — CLI commands support --verbosity levels (quiet, normal, verbose, debug) controlling output detail; quiet mode emits only machine-parseable results, verbose mode includes rationale and context
-- `2e471bf` — coding(coding-e5f71cd2): completed
-
----
 ## 2026-03-13 — `74b33e7` — main
 
 > Run at 21:54:10  ·  Diffed from `e17a209`
