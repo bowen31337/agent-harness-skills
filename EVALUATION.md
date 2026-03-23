@@ -1,12 +1,12 @@
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: 2026-03-22
-head: 0e893bd8
+head: 0e893bd
 artifact: evaluation
 <!-- /harness:auto-generated -->
 
 # Evaluation Report
 
-> Last run: 2026-03-22 00:56:18Z  ·  Branch: feat/evaluation-gate-skill-generates-a-harness-evaluate-comm  ·  SHA: 0e893bd8
+> Last run: 2026-03-22 01:07:01Z  ·  Branch: feat/evaluation-gate-skill-generates-an-architectural-compli  ·  SHA: 0e893bd
 
 ## Summary
 
@@ -14,22 +14,22 @@ artifact: evaluation
 |---|---|
 | Result | ❌ FAIL |
 | Gates run | 9 |
-| Passed | 4 |
-| Failed | 5 |
+| Passed | 2 |
+| Failed | 7 |
 | Skipped | 0 |
-| Blocking failures | 3 |
-| Total violations | 750 |
+| Blocking failures | 530 |
+| Total violations | 1348 |
 
 ## Gate Results
 
 | Gate | Status | Duration | Failures |
 |---|---|---|---|
-| regression | ❌ | 1123 ms | 1 |
-| coverage | ❌ | 168 ms | 1 |
-| security | ✅ | 25 ms | 0 |
+| regression | ❌ | 811 ms | 1 |
+| coverage | ❌ | 2964 ms | 72 |
+| security | ✅ | 22 ms | 0 |
 | performance | ✅ | 0 ms | 0 |
-| architecture | ❌ | 31 ms | 1 |
-| principles | ❌ | 218 ms | 743 |
+| architecture | ❌ | 28 ms | 1 |
+| principles | ❌ | 208 ms | 743 |
 | docs_freshness | ❌ | 0 ms | 4 |
-| types | ✅ | 11 ms | 0 |
-| lint | ✅ | 10 ms | 0 |
+| types | ❌ | 230 ms | 1 |
+| lint | ❌ | 104 ms | 526 |
