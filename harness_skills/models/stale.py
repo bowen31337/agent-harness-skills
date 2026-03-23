@@ -89,6 +89,81 @@ class StalePlanSummary(BaseModel):
     )
 
 
+# ── Source file drift models ───────────────────────────────────────────────────
+
+
+class SourceFileDrift(BaseModel):
+    """A source file referenced by a documentation artifact that has been modified
+    since the artifact was last updated — indicating potential documentation drift."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(description="Relative path of the referenced source file.")
+    exists: bool = Field(description="Whether the file currently exists in the repository.")
+    mtime_date: str | None = Field(
+        default=None,
+        description=(
+            "ISO-8601 date (YYYY-MM-DD) of the file's last modification. "
+            "None if the file does not exist."
+        ),
+    )
+    days_newer_than_doc: int | None = Field(
+        default=None,
+        description=(
+            "Number of days by which the file's mtime exceeds the artifact's "
+            "last_updated date.  Positive = file was modified after the doc."
+        ),
+    )
+
+
+class DocumentationDrift(BaseModel):
+    """Drift analysis for a single documentation artifact.
+
+    Tracks which source files the artifact references and detects whether any of
+    those files have been modified since the artifact was last updated.  A high
+    ``drift_ratio`` or ``staleness_score`` signals that the documentation is
+    likely out-of-date relative to the code it describes.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    referenced_files: list[str] = Field(
+        default_factory=list,
+        description=(
+            "All source file paths extracted from the artifact "
+            "(Python imports, backtick spans, explicit file paths)."
+        ),
+    )
+    missing_files: list[str] = Field(
+        default_factory=list,
+        description="Referenced source files that no longer exist in the repository.",
+    )
+    drifted_files: list[SourceFileDrift] = Field(
+        default_factory=list,
+        description=(
+            "Source files that exist but were modified after the artifact's "
+            "last_updated date, indicating the doc may be stale."
+        ),
+    )
+    drift_ratio: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Fraction of referenced files that are either missing or newer than "
+            "the artifact (0.0 = no drift; 1.0 = all references drifted)."
+        ),
+    )
+    staleness_score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Composite staleness score combining artifact age (60 % weight) and "
+            "source-file drift ratio (40 % weight).  "
+            "0.0 = completely fresh; 1.0 = severely stale."
+        ),
+    )
+
+
 # ── Artifact freshness models ─────────────────────────────────────────────────
 
 
@@ -118,6 +193,24 @@ class ArtifactResult(BaseModel):
             "CRITICAL → age > 4×threshold; "
             "ERROR    → file absent."
         )
+    )
+    drift: "DocumentationDrift | None" = Field(
+        default=None,
+        description=(
+            "Source-file drift analysis: which files this artifact references "
+            "and whether any have changed since the artifact was last updated. "
+            "None when drift scanning is skipped or the file is missing."
+        ),
+    )
+    staleness_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Composite staleness score (0.0 = fresh, 1.0 = severely stale) "
+            "combining artifact age and source-file drift ratio. "
+            "None when age is unknown and drift scanning is skipped."
+        ),
     )
 
 

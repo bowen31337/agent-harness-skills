@@ -15,6 +15,7 @@ from harness_skills.models.lock import (
 )
 from harness_skills.models.stale import (
     ArtifactResult, ArtifactStaleness, StaleTask, StalePlanSummary, StalePlanResponse,
+    SourceFileDrift, DocumentationDrift,
 )
 from harness_skills.task_lock import (
     TaskLock, TaskLockProtocol, LockConflictError, LockNotOwnedError,
@@ -42,6 +43,7 @@ __all__ = [
     "LockRecord", "LockStateResponse", "LockOperationResponse", "LockListResponse",
     # stale plan detection
     "ArtifactResult", "ArtifactStaleness", "StaleTask", "StalePlanSummary", "StalePlanResponse",
+    "SourceFileDrift", "DocumentationDrift",
     # task lock
     "TaskLock", "TaskLockProtocol", "LockConflictError", "LockNotOwnedError",
     # errors
