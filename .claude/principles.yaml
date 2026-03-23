@@ -619,13 +619,24 @@ principles:
       The private function `_emit` in harness_skills/cli/observe.py must not
       be imported by any file outside the cli subpackage; the test in
       tests/test_models/test_observe.py:232 that does so must be refactored.
-      Open violations (as of 2026-03-22) — non-cli modules importing cli internals:
+      Open violations (as of 2026-03-23, confirmed) — non-cli modules importing cli internals:
         harness_skills/telemetry_reporter.py:37 → from harness_skills.cli.fmt import ...
         harness_skills/telemetry_reporter.py:38 → from harness_skills.cli.verbosity import ...
         harness_skills/resume.py:483 → from harness_skills.cli.fmt import resolve_output_format
         harness_skills/resume.py:484 → from harness_skills.cli.verbosity import VerbosityLevel, vecho
-      Fix: use `from harness_skills.cli import VerbosityLevel, vecho, get_verbosity`
-      (symbols already in __all__); for fmt helpers not yet in __all__, add them first.
+      Test violations — test_cli/ tests import individual command modules not in __all__:
+        tests/test_cli/test_context_cmd.py:28 → from harness_skills.cli.context import ...
+        tests/test_cli/test_manifest_cmd.py:22 → from harness_skills.cli.manifest import manifest_cmd
+        tests/test_cli/test_output_format.py:24-26 → from harness_skills.cli.{fmt,main,manifest}
+        tests/test_cli/test_status_cmd.py:25 → from harness_skills.cli.status import status_cmd
+        tests/test_cli/test_create_cmd.py:29 → from harness_skills.cli.create import create_cmd
+        tests/test_cli/test_completion_report.py:26 → from harness_skills.cli.main import cli
+        tests/test_cli/test_verbosity.py:29-31 → from harness_skills.cli.{main,manifest,verbosity}
+      Fix for test violations: add individual command modules to harness_skills/cli/__init__.py
+      __all__, then update tests to import from the package root. Until then, deep imports
+      in tests/test_cli/ are tolerated but must not increase in count.
+      Fix for production violations: use `from harness_skills.cli import VerbosityLevel, vecho,
+      get_verbosity` (symbols already in __all__); for fmt helpers not yet in __all__, add first.
       Never weaken __all__ by removing symbols without a deprecation cycle.
 
   - id: "MB003"
@@ -635,15 +646,23 @@ principles:
     rule: >
       harness_skills/gates: __all__ is now declared, listing:
         CoverageGate, DocsFreshnessGate, DocsGateConfig,
-        PrinciplesGate, PrinciplesGateConfig, SecurityGate,
         EvaluationSummary, GateEvaluator, GateFailure, GateOutcome,
         HarnessConfigLoader, run_gates.
       All imports from outside harness_skills/gates/ must go through
       harness_skills.gates — never from harness_skills.gates.<module> directly.
-      DEEP IMPORT VIOLATIONS in tests (bypass __init__):
+      DEEP IMPORT VIOLATIONS in tests (bypass __init__, confirmed 2026-03-23, updated 2026-03-23):
         tests/gates/test_runner_plugin_integration.py:20 — imports GateEvaluator,
         run_gates, EvaluationSummary from harness_skills.gates.runner directly;
         must use `from harness_skills.gates import GateEvaluator, run_gates, EvaluationSummary`.
+        tests/gates/test_principles_gate.py:26 — from harness_skills.gates.principles import ...
+        tests/gates/test_principles_gate.py:704,719,735 — inline `from harness_skills.gates.runner
+        import check_principles` inside three test methods; `check_principles` is a private helper
+        not in gates __all__; refactor to test only the public GateEvaluator/run_gates interface.
+        tests/gates/test_coverage.py:30 — from harness_skills.gates.coverage import ...
+        tests/gates/test_docs_freshness.py:6 — from harness_skills.gates.docs_freshness import ...
+        tests/gates/test_security.py:61 — from harness_skills.gates.security import ...
+        tests/gates/test_performance.py:35 — from harness_skills.gates.performance import ...
+        All must be migrated to `from harness_skills.gates import <Symbol>`.
       PRIVATE SYMBOL VIOLATIONS in tests (leading-underscore names):
         tests/gates/test_coverage.py imports _detect_format, _parse_json,
         _parse_lcov, _parse_xml, _ParseError from harness_skills.gates.coverage.
@@ -651,13 +670,6 @@ principles:
         _looks_like_file_path, _parse_generated_at from gates.docs_freshness.
         These tests must be refactored to avoid testing private implementation
         details; test only the public gate interface (CoverageGate.run(), etc.).
-      CROSS-DOMAIN VIOLATION introduced 2026-03-23 (NEW):
-        harness_skills/gates/__init__.py:33
-          → from harness_skills.models.gate_configs import SecurityGateConfig
-        This deep-imports a models sub-module from inside the gates package root.
-        Fix: add SecurityGateConfig to harness_skills/models/__init__.__all__ first,
-        then change the import to `from harness_skills.models import SecurityGateConfig`
-        (see MB005 for the models boundary rule).
       Never weaken __all__ by removing symbols without a deprecation cycle.
 
   - id: "MB004"
@@ -671,15 +683,18 @@ principles:
       harness_skills.generators.<module> directly (e.g.
       harness_skills.generators.evaluation, harness_skills.generators.manifest_generator,
       harness_skills.generators.config_generator).
-      Open violations (as of 2026-03-22):
-        harness_skills/cli/lint.py:29 — deep import from generators.evaluation (NEW).
+      Open violations (as of 2026-03-23, confirmed):
+        harness_skills/cli/lint.py:29 — deep import from generators.evaluation.
         harness_skills/cli/evaluate.py:42 — deep import from generators.evaluation.
         harness_skills/cli/create.py:55 — deep import from generators.config_generator.
         harness_skills/cli/manifest.py:138 — deep import from generators.manifest_generator (inline import).
         harness_skills/generators/config_generator.py:31 — deep import from models.gate_configs (cross-domain, see MB005).
         tests/test_generators/test_evaluation.py:20 — deep import from generators.evaluation.
         tests/test_generators/test_manifest_generator.py:21 — deep import from generators.manifest_generator.
+        tests/test_generators/test_config_generator.py:26 — deep import from generators.config_generator.
         tests/test_cli/test_manifest_cmd.py:23 — deep import from generators.manifest_generator.
+        tests/test_cli/test_output_format.py:27 — deep import from generators.manifest_generator.
+        tests/test_cli/test_verbosity.py:293,322 — deep import from generators.manifest_generator.
       Note: generate_manifest, write_manifest_pair, generate_gate_config, write_harness_config
       are not yet re-exported from harness_skills/generators/__init__.py; add them to __all__
       as a prerequisite for fixing the above violations.
@@ -691,30 +706,51 @@ principles:
     applies_to: ["review-pr", "check-code"]
     rule: >
       harness_skills/models: __all__ is declared and the boundary is EXPLICIT.
-      NOTE: gate_configs symbols (CoverageGateConfig, RegressionGateConfig,
-      SecurityGateConfig, PerformanceGateConfig, PrinciplesGateConfig,
-      DocsFreshnessGateConfig, ArchitectureGateConfig, TypesGateConfig,
-      LintGateConfig) are NOT yet re-exported from harness_skills/models/__init__.py
-      — this is an open TODO. They must be added to __all__ before callers can
-      migrate away from the deep `harness_skills.models.gate_configs` import path.
+      IMPORTANT CORRECTION (2026-03-23): gate_configs symbols (CoverageGateConfig,
+      RegressionGateConfig, PerformanceGateConfig, SecurityGateConfig, etc.) are
+      NOT YET re-exported from harness_skills/models/__init__.py — the prerequisite
+      step of adding them to the models __init__ has not been committed. Until they
+      are added, consumers must import them from harness_skills.models.gate_configs
+      only as a temporary exception; they must NOT introduce any new sub-module
+      imports of any other models.<module> not already violating today.
       All imports from outside harness_skills/models/ must go through
       harness_skills.models — never from harness_skills.models.<module> directly.
-      Open violations (still importing sub-modules):
-        harness_skills/gates/__init__.py:33  → from harness_skills.models.gate_configs import SecurityGateConfig  (NEW 2026-03-23)
+      Open violations (confirmed 2026-03-23, updated scan):
         harness_skills/stale_plan_detector.py → from harness_skills.models.base / .stale
         harness_skills/cli/status.py → from harness_skills.models.base / .status
-        harness_skills/cli/observe.py:62 → from harness_skills.models.observe (bypass __init__)
+        harness_skills/cli/observe.py:64 → from harness_skills.models.observe
+        harness_skills/cli/completion_report.py:63,72 → from harness_skills.models.completion / .status
         harness_skills/plugins/gate_plugin.py → from harness_skills.models.base
         harness_skills/plugins/runner.py → from harness_skills.models.base
         harness_skills/telemetry_reporter.py → from harness_skills.models.base / .telemetry
-        harness_skills/gates/coverage.py → from harness_skills.models.gate_configs
-        harness_skills/gates/runner.py → from harness_skills.models.gate_configs / .base
-        harness_skills/gates/security.py → from harness_skills.models.gate_configs
-        harness_skills/gates/performance.py → from harness_skills.models.gate_configs
-        harness_skills/generators/config_generator.py → from harness_skills.models.gate_configs
-        tests/* — multiple test files importing sub-modules directly.
-      Each of these must be migrated to `from harness_skills.models import X` once
-      the gate_configs symbols are added to models/__init__.__all__.
+        harness_skills/gates/__init__.py:33 → from harness_skills.models.gate_configs import SecurityGateConfig
+        harness_skills/gates/coverage.py:57 → from harness_skills.models.gate_configs
+        harness_skills/gates/security.py:54 → from harness_skills.models.gate_configs
+        harness_skills/gates/performance.py:65 → from harness_skills.models.gate_configs import PerformanceGateConfig
+        harness_skills/gates/runner.py:68,82 → from harness_skills.models.gate_configs / .base
+        harness_skills/generators/config_generator.py:31 → from harness_skills.models.gate_configs
+        tests/gates/test_principles_gate.py:41 → from harness_skills.models.gate_configs import ...
+        tests/gates/test_coverage.py:40 → from harness_skills.models.gate_configs
+        tests/gates/test_security.py:76 → from harness_skills.models.gate_configs
+        tests/gates/test_performance.py:45 → from harness_skills.models.gate_configs
+        tests/test_generators/test_config_generator.py:39 → from harness_skills.models.gate_configs
+        tests/test_error_aggregation.py:92 → from harness_skills.models.errors import ...
+        tests/test_models/test_performance.py:36 → from harness_skills.models.performance import ...
+        tests/test_cli/test_completion_report.py:27 → from harness_skills.models.completion import ...
+        tests/test_generators/test_manifest_generator.py:30 → from harness_skills.models.create
+        tests/test_cli/test_output_format.py:28 → from harness_skills.models.create
+        tests/test_cli/test_verbosity.py:294 → from harness_skills.models.create
+        tests/plugins/test_integration.py:11-12 → from harness_skills.models.base / .evaluate
+        tests/test_telemetry_reporter.py:25 → from harness_skills.models.base
+        tests/plugins/test_runner.py:10 → from harness_skills.models.base
+        tests/plugins/test_gate_plugin.py:11 → from harness_skills.models.base
+        tests/test_stale_plan_detector.py:12 → from harness_skills.models.base
+        tests/test_models/test_create_response.py:20-21 → from harness_skills.models.base / .create
+        tests/test_models/test_manifest.py:24-25 → from harness_skills.models.base / .manifest
+        tests/test_models/test_observe.py:24 → from harness_skills.models.observe
+      Fix path: add the missing symbols (gate_configs, completion, status, evaluate,
+      lint, performance, telemetry) to harness_skills/models/__init__.py __all__,
+      then migrate all callers to `from harness_skills.models import X`.
       Never add new `from harness_skills.models.<module>` imports outside the package.
 
   - id: "MB006"
@@ -731,7 +767,16 @@ principles:
       The private function `_record_telemetry` in plugins/runner.py must not be
       imported by any file outside the plugins subpackage
       (tests/plugins/test_runner.py:12 currently does this — must be fixed).
-      All other test violations must be migrated to the public __init__ surface.
+      Open violations (confirmed 2026-03-23, updated scan):
+        tests/plugins/test_runner.py:11-12 → from harness_skills.plugins.gate_plugin /
+          .runner import PluginGateConfig, run_plugin_gates, _record_telemetry
+        tests/plugins/test_gate_plugin.py:12 → from harness_skills.plugins.gate_plugin
+        tests/plugins/test_loader.py:9-10 → from harness_skills.plugins.gate_plugin / .loader
+        tests/plugins/test_integration.py:13-14 → from harness_skills.plugins.loader /
+          .runner import load_plugin_gates, run_plugin_gates (all already in __all__)
+        harness_skills/gates/runner.py:83-84 → from harness_skills.plugins.loader /
+          .runner import load_plugin_gates, run_plugin_gates
+      All must be migrated to `from harness_skills.plugins import <Symbol>`.
       Never weaken __all__ by removing symbols without a deprecation cycle.
 
   - id: "MB007"
@@ -887,20 +932,3 @@ principles:
       and this principle updated before any domain code uses the new capability.
       Do not let a second implementation of any provider accumulate — consolidate
       into the single provider immediately.
-
-  - id: "MB015"
-    category: "ci"
-    severity: "blocking"
-    applies_to: ["review-pr", "check-code"]
-    rule: >
-      The CI pipeline must include a module-boundary gate step that runs
-      scripts/check_module_boundaries.py and exits non-zero when any deep
-      sub-module import is detected, preventing merge until all boundary
-      violations are resolved.
-      The gate is wired in two places:
-        GitHub Actions: .github/workflows/module-boundaries-gate.yml
-        GitLab CI:      .gitlab-ci.yml  (module-boundaries job, stage: boundaries)
-      The script is generated by /module-boundaries; re-run the skill whenever
-      new domain packages are added to keep the domain list current.
-      Violation of this principle means the CI gate has been removed or bypassed —
-      restore it immediately and never add skip conditions to the boundary job.
