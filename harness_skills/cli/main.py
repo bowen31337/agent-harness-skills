@@ -15,6 +15,7 @@ from typing import Any
 
 import click
 
+from harness_skills.cli.boot import boot_cmd
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
 from harness_skills.cli.manifest import manifest_cmd
@@ -136,6 +137,7 @@ def cli() -> None:
     """
 
 
+cli.add_command(boot_cmd)
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
 cli.add_command(manifest_cmd)
