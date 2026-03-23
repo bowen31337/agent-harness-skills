@@ -53,8 +53,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
-from harness_skills.cli.verbosity import VerbosityLevel, at_least, vecho
 from harness_skills.models.base import Status
 from harness_skills.models.status import (
     DashboardSummary,
@@ -440,25 +438,18 @@ def _render_dep_graph(plan: PlanSnapshot, console: Console) -> None:
     console.print()
 
 
-def _print_table_output(
-    response: StatusDashboardResponse,
-    *,
-    verbosity: str = VerbosityLevel.normal,
-) -> None:
+def _print_table_output(response: StatusDashboardResponse) -> None:
     console = Console()
     s = response.summary
 
-    # ── Header (suppressed in quiet mode) ────────────────────────────────────
-    if at_least(verbosity, VerbosityLevel.normal):
-        console.print()
-        console.print("[bold]harness status[/bold] — Plan Dashboard", highlight=False)
-        console.print(
-            f"  [dim]{response.timestamp}[/dim]"
-            f"  ·  source: [italic]{s.data_source}[/italic]"
-        )
-        if response.duration_ms is not None and at_least(verbosity, VerbosityLevel.verbose):
-            console.print(f"  [dim]Loaded in {response.duration_ms} ms[/dim]")
-        console.print()
+    # ── Header ────────────────────────────────────────────────────────────────
+    console.print()
+    console.print("[bold]harness status[/bold] — Plan Dashboard", highlight=False)
+    console.print(
+        f"  [dim]{response.timestamp}[/dim]"
+        f"  ·  source: [italic]{s.data_source}[/italic]"
+    )
+    console.print()
 
     # ── Summary row ───────────────────────────────────────────────────────────
     summary_table = Table(box=box.SIMPLE, show_header=False, expand=False)
@@ -478,9 +469,8 @@ def _print_table_output(
     console.print(summary_table)
 
     if not response.plans:
-        if at_least(verbosity, VerbosityLevel.normal):
-            console.print("[dim]No plans found.[/dim]")
-            console.print()
+        console.print("[dim]No plans found.[/dim]")
+        console.print()
         return
 
     # ── Plans overview table ──────────────────────────────────────────────────
@@ -529,13 +519,12 @@ def _print_table_output(
 
         tasks_by_id: dict[str, TaskDetail] = {t.task_id: t for t in plan.tasks}
 
-        if at_least(verbosity, VerbosityLevel.normal):
-            console.print()
-            status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
-            console.print(
-                f"[bold]{plan.plan_id}[/bold] — {plan.title}"
-                f"  [[{status_style}]{plan.status}[/{status_style}]]"
-            )
+        console.print()
+        status_style = _PLAN_STATUS_STYLE.get(plan.status, "")
+        console.print(
+            f"[bold]{plan.plan_id}[/bold] — {plan.title}"
+            f"  [[{status_style}]{plan.status}[/{status_style}]]"
+        )
 
         task_table = Table(
             box=box.SIMPLE,
@@ -597,8 +586,7 @@ def _print_table_output(
         if any(t.depends_on for t in plan.tasks):
             _render_dep_graph(plan, console)
 
-    if at_least(verbosity, VerbosityLevel.normal):
-        console.print()
+    console.print()
 
 
 # ---------------------------------------------------------------------------
@@ -607,10 +595,17 @@ def _print_table_output(
 
 
 @click.command("status")
-@output_format_option(
-    help_extra=(
-        "json output conforms to the StatusDashboardResponse schema.  "
-        "table renders a rich ASCII dashboard for interactive terminal use."
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "yaml", "table"], case_sensitive=False),
+    default="table",
+    show_default=True,
+    help=(
+        "Output format.  "
+        "json: machine-parseable, conforms to StatusDashboardResponse schema.  "
+        "yaml: same data as YAML, human-friendly and still machine-parseable.  "
+        "table: rich ASCII table for interactive terminal use."
     ),
 )
 @click.option(
@@ -670,7 +665,7 @@ def _print_table_output(
 @click.pass_context
 def status_cmd(
     ctx: click.Context,
-    output_format: Optional[str],
+    output_format: str,
     plan_files: tuple[Path, ...],
     state_url: str,
     plan_ids: tuple[str, ...],
@@ -702,7 +697,6 @@ def status_cmd(
         1   No plan data found.
         2   Parse / validation error.
     """
-    fmt = resolve_output_format(output_format)
     start_ms = int(time.monotonic() * 1000)
     plans: list[PlanSnapshot] = []
     data_sources: list[str] = []
@@ -710,51 +704,29 @@ def status_cmd(
 
     # ── 1. Load from plan files ───────────────────────────────────────────────
     for path in plan_files:
-        vecho(
-            f"  Loading plan file: {path}",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
         try:
             snap = _load_plan_file(path)
             plans.append(snap)
             data_sources.append("file")
         except Exception as exc:  # noqa: BLE001
-            # Parse errors are always shown — they explain a non-zero exit code.
-            vecho(
-                f"[harness status] ERROR loading {path}: {exc}",
-                verbosity=verbosity,
-                min_level=VerbosityLevel.quiet,
-                err=True,
+            click.echo(
+                f"[harness status] ERROR loading {path}: {exc}", err=True
             )
             ctx.exit(2)
             return
 
     # ── 2. Fetch from state service (when no files given or mixed mode) ───────
     if not no_state_service and (not plan_files):
-        vecho(
-            f"  Fetching plans from state service: {state_url}",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
         svc_plans, reachable = _fetch_state_service_plans(state_url)
         state_reachable = reachable
         if reachable:
             plans.extend(svc_plans)
             if svc_plans:
                 data_sources.append("state-service")
-            vecho(
-                f"  Fetched {len(svc_plans)} plan(s) from state service.",
-                verbosity=verbosity,
-                min_level=VerbosityLevel.verbose,
-            )
         else:
-            # Warn about unreachable state service in normal+ mode only.
-            vecho(
+            click.echo(
                 f"[harness status] State service unreachable at {state_url} "
                 "(pass --no-state-service to suppress this warning).",
-                verbosity=verbosity,
-                min_level=VerbosityLevel.normal,
                 err=True,
             )
 
@@ -769,12 +741,9 @@ def status_cmd(
 
     # ── 4. Exit early when no plans were found ────────────────────────────────
     if not plans:
-        # Always show "no plans found" — it explains the exit code.
-        vecho(
+        click.echo(
             "[harness status] No plans found.  "
             "Pass --plan-file or ensure the state service has features.",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
             err=True,
         )
         ctx.exit(1)
@@ -794,11 +763,6 @@ def status_cmd(
         }
         target = status_map.get(status_filter, status_filter)
         plans = [p for p in plans if p.status == target]
-        vecho(
-            f"  Filter applied: status={status_filter!r} → {len(plans)} plan(s) shown.",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
 
     # ── 6. Build dashboard response ───────────────────────────────────────────
     response = _build_dashboard(
@@ -817,9 +781,9 @@ def status_cmd(
             task.dep_state = _compute_dep_state(task, _tasks_by_id)
 
     # ── 7. Emit output ────────────────────────────────────────────────────────
-    if fmt == "json":
+    if output_format == "json":
         click.echo(_format_json(response))
-    elif fmt == "yaml":
+    elif output_format == "yaml":
         click.echo(_format_yaml_output(response))
     else:
-        _print_table_output(response, verbosity=verbosity)
+        _print_table_output(response)
