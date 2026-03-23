@@ -344,3 +344,20 @@ kubectl logs my-pod | log-lint validate -
 | Version | Date       | Type    | Change |
 |---------|------------|---------|--------|
 | 1.0.0   | 2026-03-22 | Initial | First stable release of the logging convention |
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | logging format conventions (§6) |
+| [HEALTH_CHECK_SPEC.md](HEALTH_CHECK_SPEC.md) | related observability specification |
+| [PRINCIPLES.md](PRINCIPLES.md) | logging provider rule MB011 |
+| [.claude/commands/logging-convention.md](.claude/commands/logging-convention.md) | skill that regenerated this file |
+| [.claude/commands/log-format-linter.md](.claude/commands/log-format-linter.md) | CI linter that validates against this spec |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->

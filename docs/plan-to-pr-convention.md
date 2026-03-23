@@ -195,3 +195,19 @@ human override to merge.
 
 *Convention version 1.0 — introduced 2026-03-20.*
 *Owner: claw-forge agent harness. State service: http://localhost:8888.*
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [../PRINCIPLES.md](../PRINCIPLES.md) | rules §10 that formalise this convention |
+| [exec-plans/progress.md](exec-plans/progress.md) | live plan progress log |
+| [../.claude/commands/execution-plans.md](../.claude/commands/execution-plans.md) | skill that manages execution plans |
+| [../.claude/commands/review-pr.md](../.claude/commands/review-pr.md) | enforces plan-to-PR traceability |
+| [../DOCS_INDEX.md](../DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->

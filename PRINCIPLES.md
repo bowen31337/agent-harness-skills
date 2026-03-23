@@ -569,6 +569,24 @@ deliverable.
 
 *Generated for the claw-forge agent harness. State service: http://localhost:8888.*
 
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | module boundary detail (§11) |
+| [docs/plan-to-pr-convention.md](docs/plan-to-pr-convention.md) | plan-to-PR traceability convention (§10) |
+| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | code quality and error handling |
+| [.claude/commands/define-principles.md](.claude/commands/define-principles.md) | skill that regenerates this file |
+| [.claude/commands/check-code.md](.claude/commands/check-code.md) | enforces all principles on staged files |
+| [.claude/commands/review-pr.md](.claude/commands/review-pr.md) | enforces all principles in PR diffs |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->
+
 ---
 
 ## 11. Module Boundary Rules

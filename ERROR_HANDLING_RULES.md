@@ -341,3 +341,19 @@ Before submitting code that handles errors, verify:
 - [ ] Silent `except Exception: pass` blocks have an explanatory comment
 - [ ] No credentials, tokens, or secrets appear in any log message or `Violation.message`
 - [ ] New `rule_id` values added to the registry in §3 of this document
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | package structure these rules apply to |
+| [PRINCIPLES.md](PRINCIPLES.md) | code quality and tool usage rules |
+| [SPEC.md](SPEC.md) | structured logging spec (§6) |
+| [EVALUATION.md](EVALUATION.md) | latest gate run results |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->

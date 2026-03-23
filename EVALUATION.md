@@ -33,3 +33,20 @@ artifact: evaluation
 | docs_freshness | ✅ PASSED | — | 0 |
 | types | ⏭ SKIPPED | — | 0 |
 | lint | ❌ FAILED | — | 1 |
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [PRINCIPLES.md](PRINCIPLES.md) | principles gate — rules being evaluated |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | architecture gate — boundaries being checked |
+| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | error patterns checked in the lint gate |
+| [.claude/commands/harness/evaluate.md](.claude/commands/harness/evaluate.md) | skill that regenerated this file |
+| [.claude/commands/harness/coverage-gate.md](.claude/commands/harness/coverage-gate.md) | coverage gate detail |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->

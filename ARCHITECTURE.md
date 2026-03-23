@@ -242,3 +242,21 @@ Boundary rules are encoded as **blocking** principles `MB001`–`MB014` in
 - `/review-pr`  — flags deep imports and private-symbol leaks in PR diffs
 
 Re-run `/module-boundaries` at any time to refresh this document and update principles.
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [PRINCIPLES.md](PRINCIPLES.md) | module boundary rules §11 (MB001–MB014) |
+| [ERROR_HANDLING_RULES.md](ERROR_HANDLING_RULES.md) | error patterns used in these packages |
+| [AGENTS.md](AGENTS.md) | agent-facing quick-start |
+| [.claude/commands/module-boundaries.md](.claude/commands/module-boundaries.md) | skill that regenerates this file |
+| [.claude/commands/check-code.md](.claude/commands/check-code.md) | enforces MB* rules on staged files |
+| [.claude/commands/review-pr.md](.claude/commands/review-pr.md) | enforces MB* rules in PR diffs |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->

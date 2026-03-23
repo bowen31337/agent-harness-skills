@@ -110,3 +110,21 @@ playwright install chromium   # downloads the Chromium binary
 ```
 
 Both `playwright` and `pytest-playwright` are already listed in `requirements.txt`.
+
+<!-- harness:cross-links — do not edit this block manually -->
+
+---
+
+## Related Documents
+
+| Document | Relationship |
+|---|---|
+| [ARCHITECTURE.md](ARCHITECTURE.md) | project structure and package map |
+| [PRINCIPLES.md](PRINCIPLES.md) | agent behaviour rules |
+| [SPEC.md](SPEC.md) | logging convention |
+| [.claude/commands/browser-automation.md](.claude/commands/browser-automation.md) | browser automation setup skill |
+| [.claude/commands/harness/screenshot.md](.claude/commands/harness/screenshot.md) | screenshot helper skill |
+| [.claude/commands/harness/observe.md](.claude/commands/harness/observe.md) | log observation skill |
+| [DOCS_INDEX.md](DOCS_INDEX.md) | full documentation index |
+
+<!-- /harness:cross-links -->
