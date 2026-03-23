@@ -6,7 +6,7 @@
 # ---------------------------------------------------------------------------
 # HARNESS METADATA — auto-updated by /harness:update (do not edit manually)
 # ---------------------------------------------------------------------------
-updated_at: "2026-03-22T18:59:23Z"
+updated_at: "2026-03-22T00:00:00Z"
 
 stack:
   languages: [python]
@@ -20,7 +20,7 @@ stack:
 agents_md_files:
   - ./AGENTS.md
 
-skill_count: 34
+skill_count: 19
 
 # ---------------------------------------------------------------------------
 # ACTIVE PROFILE — change this value to switch between profiles
@@ -86,13 +86,6 @@ profiles:
         autofix: false                  # attempt ruff --fix / eslint --fix before reporting
         select: []                      # empty = tool defaults
         ignore: []                      # e.g. ['E501'] for line-length
-
-      agents_md_token:                  # Enforce token-budget ceiling on every AGENTS.md
-        enabled: true
-        fail_on_error: true
-        max_tokens: 500                 # max estimated tokens per AGENTS.md file
-        glob_pattern: "**/AGENTS.md"   # pattern to discover AGENTS.md files
-        chars_per_token: 4.0           # chars-per-token ratio for estimation
 
       # ── Custom plugin gates ─────────────────────────────────────────────
       # Each entry runs a shell command; exit code 0=pass, non-zero=fail.
@@ -222,13 +215,6 @@ profiles:
         select: []                      # empty = tool defaults
         ignore: []                      # e.g. ['E501'] for line-length
 
-      agents_md_token:                  # Enforce token-budget ceiling on every AGENTS.md
-        enabled: true
-        fail_on_error: true
-        max_tokens: 800                 # max estimated tokens per AGENTS.md file
-        glob_pattern: "**/AGENTS.md"   # pattern to discover AGENTS.md files
-        chars_per_token: 4.0           # chars-per-token ratio for estimation
-
       # ── Custom plugin gates (see starter profile for full schema docs) ──
       plugins: []                       # replace [] with gate definitions
 
@@ -355,13 +341,6 @@ profiles:
         autofix: false                  # attempt ruff --fix / eslint --fix before reporting
         select: []                      # empty = tool defaults
         ignore: []                      # e.g. ['E501'] for line-length
-
-      agents_md_token:                  # Enforce token-budget ceiling on every AGENTS.md
-        enabled: true
-        fail_on_error: true
-        max_tokens: 1500                # max estimated tokens per AGENTS.md file
-        glob_pattern: "**/AGENTS.md"   # pattern to discover AGENTS.md files
-        chars_per_token: 4.0           # chars-per-token ratio for estimation
 
       # ── Compliance gate (advanced only) ────────────────────────────────
       compliance:
