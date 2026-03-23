@@ -6,6 +6,45 @@ the exact state at that point in time.
 
 ---
 
+## 2026-03-23 — `0e893bd` — feat/architecture-do-skill-generates-an-artifact-changelog-d
+
+> Run at 07:48:24  ·  Diffed from `0bae125`
+
+### Skills  (18 total)
+- ✅ `detect-api-style.md` — Added
+- ✅ `module-boundaries.md` — Added
+- 📝 `define-principles.md` — Modified
+- 📝 `harness/create.md` — Modified
+- 📝 `harness/detect-stale.md` — Modified
+- 📝 `harness/evaluate.md` — Modified
+- 📝 `harness/update.md` — Modified
+
+### Config
+- 📝 `harness-init.sh` — Modified
+- 📝 `harness.config.yaml` — Modified
+
+### Docs
+- 📝 `docs/agent_tool_desig_guidelines.md` — Modified
+- 📝 `docs/harness-changelog.md` — Modified
+- ✅ `docs/design-docs/README.md` — Added
+- ✅ `docs/design-docs/adr/0001-adopt-playwright-for-browser-testing.md` — Added
+- ✅ `docs/design-docs/drafts/.gitkeep` — Added
+- ✅ `docs/design-docs/template.md` — Added
+
+### Spec
+- No spec changes
+
+### Commits
+- `0e893bd` — Skill registers as /harness:plan for creating a new execution plan from a description or ticket reference
+- `7446a2f` — Skill registers as /harness:status for showing current state of all plans, gates, and harness health metrics
+- `e0f047c` — Skill generates a harness.config.yaml with config profiles (starter, standard, advanced) providing progressive complexity; starter profile enables only essential gates and documentation, standard adds architecture enforcement, advanced unlocks all features including telemetry and multi-agent coordination
+- `22f4812` — Skill supports command composition where harness create, harness lint, and harness evaluate can be chained in a single invocation (e.g., harness create --then lint --then evaluate), reducing the number of separate tool invocations agents must reason about
+- `593a28d` — Skill generates a harness init shell script for teams not using Claude Code providing the same functionality via standalone CLI
+- `9c7e5db` — Apply stashed changes from harness update skill branch
+
+---
+
+
 ## 2026-03-20 — `0bae125` — feat/architecture-do-skill-generates-an-artifact-changelog-d
 
 > Run at 15:04:18  ·  Diffed from `af3945f`
