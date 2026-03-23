@@ -246,6 +246,7 @@ ordered by `severity` descending (`error` → `warning` → `info`).
 | `--no-principles` | Skip loading `.claude/principles.yaml` and the principles checklist |
 | `--project-root PATH` | Override the repository root (default: `.`) |
 | `--format json` | Emit only the raw JSON `LintResponse` with no human-readable header |
+| `--then SUBCMD` | Chain a subsequent harness subcommand after lint completes (e.g. `--then evaluate`) |
 
 Multiple `--gate` flags may be combined (same semantics as `harness evaluate --gate`).
 

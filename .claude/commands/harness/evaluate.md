@@ -466,6 +466,7 @@ If `passed == false` but `blocking_failures == 0` (only warnings/info), state:
 | `--format json` | `table` | Emit only the raw JSON `EvaluationReport` with no human-readable header |
 | `--format yaml` | `table` | Emit the same data serialised as YAML (human-friendly, machine-parseable) |
 | `--format table` | `table` | Render a rich ASCII table (default, interactive terminal use) |
+| `--then SUBCMD` | — | Chain a subsequent harness subcommand after evaluate completes (e.g. `--then status`) |
 
 Multiple `--gate` flags may be combined.
 

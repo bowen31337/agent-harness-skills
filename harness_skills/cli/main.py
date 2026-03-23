@@ -80,10 +80,14 @@ class PipelineGroup(click.Group):
         raw: list[str] = list(args if args is not None else sys.argv[1:])
         segments = _split_on_then(raw)
 
-        # No chaining — normal Click dispatch
+        # No chaining — normal Click dispatch.
+        # Use the cleaned segment (trailing --then stripped) rather than raw so
+        # that a bare "harness create --then" never leaks an unknown flag to the
+        # sub-command.
         if len(segments) <= 1:
+            clean = segments[0] if segments else []
             return super().main(
-                args=raw,
+                args=clean,
                 prog_name=prog_name,
                 complete_var=complete_var,
                 standalone_mode=standalone_mode,
