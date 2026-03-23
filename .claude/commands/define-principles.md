@@ -1,10 +1,50 @@
 # Define Principles
 
-Add, edit, or remove project-specific golden rules that are enforced by `check-code` and `review-pr`. Principles are stored in `.claude/principles.yaml` and automatically loaded by other skills.
+Add, edit, or remove project-specific golden rules that are enforced by `check-code` and
+`review-pr`. Principles are stored in `.claude/principles.yaml` and automatically loaded by
+other skills.
+
+---
+
+## Usage
+
+```bash
+# Interactive prompt — guided add / edit / remove workflow
+/define-principles
+
+# Config-file import — non-interactive bulk import from a YAML file
+/define-principles --from-file path/to/import.yaml
+
+# Preview what --from-file would add without writing to disk
+/define-principles --from-file path/to/import.yaml --dry-run
+
+# Fail loudly if any imported principle has an ID that already exists
+/define-principles --from-file path/to/import.yaml --strict-ids
+```
+
+Both workflows write the same `.claude/principles.yaml` format and auto-generate
+`PRINCIPLES.md`.  The interactive prompt is a guided editor for the same YAML.
+
+---
 
 ## Instructions
 
-### Step 1: Load existing principles
+### Step 0 — Parse arguments and choose a mode
+
+Inspect the arguments passed after `/define-principles`:
+
+```
+if --from-file <path> is present:
+    → follow the "Config-file import mode" path (Step 1B)
+else:
+    → follow the "Interactive prompt mode" path (Step 1A)
+```
+
+---
+
+## Mode A — Interactive Prompt
+
+### Step 1A: Load existing principles
 
 Check whether `.claude/principles.yaml` already exists:
 
@@ -14,7 +54,7 @@ cat .claude/principles.yaml 2>/dev/null || echo "__EMPTY__"
 
 If the file is missing or empty, start with an empty principles list.
 
-### Step 2: Show current state
+### Step 2A: Show current state
 
 Display the existing principles in a readable table:
 
@@ -38,7 +78,7 @@ If no principles exist yet, show:
   (no principles defined — let's add some)
 ```
 
-### Step 3: Prompt for action
+### Step 3A: Prompt for action
 
 Ask the engineer what they want to do:
 
@@ -54,7 +94,7 @@ Repeat this loop until the engineer chooses **Done**.
 
 ---
 
-### Action: Add a principle
+#### Action: Add a principle
 
 Ask the following questions one at a time:
 
@@ -72,25 +112,81 @@ Ask the following questions one at a time:
 4. **Applies to** — Which skills should enforce this?
    - `review-pr`, `check-code`, or `both` (default: `both`)
 
-Auto-assign the next available ID (P001, P002, …).
+Auto-assign the next available ID (P001, P002, …).  Never reuse a deleted ID.
 
 ---
 
-### Action: Edit a principle
+#### Action: Edit a principle
 
-Ask: "Which principle ID do you want to edit?" Then re-ask only the fields the engineer wants to change.
+Ask: "Which principle ID do you want to edit?" Then re-ask only the fields the engineer
+wants to change.
 
 ---
 
-### Action: Remove a principle
+#### Action: Remove a principle
 
 Ask: "Which principle ID do you want to remove?" Confirm before deleting.
 
 ---
 
-### Step 4: Save to `.claude/principles.yaml`
+## Mode B — Config-file Import
 
-After all edits, write the final state to `.claude/principles.yaml` using this schema:
+When `--from-file <path>` is provided, skip the interactive prompt entirely and import
+principles from the specified YAML file.
+
+### Step 1B: Validate the source file
+
+```bash
+python scripts/import_principles.py --from-file <path> [--dry-run] [--strict-ids]
+```
+
+The script validates each entry in the source file against the principle schema (see
+**Config-file format** below).  Validation rules:
+
+| Field | Required | Valid values |
+|---|---|---|
+| `category` | ✅ | Any non-empty string |
+| `severity` | ✅ | `blocking` or `suggestion` |
+| `rule` | ✅ | Any non-empty string (imperative mood preferred) |
+| `applies_to` | ❌ | List subset of `["review-pr", "check-code"]` (default: both) |
+| `id` | ❌ | Pattern `[A-Z][A-Z0-9]*\d{2,}` (e.g. `P001`, `MB014`). Omit to auto-assign. |
+
+If any entry fails validation, print all errors and exit without writing.
+
+### Step 2B: Merge with existing principles
+
+- Entries without an `id` get the next available P-series ID auto-assigned.
+- Entries whose `id` already exists in `.claude/principles.yaml`:
+  - **Default**: skip silently (print a ⚠️ warning).
+  - **`--strict-ids`**: exit 1 without writing anything.
+- IDs are stable — removed principles are never renumbered.
+
+### Step 3B: Report and write
+
+Print a summary of what was added / skipped / errored, then write the merged result to
+`.claude/principles.yaml`.  With `--dry-run`, print the summary but skip the write.
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Principle Import Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ✅ Added (2):
+     P004  [security]  🔴 blocking  — All secrets must come from environment variables
+     P005  [style]     🟡 suggestion — Prefer dataclasses over plain dicts
+
+  ⚠️  Skipped (1):
+     P001  — Principle 'P001' already exists — skipped.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## Step 4 — Save to `.claude/principles.yaml`
+
+After all edits (interactive or file-import), write the final state to
+`.claude/principles.yaml` using this schema:
 
 ```yaml
 # .claude/principles.yaml
@@ -163,7 +259,7 @@ artifact: principles
 
 ---
 
-### Step 5: Confirm and show next steps
+## Step 5 — Confirm and show next steps
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -176,20 +272,56 @@ artifact: principles
     • /check-code  — scans staged changes against each principle
     • /review-pr   — includes principles in the review checklist
 
-  To edit again:  /define-principles
-  To skip enforcement on one run:  /check-code --no-principles
+  To edit again:           /define-principles
+  To import from a file:   /define-principles --from-file my-principles.yaml
+  To skip enforcement:     /check-code --no-principles
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-## Config-file shortcut
+## Config-file format
 
-Engineers can also skip the interactive prompt entirely by editing `.claude/principles.yaml` directly. The file format is shown above. Both workflows produce the same result — the interactive prompt is just a guided editor for the same YAML.
+Engineers can skip the interactive prompt entirely by editing `.claude/principles.yaml`
+directly, or by preparing an **import file** and running:
+
+```bash
+/define-principles --from-file my-principles.yaml
+# or equivalently (for CI / scripting):
+python scripts/import_principles.py --from-file my-principles.yaml
+```
+
+The import file uses the same YAML schema as `.claude/principles.yaml`:
+
+```yaml
+version: "1.0"
+principles:
+  # 'id' is optional — omit to have it auto-assigned (P001, P002, …)
+  - category: "security"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: "All secrets and credentials must be loaded from environment variables"
+
+  # Supply an explicit id if you need a stable cross-repo reference
+  - id: "P042"
+    category: "testing"
+    severity: "blocking"
+    applies_to: ["review-pr"]
+    rule: "Every public API endpoint must have at least one integration test"
+
+  - category: "style"
+    severity: "suggestion"
+    rule: "Prefer dataclasses or Pydantic models over plain dicts for structured data"
+```
+
+A starter template is available at `.claude/principles.yaml.example`.
+
+---
 
 ## Notes
 
 - Principles are **additive**: they extend (not replace) the default checks in `check-code` and `review-pr`.
-- IDs are stable — removing P002 does not renumber P003 to P002.
-- A principle with `applies_to: ["check-code"]` will only surface in automated runs, not in PR review narratives.
+- IDs are **stable** — removing P002 does not renumber P003 to P002.
+- A principle with `applies_to: ["check-code"]` surfaces only in automated runs, not in PR review narratives.
 - This file should be committed to version control so the whole team shares the same rules.
+- The non-interactive import script (`scripts/import_principles.py`) is CI-safe and exits 0 on success, 1 on validation / ID-collision errors, and 2 on internal errors.
