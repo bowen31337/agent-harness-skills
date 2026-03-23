@@ -5,46 +5,29 @@ Dataclass configuration models for all evaluation gates.
 
 Each gate configuration class is a plain Python dataclass — intentionally
 lightweight so gate modules can be imported without pulling in Pydantic.
-``BaseGateConfig`` adds ``model_dump()`` / ``model_validate()`` shims so the
-:class:`~harness_skills.gates.runner.HarnessConfigLoader` can merge YAML
-overrides into typed config objects without a hard Pydantic dependency.
 """
 
 from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Any
 
 
 # ---------------------------------------------------------------------------
-# BaseGateConfig — compatibility shim for HarnessConfigLoader
+# BaseGateConfig
 # ---------------------------------------------------------------------------
 
 
 class BaseGateConfig:
-    """Mixin providing ``model_dump()`` / ``model_validate()`` for gate configs.
+    """Base class for all gate configuration dataclasses.
 
-    All concrete gate config *dataclasses* inherit from this class so that
-    :class:`~harness_skills.gates.runner.HarnessConfigLoader` can serialize
-    and deserialize them using the same Pydantic-style API it would use if
-    the configs were Pydantic models.
+    Provides :meth:`model_dump` so gate orchestration code can serialise
+    any config to a plain ``dict`` without importing Pydantic.
     """
 
-    # ------------------------------------------------------------------
-    # Pydantic-compatible API
-    # ------------------------------------------------------------------
-
-    def model_dump(self) -> dict[str, Any]:
-        """Return a dict of all dataclass fields and their current values."""
-        return dataclasses.asdict(self)  # type: ignore[arg-type]
-
-    @classmethod
-    def model_validate(cls, data: dict[str, Any]) -> "BaseGateConfig":
-        """Construct an instance from *data*, ignoring unknown keys."""
-        known = {f.name for f in dataclasses.fields(cls)}  # type: ignore[arg-type]
-        filtered = {k: v for k, v in data.items() if k in known}
-        return cls(**filtered)  # type: ignore[call-arg]
+    def model_dump(self) -> dict[str, object]:
+        """Return the config fields as a plain dictionary."""
+        return dataclasses.asdict(self)  # type: ignore[call-overload]
 
 
 # ---------------------------------------------------------------------------
@@ -71,7 +54,6 @@ class DocsFreshnessGateConfig(BaseGateConfig):
         ``AGENTS.md`` is always included; additional names may be appended.
     """
 
-    enabled: bool = True
     max_staleness_days: int = 30
     fail_on_error: bool = True
     tracked_files: list[str] = field(default_factory=lambda: ["AGENTS.md"])
@@ -108,7 +90,6 @@ class CoverageGateConfig(BaseGateConfig):
         ``"json"``, or ``"lcov"`` to override auto-detection.
     """
 
-    enabled: bool = True
     threshold: float = 90.0
     fail_on_error: bool = True
     coverage_file: str = "coverage.xml"
@@ -154,10 +135,52 @@ class SecurityGateConfig(BaseGateConfig):
 
 @dataclass
 class PerformanceGateConfig(BaseGateConfig):
-    """Configuration for the performance-benchmark gate."""
+    """Configuration for the performance-benchmark gate.
 
-    enabled: bool = False
+    Attributes
+    ----------
+    enabled:
+        Whether the gate is active (default ``True``).  Set to ``False``
+        to skip the gate without removing its configuration.
+    fail_on_error:
+        When ``True`` (the default), *error*-severity violations cause the
+        gate to return ``passed=False`` and exit with a non-zero code.
+        Setting this to ``False`` downgrades all blocking violations to
+        *warnings* and lets the gate pass regardless.
+    thresholds_file:
+        Path to the YAML rules file that defines per-rule thresholds and
+        selectors (default: ``.harness/perf-thresholds.yml``).  Relative
+        paths are resolved against the ``repo_root`` passed to
+        :meth:`~harness_skills.gates.performance.PerformanceGate.run`.
+    spans_file:
+        Path to the JSON file containing span records collected by the
+        benchmark harness (default: ``perf-spans.json``).  Used only when
+        no ``spans`` argument is supplied directly to
+        :meth:`~harness_skills.gates.performance.PerformanceGate.run`.
+    baseline_file:
+        Optional path to a baseline spans JSON for regression comparison.
+        When empty (the default), regression checking is skipped even if
+        the thresholds YAML has ``baseline.enabled: true``.
+    output_file:
+        Optional path to write the ``perf-report.json`` output.  When
+        empty (the default), no file is written.
+    budget_ms:
+        Legacy single-threshold budget in milliseconds (retained for
+        backward compatibility).  Prefer using ``thresholds_file`` rules.
+    regression_threshold_pct:
+        Maximum acceptable performance regression vs. baseline as a
+        percentage (default: **10.0**).  Overridden by the
+        ``baseline.regression_threshold_pct`` field in the YAML when that
+        is present.
+    """
+
+    enabled: bool = True
     fail_on_error: bool = True
+    thresholds_file: str = ".harness/perf-thresholds.yml"
+    spans_file: str = "perf-spans.json"
+    baseline_file: str = ""
+    output_file: str = ""
+    # Legacy / simple threshold support
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
 
@@ -190,32 +213,10 @@ class ArchitectureGateConfig(BaseGateConfig):
 
 @dataclass
 class PrinciplesGateConfig(BaseGateConfig):
-    """Configuration for the golden-principles compliance gate.
-
-    Attributes
-    ----------
-    enabled:
-        When ``False`` the gate is skipped entirely.
-    fail_on_error:
-        When ``True``, *any* violation at severity ``"error"`` causes the
-        gate to fail.  ``False`` downgrades all errors to warnings (advisory).
-    fail_on_critical:
-        When ``True`` (the default), violations from principles whose YAML
-        ``severity`` is ``"blocking"`` are reported as ``"error"`` and fail
-        the gate even in ``fail_on_error=False`` mode.  Set to ``False`` to
-        treat blocking violations as warnings.
-    principles_file:
-        Path (relative to project root) to the YAML principles store.
-        Defaults to ``".claude/principles.yaml"``.
-    rules:
-        List of rule IDs to enable.  ``["all"]`` (the default) activates
-        every built-in scanner.  Pass specific rule names such as
-        ``["no_magic_numbers", "function_naming"]`` to run a subset.
-    """
+    """Configuration for the golden-principles gate."""
 
     enabled: bool = True
-    fail_on_error: bool = False        # advisory by default
-    fail_on_critical: bool = True      # blocking-severity violations always fail
+    fail_on_error: bool = False   # advisory by default
     principles_file: str = ".claude/principles.yaml"
     rules: list[str] = field(default_factory=lambda: ["all"])
 
@@ -253,21 +254,20 @@ class LintGateConfig(BaseGateConfig):
 
 # ---------------------------------------------------------------------------
 # GATE_CONFIG_CLASSES
-# Registry mapping gate_id → config class.  Consumed by HarnessConfigLoader
-# to enumerate all built-in gates and resolve per-gate configurations.
-# Order matters: gates run in this order during evaluation.
+# Ordered mapping of gate IDs → config class, used by the runner to iterate
+# built-in gates and by config_generator to produce YAML stanzas.
 # ---------------------------------------------------------------------------
 
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
-    "regression":     RegressionGateConfig,
-    "coverage":       CoverageGateConfig,
-    "security":       SecurityGateConfig,
-    "performance":    PerformanceGateConfig,
-    "architecture":   ArchitectureGateConfig,
-    "principles":     PrinciplesGateConfig,
+    "regression":    RegressionGateConfig,
+    "coverage":      CoverageGateConfig,
+    "security":      SecurityGateConfig,
+    "performance":   PerformanceGateConfig,
+    "architecture":  ArchitectureGateConfig,
+    "principles":    PrinciplesGateConfig,
     "docs_freshness": DocsFreshnessGateConfig,
-    "types":          TypesGateConfig,
-    "lint":           LintGateConfig,
+    "types":         TypesGateConfig,
+    "lint":          LintGateConfig,
 }
 
 
@@ -283,7 +283,7 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
         "security":      SecurityGateConfig(enabled=False),
         "performance":   PerformanceGateConfig(enabled=False),
         "architecture":  ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
-        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=False, fail_on_critical=True),
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=False),
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":         TypesGateConfig(enabled=False),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
@@ -294,7 +294,7 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
         "security":      SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
         "performance":   PerformanceGateConfig(enabled=False),
         "architecture":  ArchitectureGateConfig(enabled=True, fail_on_error=True),
-        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True, fail_on_critical=True),
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True),
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":         TypesGateConfig(enabled=True, fail_on_error=True),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True),
@@ -316,9 +316,7 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
                 "enforce_naming_conventions",
             ],
         ),
-        "principles":    PrinciplesGateConfig(
-            enabled=True, fail_on_error=True, fail_on_critical=True,
-        ),
+        "principles":    PrinciplesGateConfig(enabled=True, fail_on_error=True),
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
         "types":         TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
         "lint":          LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
