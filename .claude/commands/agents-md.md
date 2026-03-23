@@ -1,13 +1,15 @@
 ---
 name: agents-md
-description: "Cross-link all generated documentation so agents can navigate between related files via relative paths. Discovers every auto-generated and specification document in the repository, builds a relationship map, appends or refreshes machine-delimited cross-link sections, and regenerates DOCS_INDEX.md as a central navigation hub. Use when: (1) a new generated doc has been added, (2) relationships between docs have changed, (3) DOCS_INDEX.md is stale or missing, (4) onboarding a new agent that needs to discover all documentation, (5) after running /module-boundaries, /define-principles, /logging-convention, /health-check-endpoint, or /harness:evaluate. Triggers on: cross-link docs, update doc index, refresh documentation links, agents-md, docs navigation, generated documentation index."
+description: "Cross-link all generated documentation so agents can navigate between related files via relative paths. Discovers every auto-generated and specification document in the repository, builds a relationship map, appends or refreshes machine-delimited cross-link sections, and regenerates DOCS_INDEX.md as a central navigation hub. Also writes or refreshes the Git Workflow section in AGENTS.md covering branch naming conventions, commit message format, and PR process. Use when: (1) a new generated doc has been added, (2) relationships between docs have changed, (3) DOCS_INDEX.md is stale or missing, (4) onboarding a new agent that needs to discover all documentation, (5) after running /module-boundaries, /define-principles, /logging-convention, /health-check-endpoint, or /harness:evaluate. Triggers on: cross-link docs, update doc index, refresh documentation links, agents-md, docs navigation, generated documentation index, git workflow, branch naming, commit message format, PR process."
 ---
 
 # Agents MD — Documentation Cross-Linker
 
 Discover every generated and specification document, build a relationship graph,
-and stitch relative-path navigation links into each file so agents can jump between
-related documents without a full codebase search.
+stitch relative-path navigation links into each file so agents can jump between
+related documents without a full codebase search, and write the canonical **Git
+Workflow** section into `AGENTS.md` so every agent session has branch naming,
+commit format, and PR process at hand.
 
 ---
 
@@ -17,9 +19,10 @@ related documents without a full codebase search.
 |---|---|---|
 | `DOCS_INDEX.md` | repo root | Created / refreshed on every run |
 | `<!-- harness:cross-links -->` blocks | inside each generated doc | Appended or replaced on every run |
+| `<!-- harness:git-workflow -->` block | `AGENTS.md` | Written or refreshed on every run |
 
-The cross-link block is delimited so it can be safely replaced on re-runs without
-touching hand-written content above it.
+The cross-link block and the git-workflow block are both machine-delimited so they
+can be safely replaced on re-runs without touching hand-written content.
 
 ---
 
@@ -70,6 +73,7 @@ AGENTS.md
   → ARCHITECTURE.md          "project structure and package map"
   → PRINCIPLES.md            "agent behaviour rules"
   → SPEC.md                  "logging convention"
+  → docs/plan-to-pr-convention.md  "git workflow: branch naming, commits, PRs"
   → .claude/commands/browser-automation.md   "browser automation skill"
   → .claude/commands/harness/screenshot.md   "screenshot helper skill"
   → .claude/commands/harness/observe.md      "log observation skill"
@@ -129,6 +133,7 @@ docs/plan-to-pr-convention.md
   → exec-plans/progress.md                      "live plan progress log"
   → ../.claude/commands/execution-plans.md      "skill that manages execution plans"
   → ../.claude/commands/review-pr.md            "enforces plan-to-PR traceability"
+  → ../AGENTS.md                                "git workflow section in agent reference"
   → ../DOCS_INDEX.md                            "full documentation index"
 
 docs/health-check-endpoint-spec.md
@@ -161,7 +166,88 @@ exists from the hard-coded rules.
 
 ---
 
-### Step 3 — Write cross-link blocks into each document
+### Step 3 — Write or refresh the Git Workflow section in AGENTS.md
+
+This step runs **before** the general cross-link pass so the workflow block is
+in place before any other edits.
+
+#### 3a — Build the block content
+
+The git workflow block is derived from `docs/plan-to-pr-convention.md`.  Render
+it as a concise reference (not a full copy) so agents have the essentials without
+leaving `AGENTS.md`:
+
+```markdown
+<!-- harness:git-workflow — do not edit this block manually -->
+
+---
+
+## Git Workflow
+
+> Full convention: [docs/plan-to-pr-convention.md](docs/plan-to-pr-convention.md)
+
+### Branch naming
+
+```
+feat/PLAN-NNN-<kebab-slug-of-title>
+```
+
+Examples:
+- `feat/PLAN-001-auth-refresh-token`
+- `feat/PLAN-007-logging-structured-output`
+
+### Commit message format
+
+```
+<type>: <imperative short description>
+
+<body — what and why, not how>
+
+Plan: PLAN-NNN
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+```
+
+- **type**: `feat` | `fix` | `chore` | `docs` | `refactor` | `test`
+- **Plan trailer**: required for every commit that belongs to an execution plan
+- **Co-Authored-By trailer**: always include the agent attribution line
+
+### PR process
+
+1. **Title**: `[PLAN-NNN] <imperative short description>`
+2. **Body**: must include the traceability table (Plan ID, Plan file, Tasks closed, Plan status)
+3. **After `gh pr create`**: update the plan YAML `linked_prs` list with the returned PR URL
+4. **Before marking a task `done`**: verify the checklist in `docs/plan-to-pr-convention.md §6`
+
+### Quick traceability queries
+
+```bash
+# All PRs for a plan
+gh pr list --search "[PLAN-001]" --json number,title,url,state
+
+# Plan for a given PR (from PR body)
+gh pr view 42 --json body | jq '.body' | grep "Plan ID"
+
+# All open plan PRs
+grep -r "pr_url" docs/exec-plans/ | grep -v "Example"
+```
+
+<!-- /harness:git-workflow -->
+```
+
+#### 3b — Apply the block
+
+1. **Read `AGENTS.md`.**
+2. **Check for an existing `<!-- harness:git-workflow -->` block.**
+   - **If it exists**: replace it in-place using the Edit tool
+     (`old_string` = full existing block, `new_string` = new block).
+   - **If it does not exist**: append it after the last non-blank line using
+     the Edit tool.
+3. **Do not touch** the `<!-- harness:auto-generated -->` header or any
+   other content outside the delimited block.
+
+---
+
+### Step 4 — Write cross-link blocks into each document
 
 For each file in DOCS:
 
@@ -194,10 +280,11 @@ For each file in DOCS:
    - If the file already contains a `<!-- harness:cross-links -->` block: replace it in-place using the Edit tool (old_string = full existing block, new_string = new block).
    - If no block exists: append the block at the end of the file using the Edit tool (append after the last non-blank line).
 5. **Preserve the auto-generated header** at the top of the file — do not touch it.
+6. **Skip the `<!-- harness:git-workflow -->` block** in `AGENTS.md` — it was written in Step 3.
 
 ---
 
-### Step 4 — Generate DOCS_INDEX.md
+### Step 5 — Generate DOCS_INDEX.md
 
 Write (or overwrite) `DOCS_INDEX.md` at the repository root:
 
@@ -219,7 +306,7 @@ artifact: docs-index
 
 | Document | Purpose |
 |---|---|
-| [AGENTS.md](AGENTS.md) | Browser automation quick-start, screenshot helpers, e2e test runner |
+| [AGENTS.md](AGENTS.md) | Browser automation quick-start, git workflow, screenshot helpers, e2e test runner |
 | [CLAUDE.md](CLAUDE.md) | Project stack, build/test commands, claw-forge agent notes |
 
 ---
@@ -279,7 +366,7 @@ artifact: docs-index
 
 | Skill | Purpose |
 |---|---|
-| [`/agents-md`](.claude/commands/agents-md.md) | Cross-link all generated docs (this skill) |
+| [`/agents-md`](.claude/commands/agents-md.md) | Cross-link all generated docs and refresh git workflow section (this skill) |
 | [`/check-code`](.claude/commands/check-code.md) | Run linters, type checker, tests, and enforce principles |
 | [`/review-pr`](.claude/commands/review-pr.md) | Review a PR against principles and module boundaries |
 | [`/checkpoint`](.claude/commands/checkpoint.md) | Git commit + state snapshot before risky operations |
@@ -367,7 +454,7 @@ Use today's date for `last_updated`.
 
 ---
 
-### Step 5 — Report
+### Step 6 — Report
 
 Print a summary:
 
@@ -379,6 +466,7 @@ Print a summary:
   Documents discovered: <N>
   Cross-link blocks written/updated: <N>
   Relationship edges added: <N>
+  Git workflow block in AGENTS.md: refreshed
   DOCS_INDEX.md: refreshed
 
   Navigation hub: DOCS_INDEX.md
@@ -397,6 +485,8 @@ Print a summary:
 | `--file <path>` | Update cross-links for a single file only |
 | `--no-index` | Skip regenerating DOCS_INDEX.md |
 | `--index-only` | Regenerate DOCS_INDEX.md only; skip per-file cross-link updates |
+| `--no-git-workflow` | Skip refreshing the git workflow block in AGENTS.md |
+| `--git-workflow-only` | Refresh the git workflow block in AGENTS.md only |
 
 ---
 
@@ -406,4 +496,5 @@ Print a summary:
 - **Read-only check** — the skill reads every file before editing it (satisfies PRINCIPLES.md §3.1).
 - **Relative paths only** — all links use paths relative to the file being edited so they work in any clone location.
 - **Does not commit** — stage and commit with `/checkpoint` after reviewing the diff.
+- **Git workflow source** — the workflow block in `AGENTS.md` is derived from `docs/plan-to-pr-convention.md`. Edit the convention there; re-run `/agents-md` to propagate changes.
 - **Trigger events** — re-run after: `/module-boundaries`, `/define-principles`, `/logging-convention`, `/health-check-endpoint`, `/harness:evaluate`, or any time a new `*.md` file is added to the root or `docs/` directory.
