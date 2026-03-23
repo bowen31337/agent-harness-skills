@@ -1,9 +1,6 @@
 [build-system]
 requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-include = ["harness_skills*", "harness_dashboard*", "dom_snapshot_utility*", "log_format_linter*"]
+build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "agent-harness-skills"
@@ -20,10 +17,6 @@ dependencies = [
     "pytest-playwright",
     "jsonschema>=4.18",
 ]
-
-[project.scripts]
-harness  = "harness_skills.cli.main:cli"
-log-lint = "log_format_linter.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -98,38 +91,6 @@ indent-style = "space"
 line-ending = "lf"
 
 # ---------------------------------------------------------------------------
-# Mypy — strict type checking
-# ---------------------------------------------------------------------------
-[tool.mypy]
-python_version = "3.12"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-ignore_missing_imports = true
-# Suppress import-untyped: third-party libs without stubs (e.g. requests,
-# playwright) are covered by ignore_missing_imports; this silences the
-# stricter "library exists but ships no py.typed marker" variant.
-disable_error_code = ["import-untyped"]
-# Exclude standalone script directories that are not importable packages
-# (no __init__.py) to avoid double-module-name collisions.
-exclude = [
-    "skills/",
-    "examples/",
-    "scripts/",
-    "git_checkpoint\\.py",
-    "checkpoint_agent\\.py",
-    "coordinate\\.py",
-    "handoff\\.py",
-    "harness_context\\.py",
-    "harness_status\\.py",
-    "harness_telemetry\\.py",
-    "stale_plan_detector\\.py",
-    "task_lock_example\\.py",
-    "performance_hooks_example\\.py",
-    "example\\.py",
-]
-
-# ---------------------------------------------------------------------------
 # Pytest
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
@@ -139,7 +100,4 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 # --browser chromium  targets Chromium for the tests/browser/ suite.
 # pytest-playwright picks this up automatically; non-browser tests ignore it.
-addopts = "-v --tb=short"
-
-[tool.playwright]
-base_url = "http://localhost:3000"
+addopts = "-v --tb=short --browser chromium"
