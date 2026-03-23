@@ -63,7 +63,7 @@ class PipelineGroup(click.Group):
     ::
 
         # Single command (normal behaviour)
-        harness evaluate --format json
+        harness evaluate --output-format json
 
         # Pipeline (composition) — equivalent to: harness create && harness lint
         harness create --then lint --then evaluate

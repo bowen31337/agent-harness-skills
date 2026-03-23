@@ -18,12 +18,6 @@ Agents should:
   3. Chain with lint and evaluate in a single invocation:
          harness create --then lint --then evaluate
 
-Verbosity behaviour:
-    quiet    Success message suppressed; YAML (--dry-run) still emitted.
-    normal   "Created/Updated <path>  (profile: …)" on success.
-    verbose  Adds stack-detection result and merge decision details.
-    debug    Includes raw generator config in the output.
-
 Exit codes:
     0   Config written (or printed for --dry-run).
     1   Internal error (e.g. invalid profile, unwritable path).
@@ -32,7 +26,6 @@ Exit codes:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -40,9 +33,6 @@ import click
 import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
-from harness_skills.models.base import Status
-from harness_skills.models.create import CreateConfigResponse
 
 _PROFILE_CHOICE = click.Choice(
     ["starter", "standard", "advanced"], case_sensitive=False
@@ -140,26 +130,18 @@ def create_cmd(
     \b
     Agent usage pattern:
         harness create --profile standard --then lint --then evaluate
-        harness create --output-format json    # structured CreateConfigResponse
+        harness create --output-format json    # structured result for scripting
     """
-    verbosity = get_verbosity(ctx)
     fmt = resolve_output_format(output_format)
 
     try:
         generate_gate_config, write_harness_config = _get_generator()
     except Exception as exc:
-        # Always show dependency errors — they explain a non-zero exit code.
-        vecho(
-            "harness create: dependency error -- " + str(exc),
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
-            err=True,
-        )
+        click.echo("harness create: dependency error -- " + str(exc), err=True)
         ctx.exit(1)
         return
 
     if dry_run:
-        # --dry-run emits YAML to stdout — machine-parseable, always shown.
         gates_yaml = generate_gate_config(profile, detected_stack=stack)
         header = "# harness create --profile " + profile
         if stack:
@@ -168,19 +150,13 @@ def create_cmd(
         click.echo(header + gates_yaml)
         return
 
-    # ── Decide merge strategy ─────────────────────────────────────────────────
-    file_exists = output.exists()
-    merge = (not no_merge) and file_exists
-
-    vecho(
-        f"  Stack : {stack or 'auto-detect'}"
-        f"  |  Profile : {profile}"
-        f"  |  Mode : {'merge into existing' if merge else 'create from scratch'}",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.verbose,
-    )
+    existed = output.exists()
 
     try:
+        merge = not no_merge
+        if merge and not output.exists():
+            merge = False
+
         write_harness_config(
             path=output,
             profile=profile,
@@ -188,61 +164,37 @@ def create_cmd(
             merge=merge,
         )
     except Exception as exc:
-        # Always show write errors — they explain a non-zero exit code.
-        vecho(
-            "harness create failed: " + str(exc),
-            verbosity=verbosity,
-            min_level=VerbosityLevel.quiet,
-            err=True,
-        )
+        click.echo("harness create failed: " + str(exc), err=True)
         ctx.exit(1)
         return
 
-    action = "updated" if merge else "created"
+    action = "updated" if (not no_merge and existed) else "created"
 
-    if fmt in ("json", "yaml"):
-        response = CreateConfigResponse(
-            status=Status.PASSED,
-            timestamp=datetime.now(timezone.utc).isoformat(),
-            message=f"harness.config.yaml {action} (profile: {profile})",
-            action=action,
-            path=str(output),
-            profile=profile,
-            stack=stack,
-        )
-        if fmt == "json":
-            click.echo(response.model_dump_json(indent=2))
-        else:
-            data_out = json.loads(response.model_dump_json())
-            click.echo(
-                yaml.dump(
-                    data_out,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                ),
-                nl=False,
-            )
-        return
-
-    # Human-readable table output
-    action_label = action.capitalize()
-    stack_hint = ("  stack: " + stack) if stack else ""
-    vecho(
-        action_label + " " + str(output) + "  (profile: " + profile + stack_hint + ")",
-        verbosity=verbosity,
-    )
-
-    if merge:
-        vecho(
-            f"  Merged '{profile}' gates into existing {output} "
-            "(surrounding keys preserved).",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
+    if fmt == "json":
+        result = {
+            "status": "ok",
+            "action": action,
+            "path": str(output),
+            "profile": profile,
+            "stack": stack,
+        }
+        click.echo(json.dumps(result, indent=2))
+    elif fmt == "yaml":
+        result = {
+            "status": "ok",
+            "action": action,
+            "path": str(output),
+            "profile": profile,
+            "stack": stack,
+        }
+        click.echo(
+            yaml.dump(result, default_flow_style=False, sort_keys=False, allow_unicode=True),
+            nl=False,
         )
     else:
-        vecho(
-            f"  New file created at {output}.",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
+        action_label = action.capitalize()
+        stack_hint = ("  stack: " + stack) if stack else ""
+        click.echo(
+            action_label + " " + str(output)
+            + "  (profile: " + profile + stack_hint + ")"
         )

@@ -2,16 +2,16 @@
 harness evaluate — run all evaluation gates and emit a structured report.
 
 Usage (CLI):
-    harness evaluate [--output-format json|yaml|table] [--gate GATE_ID ...] [--project-root PATH]
+    harness evaluate [--format json|yaml|table] [--gate GATE_ID ...] [--project-root PATH]
 
 Usage (agent tool call):
-    harness evaluate --output-format json
-    harness evaluate --output-format yaml
-    harness evaluate --output-format json --gate regression --gate types
+    harness evaluate --format json
+    harness evaluate --format yaml
+    harness evaluate --format json --gate regression --gate types
 
-The --output-format json output conforms to evaluation_report.schema.json.
-The --output-format yaml output is the same data serialised as YAML (human-friendly, still machine-parseable).
-The --output-format table output renders a rich ASCII table for interactive terminal use.
+The --format json output conforms to evaluation_report.schema.json.
+The --format yaml output is the same data serialised as YAML (human-friendly, still machine-parseable).
+The --format table output renders a rich ASCII table for interactive terminal use.
 
 Agents should:
   1. Check the top-level `passed` field.
@@ -38,7 +38,6 @@ from rich.console import Console
 from rich.table import Table
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
 from harness_skills.generators.evaluation import (
     GateConfig,
     GateId,
@@ -104,7 +103,7 @@ def evaluate_cmd(
 
     \b
     Agent usage pattern (JSON):
-        result=$(harness evaluate --output-format json)
+        result=$(harness evaluate --format json)
         passed=$(echo "$result" | jq '.passed')
         if [ "$passed" = "false" ]; then
             echo "$result" | jq '.failures[] | select(.severity=="error")'
@@ -112,15 +111,13 @@ def evaluate_cmd(
 
     \b
     Agent usage pattern (YAML):
-        harness evaluate --output-format yaml | python3 -c "
+        harness evaluate --format yaml | python3 -c "
         import sys, yaml
         r = yaml.safe_load(sys.stdin)
         print('passed:', r['passed'])
         "
     """
-    verbosity = get_verbosity(ctx)
     fmt = resolve_output_format(output_format)
-
     config = GateConfig(
         coverage_threshold=coverage_threshold,
         max_staleness_days=max_staleness_days,
@@ -130,20 +127,6 @@ def evaluate_cmd(
         [GateId(g) for g in selected_gates] if selected_gates else None
     )
 
-    # Verbose: announce which gates will run before executing them.
-    if gates:
-        vecho(
-            f"  Running {len(gates)} gate(s): {', '.join(g.value for g in gates)}",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
-    else:
-        vecho(
-            "  Running all evaluation gates…",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
-
     report = run_all_gates(project_root=project_root, config=config, gates=gates)
 
     if fmt == "json":
@@ -151,17 +134,7 @@ def evaluate_cmd(
     elif fmt == "yaml":
         click.echo(_format_yaml_report(report))
     else:
-        _print_table_report(report, verbosity=verbosity)
-
-    # Verbose: summary line to stderr so it doesn't pollute structured output.
-    vecho(
-        f"  Gates run: {report.summary.total_gates}  "
-        f"Passed: {report.summary.passed_gates}  "
-        f"Failed: {report.summary.blocking_failures} blocking",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.verbose,
-        err=True,
-    )
+        _print_table_report(report)
 
     # Exit code: 0 = all passed, 1 = failures
     if not report.passed:
@@ -176,8 +149,11 @@ def evaluate_cmd(
 def _format_yaml_report(report: EvaluationReport) -> str:
     """Serialise an EvaluationReport to a YAML string.
 
-    Produces the same data as --output-format json but in YAML, which is easier
-    for humans to skim and can still be parsed by scripts (``yaml.safe_load``).
+    Produces the same data as --format json but in YAML, which is easier for
+    humans to skim and can still be parsed by scripts (``yaml.safe_load``).
+    The output is NOT validated against evaluation_report.schema.json because
+    JSON Schema validators don't speak YAML directly, but the data structure is
+    identical to the JSON output.
     """
     data = json.loads(report.model_dump_json())
     return yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
@@ -201,27 +177,28 @@ _SEVERITY_STYLE: dict[str, str] = {
 }
 
 
-def _print_table_report(
-    report: EvaluationReport,
-    *,
-    verbosity: str = VerbosityLevel.normal,
-) -> None:
-    """Render a human-readable rich table to stdout."""
+def _print_table_report(report: EvaluationReport) -> None:
+    """Render a human-readable rich table to stdout.
+
+    Layout:
+      1. Header line — overall pass/fail + summary counts.
+      2. Gates table — one row per gate with status, duration, failure count, message.
+      3. Failures detail table — one row per GateFailure (only when failures exist).
+    """
     console = Console()
     s = report.summary
 
-    # ── 1. Header (suppressed in quiet mode) ───────────────────────────────
+    # ── 1. Header ──────────────────────────────────────────────────────────
     overall_style = "bold green" if report.passed else "bold red"
     overall_label = "PASSED" if report.passed else "FAILED"
-    if at_least(verbosity, VerbosityLevel.normal):
-        console.print()
-        console.print(
-            f"[{overall_style}]{'✓' if report.passed else '✗'} Evaluation {overall_label}[/{overall_style}]"
-            f"  —  {s.passed_gates}/{s.total_gates} gates passed"
-            f"  |  {s.blocking_failures} blocking failure(s)"
-            f"  |  {s.total_failures} total failure(s)"
-        )
-        console.print()
+    console.print()
+    console.print(
+        f"[{overall_style}]{'✓' if report.passed else '✗'} Evaluation {overall_label}[/{overall_style}]"
+        f"  —  {s.passed_gates}/{s.total_gates} gates passed"
+        f"  |  {s.blocking_failures} blocking failure(s)"
+        f"  |  {s.total_failures} total failure(s)"
+    )
+    console.print()
 
     # ── 2. Gates summary table ──────────────────────────────────────────────
     gates_table = Table(
@@ -254,10 +231,9 @@ def _print_table_report(
 
     # ── 3. Failures detail table (only when there are failures) ────────────
     if report.failures:
-        if at_least(verbosity, VerbosityLevel.normal):
-            console.print()
-            console.print("[bold]Failure Details[/bold]")
-            console.print()
+        console.print()
+        console.print("[bold]Failure Details[/bold]")
+        console.print()
 
         failures_table = Table(
             box=box.SIMPLE,
@@ -291,12 +267,4 @@ def _print_table_report(
 
         console.print(failures_table)
 
-    # ── 4. Footer / timing (verbose and debug only) ─────────────────────────
-    if at_least(verbosity, VerbosityLevel.verbose) and report.gate_results:
-        total_ms = sum(
-            r.duration_ms for r in report.gate_results if r.duration_ms is not None
-        )
-        console.print(f"[dim]  Total gate time: {total_ms} ms[/dim]")
-
-    if at_least(verbosity, VerbosityLevel.normal):
-        console.print()
+    console.print()

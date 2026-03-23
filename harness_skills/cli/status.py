@@ -53,6 +53,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.models.base import Status
 from harness_skills.models.status import (
     DashboardSummary,
@@ -595,17 +596,10 @@ def _print_table_output(response: StatusDashboardResponse) -> None:
 
 
 @click.command("status")
-@click.option(
-    "--format",
-    "output_format",
-    type=click.Choice(["json", "yaml", "table"], case_sensitive=False),
-    default="table",
-    show_default=True,
-    help=(
-        "Output format.  "
-        "json: machine-parseable, conforms to StatusDashboardResponse schema.  "
-        "yaml: same data as YAML, human-friendly and still machine-parseable.  "
-        "table: rich ASCII table for interactive terminal use."
+@output_format_option(
+    help_extra=(
+        "json output conforms to the StatusDashboardResponse schema.  "
+        "table renders a rich ASCII dashboard for interactive terminal use."
     ),
 )
 @click.option(
@@ -665,7 +659,7 @@ def _print_table_output(response: StatusDashboardResponse) -> None:
 @click.pass_context
 def status_cmd(
     ctx: click.Context,
-    output_format: str,
+    output_format: Optional[str],
     plan_files: tuple[Path, ...],
     state_url: str,
     plan_ids: tuple[str, ...],
@@ -697,6 +691,7 @@ def status_cmd(
         1   No plan data found.
         2   Parse / validation error.
     """
+    fmt = resolve_output_format(output_format)
     start_ms = int(time.monotonic() * 1000)
     plans: list[PlanSnapshot] = []
     data_sources: list[str] = []
@@ -781,9 +776,9 @@ def status_cmd(
             task.dep_state = _compute_dep_state(task, _tasks_by_id)
 
     # ── 7. Emit output ────────────────────────────────────────────────────────
-    if output_format == "json":
+    if fmt == "json":
         click.echo(_format_json(response))
-    elif output_format == "yaml":
+    elif fmt == "yaml":
         click.echo(_format_yaml_output(response))
     else:
         _print_table_output(response)

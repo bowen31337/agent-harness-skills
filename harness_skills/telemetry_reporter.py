@@ -35,7 +35,6 @@ import click
 import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -411,9 +410,7 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
     type=int,
     help="Cap the artifact list at N entries (sorted by reads descending).",
 )
-@click.pass_context
 def telemetry_cmd(
-    ctx: click.Context,
     telemetry_file: str,
     output_format: Optional[str],
     min_reads: int,
@@ -422,15 +419,7 @@ def telemetry_cmd(
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
     fmt = resolve_output_format(output_format)
-    verbosity = get_verbosity(ctx)
     path = Path(telemetry_file)
-
-    vecho(
-        f"  Analysing telemetry file: {path}",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.verbose,
-    )
-
     report = build_report(path, min_reads=min_reads, top_n=top_n)
 
     if fmt == "json":
@@ -452,15 +441,8 @@ def telemetry_cmd(
     click.echo(report.model_dump_json(indent=2))
     click.echo("```")
 
-    # Verbose: explain the exit code before exiting.
+    # Exit 1 if there are cold/unused artifacts or silent gates to flag.
     if report.summary.cold_artifact_count > 0 or report.summary.silent_gate_count > 0:
-        vecho(
-            f"  {report.summary.cold_artifact_count} cold/unused artifact(s) · "
-            f"{report.summary.silent_gate_count} silent gate(s) — exit 1",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-            err=True,
-        )
         sys.exit(1)
 
 

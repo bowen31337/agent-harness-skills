@@ -17,11 +17,11 @@ Filtering
 
 Output modes
 ------------
-``--output-format table``  (default)
+``--format pretty``  (default)
     ANSI-coloured, human-readable line per entry (mirrors
     ``PrettyConventionFormatter``).
 
-``--output-format json``
+``--format json``
     Raw NDJSON — one JSON object per line, suitable for piping to ``jq``.
 
 Examples
@@ -41,7 +41,7 @@ Examples
     harness observe --level ERROR --lines 100 --no-follow
 
     # Pipe raw NDJSON to jq
-    harness observe --output-format json --domain harness | jq .message
+    harness observe --format json --domain harness | jq .message
 
     # Point at a non-default log file
     harness observe --log-file /var/log/harness/app.ndjson
@@ -60,7 +60,6 @@ import click
 from pydantic import ValidationError
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
-from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 from harness_skills.models.observe import LogEntry, ObserveResponse
 
 # ---------------------------------------------------------------------------
@@ -161,7 +160,12 @@ def _passes_filters(
 
 
 def _format_pretty(entry: dict, *, color: bool) -> str:
-    """Render a parsed log entry as a human-readable line."""
+    """Render a parsed log entry as a human-readable line.
+
+    Format (mirrors ``PrettyConventionFormatter``)::
+
+        <timestamp>  <LEVEL>  <domain>  [<trace8>]  <message>  <extra k=v …>
+    """
     ts       = entry.get("timestamp", "")
     level    = entry.get("level", "?").upper()
     domain   = entry.get("domain", "")
@@ -235,31 +239,40 @@ def _tail_file(
     min_level: int,
     output_format: str,
     color: bool,
-    verbosity: str = VerbosityLevel.normal,
 ) -> _TailStats:
-    """Open *path*, emit matching existing lines, then follow new writes."""
+    """Open *path*, emit matching existing lines, then follow new writes.
+
+    Parameters
+    ----------
+    path:          Path to the NDJSON log file.
+    follow:        If *True*, keep tailing after existing content is exhausted.
+    lines:         How many trailing existing lines to scan before following
+                   (0 = all existing lines).
+    domain:        Domain-prefix filter (``None`` = no filter).
+    trace_id:      Exact trace-ID filter (``None`` = no filter).
+    min_level:     Minimum severity level order value.
+    output_format: ``"pretty"`` or ``"json"``.
+    color:         Whether to emit ANSI colour codes.
+
+    Returns
+    -------
+    _TailStats
+        Aggregate counters for the session.  Only meaningful in
+        ``--no-follow`` mode; in follow mode the stats cover all lines
+        emitted until Ctrl-C.
+    """
     stats = _TailStats()
 
     # ── Wait for file if following ────────────────────────────────────────────
     if not path.exists():
         msg = f"[harness:observe] Log file not found: {path}"
         if not follow:
-            vecho(msg, verbosity=verbosity, min_level=VerbosityLevel.quiet, err=True)
+            click.echo(msg, err=True)
             sys.exit(1)
-        vecho(
-            msg + "  Waiting for it to appear…",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.normal,
-            err=True,
-        )
+        click.echo(msg + "  Waiting for it to appear…", err=True)
         while not path.exists():
             time.sleep(0.5)
-        vecho(
-            f"[harness:observe] Log file appeared: {path}",
-            verbosity=verbosity,
-            min_level=VerbosityLevel.normal,
-            err=True,
-        )
+        click.echo(f"[harness:observe] Log file appeared: {path}", err=True)
 
     # ── Read existing content ─────────────────────────────────────────────────
     existing_lines: list[str]
@@ -291,19 +304,17 @@ def _tail_file(
     if not follow:
         return stats
 
-    # ── Separator + banner (suppressed in quiet mode) ─────────────────────────
+    # ── Separator + banner ────────────────────────────────────────────────────
     if shown > 0:
-        vecho("─" * 60, verbosity=verbosity, min_level=VerbosityLevel.normal, err=True)
+        click.echo("─" * 60, err=True)
 
     filter_desc = ""
     if domain:
         filter_desc += f"  domain={domain!r}"
     if trace_id:
         filter_desc += f"  trace_id={trace_id[:8]}…"
-    vecho(
+    click.echo(
         f"[harness:observe] Tailing {path}{filter_desc}  (Ctrl-C to stop)",
-        verbosity=verbosity,
-        min_level=VerbosityLevel.normal,
         err=True,
     )
 
@@ -340,12 +351,7 @@ def _tail_file(
                         stats.validation_errors += 1
 
         except KeyboardInterrupt:
-            vecho(
-                "\n[harness:observe] Stopped.",
-                verbosity=verbosity,
-                min_level=VerbosityLevel.normal,
-                err=True,
-            )
+            click.echo("\n[harness:observe] Stopped.", err=True)
 
     return stats
 
@@ -425,9 +431,7 @@ def _tail_file(
     default=False,
     help="Disable ANSI colour codes (automatically disabled when stdout is not a TTY).",
 )
-@click.pass_context
 def observe_cmd(
-    ctx: click.Context,
     log_file: str,
     domain: Optional[str],
     trace_id: Optional[str],
@@ -467,13 +471,12 @@ def observe_cmd(
 
     \b
       # Pipe raw NDJSON to jq (disables colour automatically)
-      harness observe --output-format json --domain harness | jq '{ts: .timestamp, msg: .message}'
+      harness observe --format json --domain harness | jq '{ts: .timestamp, msg: .message}'
 
     \b
       # Non-default log file
       harness observe --log-file /var/log/harness/app.ndjson --domain harness.gates
     """
-    verbosity = get_verbosity(ctx) if hasattr(ctx, "obj") else VerbosityLevel.normal
     path      = Path(log_file)
     min_level = _LEVEL_ORDER.get(min_level_name.upper(), 0)
     # Map the standardised --output-format to internal "pretty"/"json" names.
@@ -481,26 +484,11 @@ def observe_cmd(
     fmt = resolve_output_format(output_format)
     internal_format = "json" if fmt == "json" else "pretty"
     # Enable colour only for pretty mode on a real TTY unless suppressed
-    color = (
+    color     = (
         not no_color
         and internal_format == "pretty"
         and sys.stdout.isatty()
     )
-
-    # Verbose: show active filters before tailing begins.
-    if domain or trace_id or min_level_name.upper() != "DEBUG":
-        _filter_parts = []
-        if domain:
-            _filter_parts.append(f"domain={domain!r}")
-        if trace_id:
-            _filter_parts.append(f"trace_id={trace_id[:8]}…")
-        if min_level_name.upper() != "DEBUG":
-            _filter_parts.append(f"level≥{min_level_name.upper()}")
-        vecho(
-            "  Filters: " + ", ".join(_filter_parts),
-            verbosity=verbosity,
-            min_level=VerbosityLevel.verbose,
-        )
 
     stats = _tail_file(
         path,
@@ -511,12 +499,10 @@ def observe_cmd(
         min_level=min_level,
         output_format=internal_format,
         color=color,
-        verbosity=verbosity,
     )
 
     # In --no-follow mode emit a structured ObserveResponse summary to stderr
     # so downstream tools can assess filter coverage and schema health.
-    # The JSON summary is machine-parseable — always emitted.
     if not follow:
         summary = ObserveResponse(
             log_file=str(path),
