@@ -932,3 +932,69 @@ principles:
       and this principle updated before any domain code uses the new capability.
       Do not let a second implementation of any provider accumulate — consolidate
       into the single provider immediately.
+
+  - id: "MB015"
+    category: "architecture"
+    severity: "blocking"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      DEPENDENCY DIRECTION — imports between harness_skills sub-packages must
+      follow the approved layering order below (higher layers may depend on lower
+      layers; the reverse is forbidden).
+
+      Approved dependency directions (inferred from import analysis 2026-03-23):
+
+        Layer 0 (leaf — no intra-project imports):
+          task_lock  ·  dom_snapshot_utility  ·  harness_dashboard  ·  log_format_linter
+
+        Layer 1 (depends on task_lock only):
+          harness_skills.models  →  task_lock
+
+        Layer 2 (depends on models only):
+          harness_skills.plugins    →  models
+          harness_skills.generators →  models
+
+        Layer 3 (depends on models + lower layers):
+          harness_skills.gates  →  models, plugins
+
+        Layer 4 (depends on models + generators):
+          harness_skills.cli  →  models, generators
+
+        Layer 5 (entry-point / root modules):
+          resume · telemetry_reporter · stale_plan_detector
+            → models, cli
+          dom_snapshot_skill  →  dom_snapshot_utility
+
+      Text-based dependency flow diagram (→ = "imports from / depends on"):
+
+        dom_snapshot_utility   harness_dashboard   log_format_linter
+               ↑                  (standalone)        (standalone)
+               │
+        harness_skills.dom_snapshot_skill
+               │
+        harness_skills root modules (resume, telemetry_reporter, stale_plan_detector)
+               ↑─────────────────────────────────────────────────┐
+               │                                                  │
+        harness_skills.cli ──────────────────── harness_skills.gates
+               │  ↑                                    │  ↑
+               │  └──── harness_skills.generators      │  └──── harness_skills.plugins
+               │                    │                  │                   │
+               └────────────────────┴──────────────────┴───────────────────┘
+                                           ↓
+                                  harness_skills.models
+                                           ↓
+                                  harness_skills.task_lock
+                                     (stdlib only)
+
+      Forbidden import directions (reverse-layer violations):
+        models   → cli, generators, gates, plugins  (models is a lower layer)
+        plugins  → cli, generators, gates            (plugins is below gates/cli)
+        generators → cli, gates, plugins             (generators is below cli)
+        gates    → cli                               (gates is below cli)
+        task_lock → anything intra-project           (task_lock is the leaf)
+        dom_snapshot_utility / harness_dashboard / log_format_linter
+                 → harness_skills.*                  (standalone packages)
+
+      Any import that creates a cycle or reverses the layer order above is a
+      blocking violation. New sub-packages must declare their layer in a comment
+      at the top of their __init__.py before adding cross-package imports.
