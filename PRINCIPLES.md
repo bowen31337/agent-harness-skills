@@ -1,65 +1,8 @@
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-22
+last_updated: 2026-03-21
 head: 0e893bd
 artifact: principles
 <!-- /harness:auto-generated -->
-
-# Project Principles
-
-> Source of truth: `.claude/principles.yaml` — edit principles with `/define-principles`.
-
-| ID | Category | Severity | Applies to | Rule |
-|---|---|---|---|---|
-| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan that produced it |
-| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to the `plans/` directory before a PR is opened |
-| P003 | traceability | 🟡 suggestion | review-pr, check-code | The plan reference must appear as a structured field at the top of the PR body using the exact format `Plan: <path-or-url>` |
-| P004 | traceability | 🟡 suggestion | review-pr | If a PR deviates from its source plan, a `Deviations:` section must be included in the PR body explaining each delta |
-| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft` |
-| P006 | ci | 🔴 blocking | review-pr, check-code | The CI pipeline must include a principles compliance gate step that exits non-zero on any blocking severity violation |
-| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow Arrange-Act-Assert (AAA) structure with a blank line separating each phase |
-| P008 | testing | 🔴 blocking | review-pr, check-code | Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>` |
-| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible; shared fixtures that mutate state must live in `conftest.py` and be reset between tests |
-| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test; mocking internal implementation details is forbidden |
-| P011 | style | 🔴 blocking | review-pr, check-code | No magic numbers: every numeric literal that carries domain or configuration meaning must be extracted to a named constant in UPPER_SNAKE_CASE |
-| P012 | style | 🔴 blocking | review-pr, check-code | No hardcoded strings: string literals representing configuration must not appear inline in business logic or test assertions |
-| P013 | style | 🟡 suggestion | review-pr, check-code | Imports must follow the four-group isort order (future → stdlib → third-party → first-party) with exactly one blank line between groups |
-| P014 | naming | 🔴 blocking | review-pr, check-code | All Python functions and methods must use `snake_case`; private helpers must be prefixed with a single underscore |
-| P015 | naming | 🔴 blocking | review-pr, check-code | All local variables and function parameters must use `snake_case` with descriptive names; single-letter names are forbidden outside loop counters |
-| P016 | naming | 🔴 blocking | review-pr, check-code | All class names must use `PascalCase`; test classes must begin with the prefix `Test` |
-| P017 | naming | 🔴 blocking | review-pr, check-code | All Python source files must use `snake_case.py` filenames; directories must also use `snake_case` |
-| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants must use `UPPER_SNAKE_CASE`; private constants must carry a leading underscore `_UPPER_SNAKE_CASE` |
-| P019 | naming | 🔴 blocking | review-pr, check-code | All members of `Enum` and `StrEnum` subclasses must use `UPPER_SNAKE_CASE` |
-| P020 | naming | 🔴 blocking | review-pr, check-code | All Pydantic model fields and ORM column names must use `snake_case` |
-| P021 | error-handling | 🔴 blocking | review-pr, check-code | All application errors must be raised as structured exception classes inheriting from a common base; never use bare `Exception` |
-| P022 | error-handling | 🔴 blocking | review-pr, check-code | Every error code must follow the format `<DOMAIN>_<NOUN>_<VERB>` in UPPER_SNAKE_CASE and be declared in an `ErrorCode` StrEnum |
-| P023 | error-handling | 🔴 blocking | review-pr, check-code | All log statements must use the structured logging format; never use `print()` or a logger with a hardcoded name string |
-| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations must be implemented as coroutines using `async`/`await`; blocking calls inside a coroutine are forbidden |
-| P025 | concurrency | 🔴 blocking | review-pr, check-code | All mutable state shared between coroutines must be protected by an `asyncio.Lock` used as an async context manager |
-| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async sweep/poll loops must implement graceful shutdown using the `asyncio.Event` + `asyncio.wait_for` pattern |
-| P027 | concurrency | 🔴 blocking | review-pr, check-code | Inter-process / multi-agent coordination must use file-system locks, not in-process threading primitives |
-| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O must use `httpx.AsyncClient` as an async context manager with an explicit `timeout` parameter |
-| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions must always be driven from an async context using `anyio.run(main)`, never `asyncio.run()` |
-| P030 | concurrency | 🟡 suggestion | review-pr, check-code | Synchronous Playwright (`sync_playwright()`) is permitted only inside test files and test-support helpers |
-| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation must occur exclusively at system boundaries; never validate inside domain services, use-case classes, or repository methods |
-| P032 | architecture | 🔴 blocking | review-pr, check-code | Before writing a new helper function or utility class, check whether an equivalent already exists in the shared packages; no duplicates |
-| MB001 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills` root package exports no symbols; callers must import from the appropriate sub-package, never from `harness_skills.<submodule>` directly |
-| MB002 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/cli`: all external imports must go through `harness_skills.cli`; private `_emit` must not be imported outside the cli subpackage |
-| MB003 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/gates`: all external imports must go through `harness_skills.gates`; test deep-import violations must be refactored |
-| MB004 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/generators`: all external imports must go through `harness_skills.generators`; open violations must be migrated |
-| MB005 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/models`: all external imports must go through `harness_skills.models`; open violations must be migrated |
-| MB006 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/plugins`: all external imports must go through `harness_skills.plugins`; `_record_telemetry` must not be imported externally |
-| MB007 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/utils`: no public symbols exported; do not import from `harness_skills.utils.<module>` outside the utils package |
-| MB008 | architecture | 🔴 blocking | review-pr, check-code | `harness_dashboard`: all external imports must go through `harness_dashboard`; open test violations must be migrated |
-| MB009 | architecture | 🔴 blocking | review-pr, check-code | `dom_snapshot_utility`: all external imports must go through `dom_snapshot_utility`; open test violation must be migrated |
-| MB010 | architecture | 🔴 blocking | review-pr, check-code | `log_format_linter`: all external imports must go through `log_format_linter`; `main` must be exposed via `__init__.py` |
-| MB011 | architecture | 🔴 blocking | review-pr, check-code | LOGGING PROVIDER: all production code must use `get_logger("<domain>")`; calling `logging.getLogger()` directly in domain code is forbidden |
-| MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER: all harness.config.yaml reads must go through `HarnessConfigLoader`; direct `open()` / `yaml.safe_load()` is forbidden |
-| MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: sensitive env vars may only be read in designated bootstrap modules; domain code must receive credentials via constructor/parameter injection |
-| MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: structured logging, harness config, and API secrets must each be accessed only through their designated provider |
-
-*46 principles active.*
-
----
 
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
