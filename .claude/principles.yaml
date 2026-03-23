@@ -635,6 +635,7 @@ principles:
     rule: >
       harness_skills/gates: __all__ is now declared, listing:
         CoverageGate, DocsFreshnessGate, DocsGateConfig,
+        PrinciplesGate, PrinciplesGateConfig, SecurityGate,
         EvaluationSummary, GateEvaluator, GateFailure, GateOutcome,
         HarnessConfigLoader, run_gates.
       All imports from outside harness_skills/gates/ must go through
@@ -650,6 +651,13 @@ principles:
         _looks_like_file_path, _parse_generated_at from gates.docs_freshness.
         These tests must be refactored to avoid testing private implementation
         details; test only the public gate interface (CoverageGate.run(), etc.).
+      CROSS-DOMAIN VIOLATION introduced 2026-03-23 (NEW):
+        harness_skills/gates/__init__.py:33
+          → from harness_skills.models.gate_configs import SecurityGateConfig
+        This deep-imports a models sub-module from inside the gates package root.
+        Fix: add SecurityGateConfig to harness_skills/models/__init__.__all__ first,
+        then change the import to `from harness_skills.models import SecurityGateConfig`
+        (see MB005 for the models boundary rule).
       Never weaken __all__ by removing symbols without a deprecation cycle.
 
   - id: "MB004"
@@ -683,11 +691,16 @@ principles:
     applies_to: ["review-pr", "check-code"]
     rule: >
       harness_skills/models: __all__ is declared and the boundary is EXPLICIT.
-      gate_configs symbols (CoverageGateConfig, RegressionGateConfig, etc.) are
-      now included in __all__ and re-exported from harness_skills/models/__init__.py.
+      NOTE: gate_configs symbols (CoverageGateConfig, RegressionGateConfig,
+      SecurityGateConfig, PerformanceGateConfig, PrinciplesGateConfig,
+      DocsFreshnessGateConfig, ArchitectureGateConfig, TypesGateConfig,
+      LintGateConfig) are NOT yet re-exported from harness_skills/models/__init__.py
+      — this is an open TODO. They must be added to __all__ before callers can
+      migrate away from the deep `harness_skills.models.gate_configs` import path.
       All imports from outside harness_skills/models/ must go through
       harness_skills.models — never from harness_skills.models.<module> directly.
       Open violations (still importing sub-modules):
+        harness_skills/gates/__init__.py:33  → from harness_skills.models.gate_configs import SecurityGateConfig  (NEW 2026-03-23)
         harness_skills/stale_plan_detector.py → from harness_skills.models.base / .stale
         harness_skills/cli/status.py → from harness_skills.models.base / .status
         harness_skills/cli/observe.py:62 → from harness_skills.models.observe (bypass __init__)
@@ -696,9 +709,12 @@ principles:
         harness_skills/telemetry_reporter.py → from harness_skills.models.base / .telemetry
         harness_skills/gates/coverage.py → from harness_skills.models.gate_configs
         harness_skills/gates/runner.py → from harness_skills.models.gate_configs / .base
+        harness_skills/gates/security.py → from harness_skills.models.gate_configs
+        harness_skills/gates/performance.py → from harness_skills.models.gate_configs
         harness_skills/generators/config_generator.py → from harness_skills.models.gate_configs
         tests/* — multiple test files importing sub-modules directly.
-      Each of these must be migrated to `from harness_skills.models import X`.
+      Each of these must be migrated to `from harness_skills.models import X` once
+      the gate_configs symbols are added to models/__init__.__all__.
       Never add new `from harness_skills.models.<module>` imports outside the package.
 
   - id: "MB006"
