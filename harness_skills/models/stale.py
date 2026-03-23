@@ -14,8 +14,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse, Severity
 
-# Severity values used for artifact freshness (superset: adds "healthy")
-ArtifactSeverityLiteral = Literal["healthy", "INFO", "WARNING", "ERROR", "CRITICAL"]
+# Type alias for artifact-level severity (includes the "healthy" baseline state)
+ArtifactSeverity = Literal["healthy", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 # ── Per-task staleness detail ──────────────────────────────────────────────────
@@ -89,141 +89,63 @@ class StalePlanSummary(BaseModel):
     )
 
 
-# ── Source file drift models ───────────────────────────────────────────────────
+# ── Artifact freshness models ──────────────────────────────────────────────────
 
 
-class SourceFileDrift(BaseModel):
-    """A source file referenced by a documentation artifact that has been modified
-    since the artifact was last updated — indicating potential documentation drift."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    path: str = Field(description="Relative path of the referenced source file.")
-    exists: bool = Field(description="Whether the file currently exists in the repository.")
-    mtime_date: str | None = Field(
-        default=None,
-        description=(
-            "ISO-8601 date (YYYY-MM-DD) of the file's last modification. "
-            "None if the file does not exist."
-        ),
-    )
-    days_newer_than_doc: int | None = Field(
-        default=None,
-        description=(
-            "Number of days by which the file's mtime exceeds the artifact's "
-            "last_updated date.  Positive = file was modified after the doc."
-        ),
-    )
-
-
-class DocumentationDrift(BaseModel):
-    """Drift analysis for a single documentation artifact.
-
-    Tracks which source files the artifact references and detects whether any of
-    those files have been modified since the artifact was last updated.  A high
-    ``drift_ratio`` or ``staleness_score`` signals that the documentation is
-    likely out-of-date relative to the code it describes.
-    """
+class ArtifactStalenessEntry(BaseModel):
+    """Staleness detail for a single canonical harness artifact file."""
 
     model_config = ConfigDict(extra="forbid")
 
-    referenced_files: list[str] = Field(
-        default_factory=list,
-        description=(
-            "All source file paths extracted from the artifact "
-            "(Python imports, backtick spans, explicit file paths)."
-        ),
-    )
-    missing_files: list[str] = Field(
-        default_factory=list,
-        description="Referenced source files that no longer exist in the repository.",
-    )
-    drifted_files: list[SourceFileDrift] = Field(
-        default_factory=list,
-        description=(
-            "Source files that exist but were modified after the artifact's "
-            "last_updated date, indicating the doc may be stale."
-        ),
-    )
-    drift_ratio: float = Field(
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Fraction of referenced files that are either missing or newer than "
-            "the artifact (0.0 = no drift; 1.0 = all references drifted)."
-        ),
-    )
-    staleness_score: float = Field(
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Composite staleness score combining artifact age (60 % weight) and "
-            "source-file drift ratio (40 % weight).  "
-            "0.0 = completely fresh; 1.0 = severely stale."
-        ),
-    )
-
-
-# ── Artifact freshness models ─────────────────────────────────────────────────
-
-
-class ArtifactResult(BaseModel):
-    """Freshness result for a single harness artifact file."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    file: str = Field(description="Relative path of the artifact file checked.")
+    file: str = Field(description="Relative path to the artifact file.")
     last_updated: str | None = Field(
         default=None,
         description=(
-            "ISO-8601 date extracted from the auto-generated block "
-            "(e.g. '2026-03-22').  None when the field is missing or unparseable."
+            "Value of the last_updated field extracted from the file's "
+            "``<!-- harness:auto-generated -->`` front-matter block, "
+            "or None when the field is absent or the file is missing."
         ),
     )
     age_days: int | None = Field(
         default=None,
         ge=0,
-        description="Calendar days since last_updated as of scan time.  None if last_updated is absent.",
+        description=(
+            "Age of the artifact in whole days relative to today.  "
+            "None when the file is missing or the timestamp cannot be parsed."
+        ),
     )
-    severity: ArtifactSeverityLiteral = Field(
+    severity: ArtifactSeverity = Field(
         description=(
             "healthy  → age ≤ threshold; "
-            "INFO     → threshold < age ≤ 2×threshold; "
-            "WARNING  → 2×threshold < age ≤ 4×threshold  (or last_updated missing); "
-            "CRITICAL → age > 4×threshold; "
-            "ERROR    → file absent."
+            "INFO     → threshold < age ≤ 2× threshold; "
+            "WARNING  → 2× threshold < age ≤ 4× threshold, or timestamp missing; "
+            "ERROR    → file absent from repository; "
+            "CRITICAL → age > 4× threshold."
         )
     )
-    drift: "DocumentationDrift | None" = Field(
-        default=None,
-        description=(
-            "Source-file drift analysis: which files this artifact references "
-            "and whether any have changed since the artifact was last updated. "
-            "None when drift scanning is skipped or the file is missing."
-        ),
-    )
-    staleness_score: float | None = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description=(
-            "Composite staleness score (0.0 = fresh, 1.0 = severely stale) "
-            "combining artifact age and source-file drift ratio. "
-            "None when age is unknown and drift scanning is skipped."
-        ),
-    )
 
 
-class ArtifactStaleness(BaseModel):
-    """Aggregate artifact-freshness results for the full harness document set."""
+class ArtifactStalenessSummary(BaseModel):
+    """Summary of artifact freshness across all canonical harness files."""
 
     model_config = ConfigDict(extra="forbid")
 
-    threshold_days: int = Field(ge=1, description="Max artifact age in days before flagging.")
-    artifacts_checked: int = Field(ge=0)
-    stale_artifacts: int = Field(ge=0, description="Count of artifacts with severity ≠ healthy.")
-    missing_artifacts: int = Field(ge=0, description="Count of files entirely absent.")
-    results: list[ArtifactResult] = Field(default_factory=list)
+    threshold_days: int = Field(
+        ge=0,
+        description="Maximum artifact age in days before the artifact is considered stale.",
+    )
+    artifacts_checked: int = Field(ge=0, description="Total number of artifact files inspected.")
+    stale_artifacts: int = Field(
+        ge=0,
+        description="Number of artifacts flagged as non-healthy (INFO, WARNING, ERROR, CRITICAL).",
+    )
+    missing_artifacts: int = Field(
+        ge=0, description="Number of expected artifact files that were not found on disk."
+    )
+    results: list[ArtifactStalenessEntry] = Field(
+        default_factory=list,
+        description="Per-file staleness detail, in the order the files were inspected.",
+    )
 
 
 # ── Top-level response ─────────────────────────────────────────────────────────
@@ -259,11 +181,11 @@ class StalePlanResponse(HarnessResponse):
         default=None,
         description="Model ID used for the LLM analysis, e.g. 'claude-opus-4-6'.",
     )
-    artifact_staleness: ArtifactStaleness | None = Field(
+    artifact_staleness: ArtifactStalenessSummary | None = Field(
         default=None,
         description=(
-            "Freshness scan results for canonical harness artifact files "
+            "Freshness report for canonical harness artifact files "
             "(AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md). "
-            "None when --skip-artifacts is passed."
+            "None when artifact scanning is disabled via --skip-artifacts."
         ),
     )
