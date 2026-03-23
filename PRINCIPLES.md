@@ -1,8 +1,8 @@
-<\!-- harness:auto-generated — do not edit this block manually -->
+<!-- harness:auto-generated — do not edit this block manually -->
 last_updated: 2026-03-22
-head: 515180d
+head: 0e893bd
 artifact: principles
-<\!-- /harness:auto-generated -->
+<!-- /harness:auto-generated -->
 
 # Project Principles
 
@@ -10,54 +10,751 @@ artifact: principles
 
 | ID | Category | Severity | Applies to | Rule |
 |---|---|---|---|---|
-| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan that produced it (e.g. `Plan: plans/feat-login-v2.md` or a plan URL/ID). |
-| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to the `plans/` directory before a PR is opened, so the referenced plan is always resolvable in version history. |
-| P003 | traceability | 🟡 suggestion | review-pr, check-code | The plan reference must appear as a structured field at the top of the PR body using the exact format `Plan: <path-or-url>` so it is machine-parseable by automated review tooling. |
-| P004 | traceability | 🟡 suggestion | review-pr | If a PR deviates from its source plan (scope change, dropped tasks, or added tasks), a `Deviations:` section must be included in the PR body explaining each delta with a one-line rationale. |
-| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft`; only plans with `status: approved` may back a merged PR. |
-| P006 | ci | 🔴 blocking | review-pr, check-code | The CI pipeline must include a principles compliance gate step that runs the violation scanner (`scripts/check_principles.py`) and exits non-zero on any `blocking` severity violation, preventing merge until all blocking violations are resolved. |
-| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow the Arrange-Act-Assert (AAA) structure: set up preconditions first, perform exactly one action, then assert outcomes — with a blank line separating each phase to make the boundary visually clear. |
-| P008 | testing | 🔴 blocking | review-pr, check-code | Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>` (e.g. `test_login_with_expired_token_returns_401`) so the failure message alone communicates what broke and why it matters. |
-| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible (`function` > `class` > `module` > `session`); shared fixtures that mutate state must live in `conftest.py` and be explicitly reset between tests to prevent order- dependent failures. |
-| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test (e.g. patch the HTTP client, not internal helpers); mocking internal implementation details is forbidden as it couples tests to structure rather than behaviour. |
-| P011 | style | 🔴 blocking | review-pr, check-code | No magic numbers: every numeric literal that carries domain or configuration meaning must be extracted to a named constant in UPPER_SNAKE_CASE. Pure domain constants (e.g. MAX_RETRY_ATTEMPTS, DEFAULT_PAGE_SIZE) belong in `src/<pkg>/constants.py`, grouped by logical section with a one-line comment. Runtime-tunable values (timeouts, batch sizes, rate limits) must be read from a config object or environment variable — never inlined. Exemptions: trivially obvious values such as 0, 1, and -1 used in arithmetic or index arithmetic do not require extraction. |
-| P012 | style | 🔴 blocking | review-pr, check-code | No hardcoded strings: string literals that represent configuration (URLs, hostnames, file paths, queue names, feature-flag keys, error-code strings) must not appear inline in business logic or test assertions. Config strings (base URLs, external service addresses, environment names) must be sourced from environment variables via `src/config.py` using a typed config object (e.g. Pydantic BaseSettings). Shared string constants (status codes, event names, header keys) must be declared as module-level constants in `src/<pkg>/constants.py` or, for closed sets, as a `StrEnum`. Test-only sentinel strings (fixture values, stub responses) must be defined at the top of the test file or in `tests/constants.py`; no string literal may appear in more than one test without being extracted. |
-| P013 | style | 🟡 suggestion | review-pr, check-code | Imports must follow the four-group isort order — future, stdlib, third-party, first-party — with exactly one blank line between each group and no blank lines within a group. `from __future__ import annotations` must appear as the very first import in every Python module. Imports within each group must be sorted alphabetically (`import a` before `import b`; `from a import x` before `from b import y`). Intra-package references must use relative imports (`from .module import Thing`) rather than absolute paths that repeat the package name. Detected from the prevailing pattern across 10+ files in `tests/` and `src/`; enforced by isort with profile `black` (or equivalent ruff `[tool.ruff.lint.isort]` config). |
-| P014 | naming | 🔴 blocking | review-pr, check-code | All Python functions and methods must use `snake_case`. Private/internal helpers (not part of the public API of a module or class) must be prefixed with a single underscore: `_snake_case`. Double-underscore dunder names (`__init__`, `__repr__`) are exempt. Detected as the universal convention across harness_skills/, skills/, and all supporting packages. |
-| P015 | naming | 🔴 blocking | review-pr, check-code | All local variables and function parameters must use `snake_case` with descriptive names. Single-letter names are forbidden outside trivial loop counters (`i`, `j`, `k`) and well-known mathematical variables. Examples of compliant names: `agent_id`, `coverage_pct`, `gate_pass_rate`. Examples of violations: `x`, `tmp`, `d`, `obj` used as general-purpose variable names in business logic. |
-| P016 | naming | 🔴 blocking | review-pr, check-code | All class names must use `PascalCase` (UpperCamelCase) — no underscores, no leading lowercase letters. Test classes must begin with the prefix `Test` followed by the name of the subject under test in PascalCase (e.g. `TestTaskLockModel`, `TestDetectFramework`). Dataclasses, Pydantic models, Enums, and Protocols follow the same PascalCase rule. |
-| P017 | naming | 🔴 blocking | review-pr, check-code | All Python source files must use `snake_case.py` filenames (all lowercase, words separated by underscores). No hyphens, no camelCase, no PascalCase in file names. All directories that are Python packages or logical groupings must also use `snake_case` (e.g. `harness_skills/`, `dom_snapshot_utility/`, `log_format_linter/`). |
-| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants must use `UPPER_SNAKE_CASE`. Constants private to a module (not exported as part of its public API) must additionally carry a leading underscore: `_UPPER_SNAKE_CASE` (e.g. `_TRACE_ID_RE`, `_DEFAULT_LOCKS_DIR`, `_HOT_PERCENTILE`). Constants that are part of a module's public interface omit the leading underscore (e.g. `MAX_RETRY_ATTEMPTS`, `DEFAULT_PAGE_SIZE`). Naming a constant in `lower_snake_case` or `camelCase` is a violation regardless of its scope. |
-| P019 | naming | 🔴 blocking | review-pr, check-code | All members of `Enum` and `StrEnum` subclasses must use `UPPER_SNAKE_CASE`. Multi-word enum values must be separated by underscores, not hyphens or camelCase (e.g. `UNIT_TESTS`, `COVERAGE_REPORT`, `TIME_TO_MERGE`). The enum class name itself must follow the PascalCase rule (P016). |
-| P020 | naming | 🔴 blocking | review-pr, check-code | All Pydantic model fields and ORM column names must use `snake_case`. This applies to `BaseModel`, `BaseSettings`, `dataclass`, and any ORM mapper (e.g. SQLAlchemy `Column` definitions). Pydantic `Field(alias=...)` may be used to expose a camelCase JSON key, but the Python attribute name must still be `snake_case`. Examples of compliant field names: `pr_id`, `time_to_merge_hours`, `gate_pass_rate`, `created_at`, `artifact_count`. |
-| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations must be implemented as coroutines using `async`/`await` — never using blocking calls inside a coroutine. Prohibited blocking calls inside `async def` functions include:   • `time.sleep()` — use `await asyncio.sleep()` instead,   • `requests.get/post/…` — use `await httpx.AsyncClient.*` instead,   • `open()` / synchronous file I/O in hot paths — use `anyio.Path` or     `asyncio.to_thread(…)` to offload to a thread executor,   • Any function that does CPU-heavy work without yielding — offload with     `await asyncio.to_thread(fn, *args)`. Detected runtime: asyncio + anyio. Blocking calls stall the entire event loop and degrade all concurrently running coroutines. |
-| P025 | concurrency | 🔴 blocking | review-pr, check-code | All mutable state shared between coroutines within the same process must be protected by an `asyncio.Lock`. The lock must be acquired using the async context-manager form (`async with self._lock:`) — never `lock.acquire()` / `lock.release()` directly, as that pattern is error-prone under exceptions. Locks must be instance-level attributes initialised in `__init__` (e.g. `self._lock = asyncio.Lock()`); module-level lock singletons are forbidden because they cannot be safely reset between tests. Detected example: `PlanRegistry._lock` in `stale_plan_detector.py`. |
-| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async sweep/poll loops must implement graceful shutdown using the `asyncio.Event` + `asyncio.wait_for(asyncio.shield(event.wait()), timeout=…)` pattern. Required structure:   1. `self._stop_event = asyncio.Event()` in `__init__`.   2. Loop condition: `while not self._stop_event.is_set(): …`.   3. Delay via: `await asyncio.wait_for(asyncio.shield(self._stop_event.wait()), timeout=interval)`,      catching `asyncio.TimeoutError` to continue the loop.   4. A synchronous `stop()` method that calls `self._stop_event.set()`. Using `asyncio.sleep()` in a bare loop without an event is forbidden because it cannot be interrupted promptly on shutdown. Detected example: `StaleDetector.run()` in `stale_plan_detector.py`. |
-| P027 | concurrency | 🔴 blocking | review-pr, check-code | Inter-process / multi-agent coordination must use file-system locks, not in-process threading primitives. Two approved patterns (both already present in this codebase):   • **Atomic file creation**: `open(path, O_CREAT | O_EXCL | O_WRONLY)`     for exclusive task acquisition (see `task_lock.py`).   • **Advisory file lock**: `fcntl.flock(fd, fcntl.LOCK_EX)` inside a     `try/finally` that always calls `fcntl.LOCK_UN` (see `shared_state.py`). `threading.Lock`, `threading.RLock`, and `multiprocessing.Lock` must NOT be used for cross-agent coordination; they cannot span separate OS processes launched independently. Lock files must be cleaned up on process exit (register via `atexit` or a `finally` block); stale lock detection must use a TTL-based sweeper. |
-| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O must be performed through `httpx.AsyncClient` used as an async context manager (`async with httpx.AsyncClient(timeout=…) as client:`). The `timeout` parameter must always be set explicitly — never rely on the default (which is no timeout); recommended maximum is `30.0` seconds for user-facing calls and `5.0` seconds for internal health checks. Creating a new `AsyncClient` per request is acceptable for low-frequency calls; for high-frequency calls a shared client instance (stored as an instance attribute) must be used and closed in a matching `aclose()` or async-context-manager teardown. The synchronous `requests` library must not be used in async code paths. Detected example: `fetch_from_state_service()` in `coordinate.py`. |
-| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions (`ClaudeSDKClient` / `query()`) must always be driven from an async context; the top-level sync-to-async bridge must use `anyio.run(main)` — never `asyncio.run()` — so that the anyio backend (asyncio or trio) is selected consistently and SDK internals that depend on anyio primitives work correctly. CLI entry points that call agent logic must follow this pattern:   ```python   import anyio    async def main() -> None:       …    if __name__ == "__main__":       anyio.run(main)   ``` Detected examples: `error_query_agent.py`, `stale_plan_detector.py`, `examples/handoff_example.py`. |
-| P030 | concurrency | 🟡 suggestion | review-pr, check-code | Synchronous Playwright (`sync_playwright()`) is permitted only inside test files (`tests/`) and test-support helpers (`agent_driver.py`). Production code and skill implementations must never call synchronous Playwright APIs because they block the event loop for the duration of every browser call. If browser automation is required in async production code, use `async_playwright()` with the async Playwright API, or wrap the synchronous calls with `await asyncio.to_thread(…)` as a last resort. Detected usage: `tests/browser/agent_driver.py` (compliant — test-only). |
-| P021 | error-handling | 🔴 blocking | review-pr, check-code | All application errors must be raised as structured exception classes that inherit from a common base (e.g. `AppError` or `HarnessError`), never as bare `Exception` or `RuntimeError`. Each structured error class must carry at least three fields:   • `code` — a machine-readable error code string (see P022),   • `message` — a human-readable description of what went wrong,   • `context` — an optional dict of key/value pairs providing diagnostic     detail (e.g. task_id, file path, HTTP status). Structured error classes must be defined in `src/<pkg>/errors.py` (or `harness_skills/errors.py` for shared harness errors) and re-exported from the package's `__init__.py` so callers import from a stable path. Catching and re-raising as a bare string message (e.g. `raise Exception(str(e))`) is forbidden; always wrap in the appropriate structured type and preserve the original cause via `raise ... from e`. |
-| P022 | error-handling | 🔴 blocking | review-pr, check-code | Every error code must follow the format `<DOMAIN>_<NOUN>_<VERB>` in `UPPER_SNAKE_CASE` (e.g. `HARNESS_TASK_NOT_FOUND`, `BROWSER_PAGE_LOAD_FAILED`, `COVERAGE_GATE_THRESHOLD_EXCEEDED`). Error codes must be declared as members of a `StrEnum` named `ErrorCode` (or a domain-scoped subclass, e.g. `HarnessErrorCode`) in `src/<pkg>/error_codes.py`. No error code string may be inlined as a raw string literal anywhere in business logic or test assertions — always reference the `ErrorCode` member. Codes must be stable across releases; once assigned, a code may be deprecated but never renamed or reused for a different condition. New domains must be documented in `docs/error_codes.md` with a one-line description of each code, the conditions that trigger it, and the recommended remediation action. |
-| P023 | error-handling | 🔴 blocking | review-pr, check-code | All log statements must use the structured logging format defined in `src/log_config.py` (or equivalent bootstrap module). Every log call must be emitted through the module-level logger obtained via `logger = logging.getLogger(__name__)` — never `print()`, `sys.stdout.write()`, or a logger obtained with a hardcoded name string outside the bootstrap module. Log records must include the following fields in every message:   • `level`    — standard Python level (DEBUG, INFO, WARNING, ERROR, CRITICAL),   • `ts`       — ISO-8601 UTC timestamp (`%Y-%m-%dT%H:%M:%S.%fZ`),   • `logger`   — fully-qualified module name (`__name__`),   • `msg`      — human-readable description in lowercase imperative mood                  (e.g. "task lock acquired", "coverage gate failed"),   • `trace_id` — request/task trace identifier propagated from context,   • `error_code` — included on WARNING and above; must reference an                    `ErrorCode` member (see P022), never a raw string. Structured fields beyond the above must be passed as keyword arguments to the `extra={}` parameter, not interpolated into the message string, so they are machine-parseable by log aggregators (e.g. Datadog, CloudWatch). Log levels must be chosen according to operational impact:   DEBUG  — internal state useful during development only,   INFO   — normal lifecycle events (start, complete, skip),   WARNING — recoverable anomalies that may indicate a problem,   ERROR  — failures that abort the current operation but not the process,   CRITICAL — failures that require immediate operator intervention. |
-| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation must occur exclusively at system boundaries — API request handlers (e.g. FastAPI route functions, CLI argument parsers) and external service adapters (e.g. HTTP client wrappers, message-queue consumers) — never inside domain services, use-case classes, or repository methods. Approved boundary validation patterns:   • Pydantic `BaseModel` or `dataclass` with field validators on incoming     request/response schemas, parsed at the route or adapter layer before     any business logic is invoked.   • FastAPI dependency injection (`Depends(…)`) used to validate and     transform request data before it reaches a service function.   • Explicit adapter methods (e.g. `ExternalServiceClient.parse_response()`)     that validate and normalise the raw payload before returning a typed     domain object to the caller. Prohibited patterns:   • Calling `isinstance()`, raising `ValueError`, or applying field-level     checks inside domain service methods, use-case classes, or repository     implementations — these layers must receive already-validated objects.   • Duplicating the same validation logic at multiple layers; validation     rules must live in one place (the boundary schema) and be reused.   • Accessing raw `dict` fields with `.get()` and defensive `None` checks     inside business logic — parse the dict into a typed schema at the     boundary instead. Rationale: validation at the boundary keeps domain logic pure and testable, prevents defensive clutter from spreading through the codebase, and ensures that any invalid input is rejected at the earliest possible point with a clear, user-facing error message. |
-| P032 | architecture | 🔴 blocking | review-pr, check-code | Before writing a new helper function or utility class, check whether an equivalent already exists in the shared packages below and use it instead. Hand-rolling a duplicate is a blocking violation. Canonical shared utilities in this codebase: LOGGING   • harness_skills/logging_config.py     — `get_logger(domain)` → DomainLogger with debug/info/warn/error/fatal     — `set_trace_id()` context manager for W3C trace propagation     — `configure()` for global handler / formatter setup     Do NOT call `logging.getLogger()` directly or use `print()` for     diagnostic output; always go through DomainLogger.  STRUCTURED MODELS & ENUMS   • harness_skills/models/base.py  (re-exported from harness_skills/models/)     — Status, Severity, FreshnessScore enums     — GateResult, Violation, HarnessResponse, ArtifactFreshness,       FileLocation, TaskInfo, AgentConflict Pydantic models     Do NOT define local Status/Severity enums or ad-hoc result dicts;     import the canonical types from harness_skills.models.  INTER-AGENT COORDINATION & LOCKING   • harness_skills/task_lock.py     — TaskLock model + TaskLockProtocol.acquire() / release() / extend()     — Atomic file-creation locking with auto-expiry TTL   • skills/shared_state.py     — SharedState.publish() / query() / list() / dump()     — Cross-agent intermediate-result sharing     Do NOT implement custom file-based lock files or ad-hoc JSON state     files; use TaskLockProtocol and SharedState.  AGENT HAND-OFF & RESUME   • harness_skills/handoff.py     — HandoffProtocol.ending_agent_options() / resuming_agent_options()     — SearchHints model for file paths, grep patterns, symbols   • harness_skills/resume.py     — load_plan_state(), resume_agent_options(), format_resume_context(),       build_resume_prompt()   • skills/write_handoff.py     — CLI for writing structured session summaries with search hints     Do NOT write ad-hoc handoff notes as free-form strings; use the     structured HandoffProtocol and resume helpers.  PERFORMANCE MEASUREMENT   • harness_skills/performance_hooks.py     — PerformanceTracker with hooks(), get_startup_duration_ms(),       get_response_times(), get_peak_memory_bytes(), summary()     Do NOT instrument timing with manual time.perf_counter() bookkeeping;     use PerformanceTracker and attach its hooks() to the SDK session.  ERROR AGGREGATION & ANALYSIS   • harness_skills/error_aggregation.py     — aggregate_errors(), top_errors(), errors_by_domain()     — load_errors_from_log() for NDJSON log parsing     Do NOT write ad-hoc log-scanning loops; use the aggregation API.  STALE PLAN DETECTION   • harness_skills/stale_plan_detector.py     — detect_stale_plan() / PlanTask model     Do NOT reimplement staleness checks; call detect_stale_plan().  TELEMETRY & EFFECTIVENESS STATS   • harness_skills/telemetry_reporter.py — CLI report generation   • harness_skills/effectiveness_stats.py     — compute_artifact_stats(), compute_all_stats(),       compute_correlation_matrix(), stats_to_json_summary()     Do NOT compute gate-effectiveness metrics inline; use these functions.  PLUGIN GATES   • harness_skills/plugins/loader.py  — load_plugin_gates(profile)   • harness_skills/plugins/runner.py  — run_plugin_gates(gates)   • harness_skills/plugins/gate_plugin.py — PluginGateConfig / PluginGateRunner     Do NOT shell out to quality-check commands directly; define a     PluginGateConfig and run it through run_plugin_gates().  CONFIG GENERATION   • harness_skills/generators/config_generator.py     — generate_gate_config(), write_harness_config()     Do NOT hand-craft harness.config.yaml strings; use the generator.  BROWSER / PLAYWRIGHT TEST HELPERS  (test files only — see P030)   • tests/browser/agent_driver.py   — AgentDriver context manager   • tests/browser/screenshot_helper.py     — capture_screenshot(page, label), visit_and_capture(page, url, label)     Do NOT duplicate browser-launch or screenshot boilerplate in new tests;     use AgentDriver and screenshot_helper.  BOOT & ENVIRONMENT ISOLATION   • harness_skills/boot.py     — generate_boot_script(), generate_health_check_spec(),       boot_instance(), DatabaseIsolation enum     Do NOT write bespoke per-worktree setup scripts; use boot.py helpers.  If a needed capability is genuinely absent from the list above, add it to the appropriate shared module and document it here before using it elsewhere — do not let the duplicate exist even temporarily. |
-| MB001 | architecture | 🔴 blocking | review-pr, check-code | harness_skills (root package): __all__ = [] is now declared in __init__.py. The root package intentionally re-exports no symbols; each sub-package (models, generators, plugins, gates, cli) manages its own surface. Callers must import from the appropriate sub-package root, never from harness_skills.<submodule> directly. Never import private symbols (leading-underscore names) from any submodule. Do not add public symbols to the root __all__ without first confirming no more-specific sub-package is the right home. |
-| MB002 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/cli: __all__ = ["cli", "PipelineGroup"] is now declared. All imports from outside harness_skills/cli/ must go through harness_skills.cli (the subpackage root), never from harness_skills.cli.<module> directly. The private function `_emit` in harness_skills/cli/observe.py must not be imported by any file outside the cli subpackage; the test in tests/test_models/test_observe.py:232 that does so must be refactored. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB003 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/gates: __all__ is now declared, listing:   CoverageGate, DocsFreshnessGate, DocsGateConfig,   EvaluationSummary, GateEvaluator, GateFailure, GateOutcome,   HarnessConfigLoader, run_gates. All imports from outside harness_skills/gates/ must go through harness_skills.gates — never from harness_skills.gates.<module> directly. DEEP IMPORT VIOLATIONS in tests (bypass __init__):   tests/gates/test_runner_plugin_integration.py:20 — imports GateEvaluator,   run_gates, EvaluationSummary from harness_skills.gates.runner directly;   must use `from harness_skills.gates import GateEvaluator, run_gates, EvaluationSummary`. PRIVATE SYMBOL VIOLATIONS in tests (leading-underscore names):   tests/gates/test_coverage.py imports _detect_format, _parse_json,   _parse_lcov, _parse_xml, _ParseError from harness_skills.gates.coverage.   tests/gates/test_docs_freshness.py imports _extract_file_refs,   _looks_like_file_path, _parse_generated_at from gates.docs_freshness.   These tests must be refactored to avoid testing private implementation   details; test only the public gate interface (CoverageGate.run(), etc.). Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB004 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/generators: __all__ is declared and the boundary is EXPLICIT. All imports from outside harness_skills/generators/ must go through harness_skills.generators (the subpackage root) — never from harness_skills.generators.<module> directly (e.g. harness_skills.generators.evaluation, harness_skills.generators.manifest_generator, harness_skills.generators.config_generator). Open violations (as of 2026-03-20):   harness_skills/cli/evaluate.py:40 — deep import from generators.evaluation.   harness_skills/cli/create.py:40 — deep import from generators.config_generator.   harness_skills/cli/manifest.py:118 — deep import from generators.manifest_generator (inline import).   harness_skills/generators/config_generator.py:31 — deep import from models.gate_configs (cross-domain, see MB005).   tests/test_generators/test_evaluation.py:20 — deep import from generators.evaluation.   tests/test_generators/test_manifest_generator.py:21 — deep import from generators.manifest_generator.   tests/test_cli/test_manifest_cmd.py:23 — deep import from generators.manifest_generator. Note: generate_manifest, write_manifest_pair, generate_gate_config, write_harness_config are not yet re-exported from harness_skills/generators/__init__.py; add them to __all__ as a prerequisite for fixing the above violations. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB005 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/models: __all__ is declared and the boundary is EXPLICIT. gate_configs symbols (CoverageGateConfig, RegressionGateConfig, etc.) are now included in __all__ and re-exported from harness_skills/models/__init__.py. All imports from outside harness_skills/models/ must go through harness_skills.models — never from harness_skills.models.<module> directly. Open violations (still importing sub-modules):   harness_skills/stale_plan_detector.py → from harness_skills.models.base / .stale   harness_skills/cli/status.py → from harness_skills.models.base / .status   harness_skills/cli/observe.py:62 → from harness_skills.models.observe (bypass __init__)   harness_skills/plugins/gate_plugin.py → from harness_skills.models.base   harness_skills/plugins/runner.py → from harness_skills.models.base   harness_skills/telemetry_reporter.py → from harness_skills.models.base / .telemetry   harness_skills/gates/coverage.py → from harness_skills.models.gate_configs   harness_skills/gates/runner.py → from harness_skills.models.gate_configs / .base   harness_skills/generators/config_generator.py → from harness_skills.models.gate_configs   tests/* — multiple test files importing sub-modules directly. Each of these must be migrated to `from harness_skills.models import X`. Never add new `from harness_skills.models.<module>` imports outside the package. |
-| MB006 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/plugins: __all__ is declared and the boundary is EXPLICIT. All imports from outside harness_skills/plugins/ must go through harness_skills.plugins (the subpackage root) — never from harness_skills.plugins.<module> directly (e.g. harness_skills.plugins.gate_plugin, harness_skills.plugins.loader, harness_skills.plugins.runner). The private function `_record_telemetry` in plugins/runner.py must not be imported by any file outside the plugins subpackage (tests/plugins/test_runner.py:12 currently does this — must be fixed). All other test violations must be migrated to the public __init__ surface. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB007 | architecture | 🔴 blocking | review-pr, check-code | harness_skills/utils: __all__ = [] is now declared (previously empty file). No public symbols are currently exported; the package is for internal helpers. When adding a utility that needs to be shared across sub-packages, add it to __all__ with a one-line docstring and update this principle. Do not import from harness_skills.utils.<module> outside the utils package. |
-| MB008 | architecture | 🔴 blocking | review-pr, check-code | harness_dashboard: __all__ is now declared, listing:   compute_scores, render_dashboard, generate_dataset,   ArtifactType, HarnessRecord, PRRecord. All imports from outside harness_dashboard/ must go through harness_dashboard (the package root) — never from harness_dashboard.<module> directly. Open violations that must be migrated:   tests/test_scorer.py:18,24 → from harness_dashboard import compute_scores, …   tests/test_scorer.py:102 → from harness_dashboard import … (private _tier still forbidden)   tests/test_data_generator.py:19-20 → from harness_dashboard import generate_dataset, … Never add new `from harness_dashboard.<module>` imports outside the package. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB009 | architecture | 🔴 blocking | review-pr, check-code | dom_snapshot_utility: __all__ is declared and the boundary is EXPLICIT. All imports from outside dom_snapshot_utility/ must go through dom_snapshot_utility (the package root) — never from dom_snapshot_utility.snapshot directly. Open violation: tests/test_dom_snapshot.py:24 must be migrated to `from dom_snapshot_utility import DOMSnapshot, snapshot_from_html, ...`. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB010 | architecture | 🔴 blocking | review-pr, check-code | log_format_linter: __all__ is declared and the boundary is EXPLICIT. All imports from outside log_format_linter/ must go through log_format_linter (the package root) — never from log_format_linter.cli directly. Open violation: tests/test_log_format_linter.py:25 must be migrated. To fix: expose `main` from log_format_linter/__init__.py and update the test to `from log_format_linter import main as cli_main`. Never weaken __all__ by removing symbols without a deprecation cycle. |
-| MB011 | architecture | 🔴 blocking | review-pr, check-code | LOGGING PROVIDER — all production code must obtain loggers exclusively via `from harness_skills.logging_config import get_logger` followed by `logger = get_logger("<domain>")`. Calling `logging.getLogger()` directly in domain code is forbidden; it bypasses trace-ID injection, domain-field tagging, and the structured JSON formatter configured by `configure()`. The only permitted direct use of `logging.getLogger()` is inside harness_skills/logging_config.py itself (the provider implementation). Open violations that must be migrated:   stale_plan_detector.py:44          → log = logging.getLogger("stale_detector")   harness_skills/plugins/loader.py:8 → logger = logging.getLogger("harness_skills.plugins.loader")   harness_skills/plugins/runner.py:7 → logger = logging.getLogger("harness_skills.plugins.runner") Migration: replace with `from harness_skills.logging_config import get_logger` and `logger = get_logger("<domain>")` at module level. `print()` and `sys.stdout.write()` for diagnostic output are equally forbidden (see P023). |
-| MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER — all code that reads harness.config.yaml must do so exclusively through `HarnessConfigLoader` (re-exported from harness_skills.gates). Domain code must never open harness.config.yaml directly via `open()`, `yaml.safe_load()`, `pathlib.Path.read_text()`, or any equivalent raw-file read. `HarnessConfigLoader` is the single config boundary that validates the YAML schema, resolves the active profile, merges profile defaults with gate-level overrides, and returns strongly-typed `GateConfig` objects. Correct usage:   from harness_skills.gates import HarnessConfigLoader   loader = HarnessConfigLoader("harness.config.yaml")   cfg = loader.get_gate_config("coverage") Forbidden:   import yaml; yaml.safe_load(open("harness.config.yaml"))   pathlib.Path("harness.config.yaml").read_text() Test helpers that write harness.config.yaml to tmp_path and then pass the path to HarnessConfigLoader are compliant — the file write is setup, not a boundary bypass. |
-| MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS / AUTH PROVIDER — direct `os.environ.get()` / `os.getenv()` calls for sensitive values (API keys, tokens, credentials, secrets) are permitted only in designated bootstrap or top-level entry-point modules:   • harness_skills/logging_config.py  — reads LOG_LEVEL only   • harness_skills/boot.py            — reads ANTHROPIC_API_KEY, env setup   • Top-level scripts (checkpoint_agent.py, harness_status.py, etc.) All domain packages and sub-packages must receive credentials as constructor arguments or function parameters — never call os.environ inline inside a domain service, gate, plugin, or model. This keeps the credential surface auditable, allows tests to inject mock values without monkey-patching the environment, and prevents API keys from leaking into log records via accidental string interpolation. Open violations that must be refactored:   harness_skills/stale_plan_detector.py:284     → os.environ.get("ANTHROPIC_API_KEY") inside domain class method;       accept api_key as a constructor parameter instead.   harness_skills/plugins/gate_plugin.py:61     → {**os.environ, **expanded_env} merges entire environment into       subprocess env inside the gate class; move env preparation to       the CLI/entry-point layer and pass the merged dict in. Exception: `os.environ.copy()` in harness_skills/boot.py (boot isolation) is compliant because boot.py is an explicitly designated bootstrap module. |
-| MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN (general rule) — the three cross-cutting concerns below must be accessed only through their designated provider. No domain package may bypass a provider by importing the underlying library or mechanism directly. This rule supersedes and extends P032 for these three concerns. Cross-cutting concern  | Canonical provider                          | Forbidden direct access -----------------------|---------------------------------------------|---------------------------------------- Structured logging     | harness_skills.logging_config.get_logger()  | logging.getLogger(), print() Harness config         | harness_skills.gates.HarnessConfigLoader    | open(), yaml.safe_load(), Path.read_text() API secrets / auth     | constructor/parameter injection from boot   | os.environ.get("KEY") in domain code When a new cross-cutting concern is introduced (e.g. feature flags, metrics sink, distributed tracing context), a provider module must be created first and this principle updated before any domain code uses the new capability. Do not let a second implementation of any provider accumulate — consolidate into the single provider immediately. |
-| P033 | naming | 🔴 blocking | review-pr, check-code | Class names must carry a semantic suffix that reflects the role of the class within the system. Permitted suffixes and their meanings, derived from the observed conventions across harness_skills/ and all supporting packages:   • `*Config`     — Pydantic settings / gate configuration model                     (e.g. `CoverageGateConfig`, `PluginGateConfig`)   • `*Response`   — serialisable result returned by a CLI command or API                     (e.g. `CreateResponse`, `StatusDashboardResponse`)   • `*Gate`       — a self-contained quality gate implementation                     (e.g. `CoverageGate`, `DocsGate`)   • `*Runner`     — orchestrates the execution of one or more gates/plugins                     (e.g. `PluginGateRunner`)   • `*Evaluator`  — aggregates and scores results from multiple gates                     (e.g. `GateEvaluator`)   • `*Record`     — append-only log/audit row (e.g. `HarnessRecord`, `PRRecord`)   • `*Lock`       — file-system or in-process concurrency guard (e.g. `TaskLock`)   • `*Reporter`   — formats and emits telemetry or structured output                     (e.g. `TelemetryReporter`) A class whose name has no suffix (e.g. `Violation`, `Status`) is permitted only if it is a leaf value-object, enum, or plain dataclass with no behavioural role. Introducing a new role category requires updating this principle with the new suffix before the first class using it is merged. |
-| P034 | naming | 🟡 suggestion | review-pr, check-code | Methods and functions that act as accessors, predicates, or mutators must use the following conventional prefixes so callers can infer intent from the name alone — consistent with the patterns observed uniformly across harness_skills/:   • `get_*`   — returns a value without side-effects                 (e.g. `get_lock()`, `get_response_times()`, `get_trace_id()`)   • `is_*`    — returns bool; tests a single binary condition                 (e.g. `is_locked()`, `is_expired()`, `is_empty()`)   • `has_*`   — returns bool; tests presence/existence of something                 (e.g. `has_violations()`, `has_pending_tasks()`)   • `set_*`   — mutates a single attribute; prefer immutable design but when                 mutation is necessary use this prefix                 (e.g. `set_trace_id()`, `set_status()`) Functions that perform I/O or orchestration should use action verbs (`run_`, `write_`, `load_`, `generate_`, `detect_`, `validate_`) rather than the above prefixes. Mixing accessor prefixes with side-effectful behaviour is a violation (e.g. a `get_*` method that writes to disk). |
-| P035 | naming | 🔴 blocking | review-pr, check-code | All identifier and foreign-key fields — in Pydantic models, dataclasses, ORM mappers, function parameters, and local variables — must end with the `_id` suffix. This convention is observed without exception across all models in harness_skills/models/ and the wider codebase:   Compliant examples : `task_id`, `plan_id`, `gate_id`, `rule_id`,                        `agent_id`, `trace_id`, `user_id`, `pr_id`   Violation examples : `taskId` (camelCase), `task` (suffix omitted),                        `id_task` (suffix in wrong position),                        `taskIdentifier` (verbose non-standard suffix) The bare name `id` is only permitted as the primary-key field on a model that represents exactly one entity type. All references to that key from other models must use the `<entity>_id` pattern (e.g. `task_id`, not `id`). |
+| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan that produced it |
+| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to the `plans/` directory before a PR is opened |
+| P003 | traceability | 🟡 suggestion | review-pr, check-code | The plan reference must appear as a structured field at the top of the PR body using the exact format `Plan: <path-or-url>` |
+| P004 | traceability | 🟡 suggestion | review-pr | If a PR deviates from its source plan, a `Deviations:` section must be included in the PR body explaining each delta |
+| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft` |
+| P006 | ci | 🔴 blocking | review-pr, check-code | The CI pipeline must include a principles compliance gate step that exits non-zero on any blocking severity violation |
+| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow Arrange-Act-Assert (AAA) structure with a blank line separating each phase |
+| P008 | testing | 🔴 blocking | review-pr, check-code | Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>` |
+| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible; shared fixtures that mutate state must live in `conftest.py` and be reset between tests |
+| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test; mocking internal implementation details is forbidden |
+| P011 | style | 🔴 blocking | review-pr, check-code | No magic numbers: every numeric literal that carries domain or configuration meaning must be extracted to a named constant in UPPER_SNAKE_CASE |
+| P012 | style | 🔴 blocking | review-pr, check-code | No hardcoded strings: string literals representing configuration must not appear inline in business logic or test assertions |
+| P013 | style | 🟡 suggestion | review-pr, check-code | Imports must follow the four-group isort order (future → stdlib → third-party → first-party) with exactly one blank line between groups |
+| P014 | naming | 🔴 blocking | review-pr, check-code | All Python functions and methods must use `snake_case`; private helpers must be prefixed with a single underscore |
+| P015 | naming | 🔴 blocking | review-pr, check-code | All local variables and function parameters must use `snake_case` with descriptive names; single-letter names are forbidden outside loop counters |
+| P016 | naming | 🔴 blocking | review-pr, check-code | All class names must use `PascalCase`; test classes must begin with the prefix `Test` |
+| P017 | naming | 🔴 blocking | review-pr, check-code | All Python source files must use `snake_case.py` filenames; directories must also use `snake_case` |
+| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants must use `UPPER_SNAKE_CASE`; private constants must carry a leading underscore `_UPPER_SNAKE_CASE` |
+| P019 | naming | 🔴 blocking | review-pr, check-code | All members of `Enum` and `StrEnum` subclasses must use `UPPER_SNAKE_CASE` |
+| P020 | naming | 🔴 blocking | review-pr, check-code | All Pydantic model fields and ORM column names must use `snake_case` |
+| P021 | error-handling | 🔴 blocking | review-pr, check-code | All application errors must be raised as structured exception classes inheriting from a common base; never use bare `Exception` |
+| P022 | error-handling | 🔴 blocking | review-pr, check-code | Every error code must follow the format `<DOMAIN>_<NOUN>_<VERB>` in UPPER_SNAKE_CASE and be declared in an `ErrorCode` StrEnum |
+| P023 | error-handling | 🔴 blocking | review-pr, check-code | All log statements must use the structured logging format; never use `print()` or a logger with a hardcoded name string |
+| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations must be implemented as coroutines using `async`/`await`; blocking calls inside a coroutine are forbidden |
+| P025 | concurrency | 🔴 blocking | review-pr, check-code | All mutable state shared between coroutines must be protected by an `asyncio.Lock` used as an async context manager |
+| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async sweep/poll loops must implement graceful shutdown using the `asyncio.Event` + `asyncio.wait_for` pattern |
+| P027 | concurrency | 🔴 blocking | review-pr, check-code | Inter-process / multi-agent coordination must use file-system locks, not in-process threading primitives |
+| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O must use `httpx.AsyncClient` as an async context manager with an explicit `timeout` parameter |
+| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions must always be driven from an async context using `anyio.run(main)`, never `asyncio.run()` |
+| P030 | concurrency | 🟡 suggestion | review-pr, check-code | Synchronous Playwright (`sync_playwright()`) is permitted only inside test files and test-support helpers |
+| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation must occur exclusively at system boundaries; never validate inside domain services, use-case classes, or repository methods |
+| P032 | architecture | 🔴 blocking | review-pr, check-code | Before writing a new helper function or utility class, check whether an equivalent already exists in the shared packages; no duplicates |
+| MB001 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills` root package exports no symbols; callers must import from the appropriate sub-package, never from `harness_skills.<submodule>` directly |
+| MB002 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/cli`: all external imports must go through `harness_skills.cli`; private `_emit` must not be imported outside the cli subpackage |
+| MB003 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/gates`: all external imports must go through `harness_skills.gates`; test deep-import violations must be refactored |
+| MB004 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/generators`: all external imports must go through `harness_skills.generators`; open violations must be migrated |
+| MB005 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/models`: all external imports must go through `harness_skills.models`; open violations must be migrated |
+| MB006 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/plugins`: all external imports must go through `harness_skills.plugins`; `_record_telemetry` must not be imported externally |
+| MB007 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/utils`: no public symbols exported; do not import from `harness_skills.utils.<module>` outside the utils package |
+| MB008 | architecture | 🔴 blocking | review-pr, check-code | `harness_dashboard`: all external imports must go through `harness_dashboard`; open test violations must be migrated |
+| MB009 | architecture | 🔴 blocking | review-pr, check-code | `dom_snapshot_utility`: all external imports must go through `dom_snapshot_utility`; open test violation must be migrated |
+| MB010 | architecture | 🔴 blocking | review-pr, check-code | `log_format_linter`: all external imports must go through `log_format_linter`; `main` must be exposed via `__init__.py` |
+| MB011 | architecture | 🔴 blocking | review-pr, check-code | LOGGING PROVIDER: all production code must use `get_logger("<domain>")`; calling `logging.getLogger()` directly in domain code is forbidden |
+| MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER: all harness.config.yaml reads must go through `HarnessConfigLoader`; direct `open()` / `yaml.safe_load()` is forbidden |
+| MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: sensitive env vars may only be read in designated bootstrap modules; domain code must receive credentials via constructor/parameter injection |
+| MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: structured logging, harness config, and API secrets must each be accessed only through their designated provider |
 
-*49 principles active.*
+*46 principles active.*
+
+---
+
+# PRINCIPLES.md
+> Mechanical rules for AI agents operating inside the claw-forge agent harness.
+> Each rule is stated as a short imperative, followed by its rationale and a concrete example.
+
+---
+
+## 1. Task Lifecycle Rules
+
+### 1.1 Read task context before taking any action
+
+**Rationale:** Acting on incomplete information wastes compute, produces incorrect output, and can corrupt shared state that other agents depend on.
+
+**Example:**
+- DO: Read the task spec from the state service (`GET /features/{id}`), confirm the scope, then begin work.
+- DON'T: Start writing code the moment a task ID appears in the prompt.
+
+---
+
+### 1.2 Report task complete via PATCH /features/{id} with status=done
+
+**Rationale:** The state service at `http://localhost:8888` is the single source of truth for task progress. Completing work without reporting it leaves the orchestrator blind, may cause the task to be re-queued, and blocks downstream tasks.
+
+**Example:**
+- DO:
+  ```bash
+  curl -s -X PATCH http://localhost:8888/features/feat-42 \
+    -H "Content-Type: application/json" \
+    -d '{"status": "done"}'
+  ```
+- DON'T: Finish the work and simply end the conversation without reporting status.
+
+---
+
+### 1.3 Update task status to "in_progress" when starting non-trivial work
+
+**Rationale:** Long-running tasks should signal that work has begun so the orchestrator and other agents do not assume the task is idle or re-assign it.
+
+**Example:**
+- DO: PATCH status to `in_progress` before beginning multi-step operations (file generation, API calls, test runs).
+- DON'T: Leave status as `pending` while actively working — this creates invisible concurrency conflicts.
+
+---
+
+### 1.4 Never mark a task done until all acceptance criteria are verifiably met
+
+**Rationale:** Premature completion signals corrupt the task graph and give false confidence to downstream agents or humans monitoring progress.
+
+**Example:**
+- DO: Run tests, confirm file changes are saved, verify the state service accepted the PATCH, then report done.
+- DON'T: PATCH `status=done` immediately after writing code without verifying it compiles or passes tests.
+
+---
+
+### 1.5 Create a checkpoint before any risky or irreversible operation
+
+**Rationale:** Checkpoints (git commit + state snapshot) provide a safe rollback point. Risky operations include schema migrations, dependency upgrades, and provider changes.
+
+**Example:**
+- DO: Run `/checkpoint` before upgrading a dependency or changing a state schema.
+- DON'T: Run a destructive migration without first committing the current state.
+
+---
+
+## 2. Human Input Rules
+
+### 2.1 Request human input only when genuinely blocked
+
+**Rationale:** Unnecessary interruptions erode trust and slow delivery. Agents that escalate too readily become a burden rather than an asset.
+
+**Example:**
+- DO: `POST /features/{id}/human-input` when a required secret is missing, an ambiguous spec has no safe default, or a decision has irreversible consequences.
+- DON'T: Pause to ask a human "which file should I edit?" when the task spec names the file explicitly.
+
+---
+
+### 2.2 Prefer autonomous resolution for well-scoped ambiguity
+
+**Rationale:** If the task spec is clear enough that a reasonable interpretation exists, act on it and document the assumption in the task notes. This keeps velocity high.
+
+**Example:**
+- DO: Pick the more conservative option (e.g., non-destructive read over destructive write), document the assumption, and proceed.
+- DON'T: Block on a question like "should I use tabs or spaces?" — defer to the existing codebase style.
+
+---
+
+### 2.3 When requesting human input, include full context in the request payload
+
+**Rationale:** Humans reviewing agent requests may not have the task in memory. Under-specified requests cause back-and-forth that is worse than the original interruption.
+
+**Example:**
+- DO:
+  ```json
+  {
+    "question": "The API key for service X is missing from the environment. Should I use the staging key in .env.example, or pause until production credentials are provided?",
+    "context": "Task feat-42 requires calling service X to complete step 3.",
+    "options": ["use staging key", "pause"]
+  }
+  ```
+- DON'T: `POST /features/feat-42/human-input` with body `{"question": "what key?"}`.
+
+---
+
+### 2.4 Never fabricate credentials or fill in secrets autonomously
+
+**Rationale:** Guessing or inventing API keys, passwords, or tokens can cause silent failures, security incidents, or charges against the wrong account. This is a human decision.
+
+**Example:**
+- DO: Detect the missing credential, request human input, and halt that sub-task until the response arrives.
+- DON'T: Set `API_KEY=placeholder` and proceed, hoping the next step will catch it.
+
+---
+
+## 3. File System Rules
+
+### 3.1 Read a file before editing it
+
+**Rationale:** Editing without reading risks overwriting content you did not intend to change. It also ensures your edit targets the correct line numbers and context.
+
+**Example:**
+- DO: Use the Read tool to load the file, then use Edit with the exact old string as it appears in the file.
+- DON'T: Use Write to overwrite a file you have not read in the current session.
+
+---
+
+### 3.2 Prefer Edit over Write for existing files
+
+**Rationale:** Edit sends only the diff. Write sends the entire file content, which is slower, more error-prone, and risks losing file content if the model's version of the file is stale.
+
+**Example:**
+- DO: Use Edit to change a specific function in a 500-line file.
+- DON'T: Use Write to re-emit all 500 lines with one small change.
+
+---
+
+### 3.3 Never create files unless they are required to complete the task
+
+**Rationale:** Unnecessary files accumulate as noise in the repository and may conflict with existing structure. They increase review burden and can trigger unintended tooling (linters, build systems).
+
+**Example:**
+- DO: Edit `README.md` if you need to update documentation.
+- DON'T: Create `README_NEW.md` alongside the existing one.
+
+---
+
+### 3.4 Never create documentation files (*.md) unless explicitly requested
+
+**Rationale:** Auto-generated docs that nobody asked for are rarely accurate, often redundant, and pollute the repository. This file (PRINCIPLES.md) is an exception because it was explicitly requested.
+
+**Example:**
+- DO: Create `PRINCIPLES.md` when the task spec says "generate PRINCIPLES.md".
+- DON'T: Create `ARCHITECTURE.md` as a side-effect of reading the codebase during an unrelated task.
+
+---
+
+### 3.5 Use absolute file paths in all tool calls
+
+**Rationale:** The working directory resets between Bash invocations. Relative paths silently resolve to wrong locations, causing reads and writes to fail or corrupt the wrong file.
+
+**Example:**
+- DO: `/Users/bowenli/projects/claw-forge-test/agent-harness-skills/src/main.py`
+- DON'T: `src/main.py` or `./src/main.py`
+
+---
+
+### 3.6 Write temporary files to $TMPDIR, never to /tmp directly
+
+**Rationale:** The sandbox restricts `/tmp` directly. `$TMPDIR` resolves to the correct sandbox-writable path (`/private/tmp/claude-501/`). Using `/tmp` directly will cause permission errors.
+
+**Example:**
+- DO: `$TMPDIR/my-scratch-file.json`
+- DON'T: `/tmp/my-scratch-file.json`
+
+---
+
+## 4. Git & Version Control Rules
+
+### 4.1 Create new commits rather than amending unless explicitly instructed
+
+**Rationale:** Amending rewrites history. If a pre-commit hook fails, the previous commit is already committed — `--amend` would corrupt it. Creating a new commit is always safe.
+
+**Example:**
+- DO: After a hook failure, fix the issue, re-stage, and `git commit` with a new message.
+- DON'T: Run `git commit --amend` after a hook failure — the previous commit is intact and should not be changed.
+
+---
+
+### 4.2 Never force-push to main or master
+
+**Rationale:** Force-pushing to protected branches rewrites shared history, breaks other agents' and developers' local branches, and can permanently destroy commits.
+
+**Example:**
+- DO: Create a feature branch, push there, and open a PR.
+- DON'T: `git push --force origin main` under any circumstances. Warn the user if they request it.
+
+---
+
+### 4.3 Never skip pre-commit hooks
+
+**Rationale:** Hooks enforce code quality gates (linting, tests, secret scanning). Bypassing them with `--no-verify` lets broken or insecure code enter the repository silently.
+
+**Example:**
+- DO: If a hook fails, investigate and fix the underlying issue, then commit again.
+- DON'T: `git commit --no-verify` to work around a failing lint check.
+
+---
+
+### 4.4 Stage specific files by name; avoid git add -A
+
+**Rationale:** `git add -A` can accidentally stage sensitive files (`.env`, credential dumps, large binaries) that should never be committed.
+
+**Example:**
+- DO: `git add src/feature.py tests/test_feature.py`
+- DON'T: `git add -A` or `git add .` unless you have confirmed every changed file is safe to commit.
+
+---
+
+### 4.5 Pass commit messages via HEREDOC to ensure correct formatting
+
+**Rationale:** Inline `-m` strings truncate at shell special characters and make multi-line messages error-prone. HEREDOC is reliable.
+
+**Example:**
+- DO:
+  ```bash
+  git commit -m "$(cat <<'EOF'
+  feat: add feature X
+
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+  EOF
+  )"
+  ```
+- DON'T: `git commit -m "feat: add feature X\n\nCo-Authored-By: ..."`
+
+---
+
+### 4.6 Never run destructive git operations without explicit instruction
+
+**Rationale:** Commands like `git reset --hard`, `git checkout .`, `git clean -f`, and `git branch -D` destroy work that may not be recoverable. They must only execute when the user explicitly requests them.
+
+**Example:**
+- DO: Ask the user to confirm before running `git reset --hard origin/main`.
+- DON'T: Run `git checkout .` to "clean up" the working directory as part of routine task work.
+
+---
+
+## 5. Tool Usage Rules
+
+### 5.1 Make independent tool calls in parallel
+
+**Rationale:** Sequential tool calls for independent operations waste wall-clock time. Parallel calls complete in the time of the slowest single call.
+
+**Example:**
+- DO: Issue `git status`, `git diff`, and `git log` in a single message as three parallel Bash calls.
+- DON'T: Wait for `git status` to complete before issuing `git diff`.
+
+---
+
+### 5.2 Prefer dedicated tools over Bash equivalents
+
+**Rationale:** Dedicated tools (Read, Grep, Glob, Edit, Write) are sandboxed correctly, provide better permission handling, and produce structured output the agent can reason about. Bash commands for the same purpose are more error-prone and harder to audit.
+
+**Example:**
+- DO: Use the Grep tool to search for a pattern across files.
+- DON'T: `grep -r "pattern" .` via the Bash tool unless the Grep tool cannot accomplish the task.
+
+---
+
+### 5.3 Load deferred tools via ToolSearch before calling them
+
+**Rationale:** Deferred tools are not available until discovered via ToolSearch. Calling a deferred tool without loading it first will fail silently or raise an error.
+
+**Example:**
+- DO: Call `ToolSearch` with `query: "select:NotebookEdit"` before using `NotebookEdit`.
+- DON'T: Call `NotebookEdit` directly without first discovering it via ToolSearch.
+
+---
+
+### 5.4 Respect sandbox filesystem restrictions
+
+**Rationale:** The sandbox enforces an allowlist of writable paths. Writes outside the allowlist fail. Understanding the sandbox prevents wasted attempts and confusing errors.
+
+**Example:**
+- DO: Write output files to the current project directory or `$TMPDIR`.
+- DON'T: Attempt to write to `/etc`, `/usr`, or any path outside the sandbox allowlist.
+
+---
+
+### 5.5 Never use interactive git flags (-i) in Bash
+
+**Rationale:** Interactive flags (e.g., `git rebase -i`, `git add -i`) require a TTY and user input that the agent cannot provide. They will hang or error.
+
+**Example:**
+- DO: `git rebase origin/main` (non-interactive).
+- DON'T: `git rebase -i HEAD~3`.
+
+---
+
+## 6. Communication Rules
+
+### 6.1 Respond with the minimum necessary information
+
+**Rationale:** Verbose output obscures key findings, increases token cost, and makes it harder for humans or orchestrators to parse results. Brevity signals confidence.
+
+**Example:**
+- DO: "Tests pass. 3 files changed. PR created: https://github.com/org/repo/pull/42"
+- DON'T: Summarize every file you read, every command you ran, and every decision you considered before stating the result.
+
+---
+
+### 6.2 Never fabricate information — cite sources or admit uncertainty
+
+**Rationale:** Hallucinated facts, file paths, or API responses corrupt downstream decisions and erode trust. If you do not know something, say so explicitly.
+
+**Example:**
+- DO: "I could not find a claw-forge.yaml in the repository root. The config location is unknown."
+- DON'T: "The claw-forge.yaml is at `/config/claw-forge.yaml`." (when you have not verified this)
+
+---
+
+### 6.3 Report absolute file paths in final responses
+
+**Rationale:** Relative paths are ambiguous to humans and other agents who may be operating from a different working directory. Absolute paths are unambiguous.
+
+**Example:**
+- DO: `/Users/bowenli/projects/claw-forge-test/agent-harness-skills/src/main.py`
+- DON'T: `src/main.py`
+
+---
+
+### 6.4 Do not use emojis in output unless explicitly requested
+
+**Rationale:** Emojis add visual noise without informational value in most agent communication contexts. They can also render incorrectly in some terminals and log systems.
+
+**Example:**
+- DO: "Task complete. Status reported to state service."
+- DON'T: "Task complete! Status reported to state service."
+
+---
+
+## 7. Code Quality Rules
+
+### 7.1 Run linters and type checkers before marking a coding task done
+
+**Rationale:** Undetected lint or type errors become technical debt that the next agent or developer must fix. Catching them at the source is always cheaper.
+
+**Example:**
+- DO: Run `uv run ruff check .` and `uv run mypy .` before reporting a coding task complete.
+- DON'T: Ship code without checking it because "it looks right."
+
+---
+
+### 7.2 Run tests before marking a coding task done
+
+**Rationale:** Code that passes static analysis can still have behavioral bugs. Tests are the only reliable signal that the feature works as specified.
+
+**Example:**
+- DO: `uv run pytest tests/ -q` and confirm all relevant tests pass.
+- DON'T: Skip tests because "I only changed one line."
+
+---
+
+### 7.3 Never commit secrets, credentials, or API keys
+
+**Rationale:** Once a secret is in git history it is effectively public — even after deletion, it lives in clones and git reflog. Credential exposure can cause security incidents and financial damage.
+
+**Example:**
+- DO: Store secrets in environment variables or a secrets manager; reference them by name in code.
+- DON'T: `API_KEY = "sk-abc123..."` hardcoded in source files.
+
+---
+
+### 7.4 Use the existing codebase's style and patterns for new code
+
+**Rationale:** Consistent code is easier to review, maintain, and extend. Style divergence creates cognitive overhead for every future reader.
+
+**Example:**
+- DO: If the codebase uses `async/await` for I/O, write new I/O functions the same way.
+- DON'T: Introduce synchronous blocking calls in an async codebase because it's "simpler."
+
+---
+
+## 8. Safety & Security Rules
+
+### 8.1 Never expose credentials in any output, log, or commit
+
+**Rationale:** Credentials in logs, STDOUT, or commits are visible to anyone with access to those artifacts. A secret that touches an output surface should be considered compromised.
+
+**Example:**
+- DO: Log `"Using API key: sk-****1234"` (masked) if a log entry is needed for debugging.
+- DON'T: `print(f"Connecting with key: {api_key}")` where `api_key` is the full secret value.
+
+---
+
+### 8.2 Prefer non-destructive operations; always prefer reversible over irreversible
+
+**Rationale:** Mistakes happen. An operation that can be undone costs a few minutes. An operation that cannot be undone can cost hours or permanently destroy work.
+
+**Example:**
+- DO: Copy a file before modifying it if the modification is high-risk.
+- DON'T: Truncate a database table to "reset state" when a soft-delete or archive would work.
+
+---
+
+### 8.3 Validate all externally sourced data before using it
+
+**Rationale:** Data from APIs, user input, or the file system may be malformed, malicious, or stale. Unvalidated external data is the root cause of injection attacks and silent data corruption.
+
+**Example:**
+- DO: Parse and validate API responses against an expected schema before passing them to downstream functions.
+- DON'T: `eval(user_input)` or `subprocess.run(shell=True, args=user_provided_string)`.
+
+---
+
+### 8.4 Never run `git push --force` to main or master
+
+**Rationale:** This is a separate, explicit rule because the consequences are severe and the action is irreversible on most hosting platforms. It deserves its own entry even though it overlaps with Rule 4.2.
+
+**Example:**
+- DO: If force-push is genuinely needed (e.g., removing an accidentally committed secret), escalate to a human via `POST /features/{id}/human-input`.
+- DON'T: Execute `git push --force origin main` under any autonomous decision.
+
+---
+
+## 9. Skill Invocation Rules
+
+### 9.1 Check available skills before building custom logic
+
+**Rationale:** Skills in the `.claude/commands/` directory represent pre-tested, approved workflows. Reinventing them wastes time and introduces inconsistency.
+
+**Example:**
+- DO: Use `/check-code` to run linting, type checking, and tests rather than assembling the individual commands manually each time.
+- DON'T: Write a custom Bash pipeline to run ruff + mypy + pytest when `/check-code` already does this.
+
+---
+
+### 9.2 Invoke a skill via the Skill tool — never by narrating what you would do
+
+**Rationale:** Narrating a skill invocation ("I would run /checkpoint now") does not actually invoke it. The Skill tool must be called to trigger the skill's instructions.
+
+**Example:**
+- DO: Call `Skill("checkpoint")` to execute the checkpoint workflow.
+- DON'T: Write "Running /checkpoint..." and then manually reproduce the checkpoint steps without calling the Skill tool.
+
+---
+
+### 9.3 Never invoke a skill that is already running in the current turn
+
+**Rationale:** Double-invocation of a skill in the same turn creates duplicate work, duplicate commits, and duplicate state service events.
+
+**Example:**
+- DO: If a `<checkpoint>` tag is already present in the current conversation turn, follow its instructions directly.
+- DON'T: Call `Skill("checkpoint")` again if the skill has already been loaded and its instructions are visible.
+
+---
+
+### 9.4 Treat skill invocation as a blocking requirement when a slash command is referenced
+
+**Rationale:** When a user or orchestrator references a skill by name (e.g., `/review-pr`, `/create-spec`), they expect that skill's exact workflow to run — not an approximation of it.
+
+**Example:**
+- DO: Immediately call `Skill("review-pr")` when the user says `/review-pr 123`.
+- DON'T: Begin analyzing the PR diff manually before calling the skill, or skip the skill and improvise.
+
+---
+
+### 9.5 Load deferred skills via ToolSearch before invoking them
+
+**Rationale:** Skills backed by deferred tools require those tools to be loaded first. Invoking a skill whose underlying tool is not yet available will fail.
+
+**Example:**
+- DO: Call `ToolSearch(query: "select:EnterWorktree")` before invoking any skill that uses `EnterWorktree`.
+- DON'T: Call `EnterWorktree` directly without first verifying it has been loaded.
+
+---
+
+## 10. Plan-to-PR Traceability Rules
+
+> Full convention: `docs/plan-to-pr-convention.md`
+
+### 10.1 Name feature branches with the plan ID prefix
+
+**Rationale:** A branch named `feat/PLAN-001-auth-refresh-token` lets any
+agent or reviewer identify the source plan without opening a PR or reading
+commit history. It also makes `gh pr list --search` reliable.
+
+**Example:**
+- DO: `git checkout -b feat/PLAN-001-auth-refresh-token`
+- DON'T: `git checkout -b fix-auth-bug` (no plan reference)
+
+---
+
+### 10.2 Prefix every PR title with `[PLAN-NNN]`
+
+**Rationale:** The bracket prefix is machine-parseable and survives copy/paste.
+CI and the harness-evaluate workflow use it to verify traceability without
+parsing the PR body.
+
+**Example:**
+- DO: `[PLAN-001] Add refresh-token rotation to auth service`
+- DON'T: `Add refresh-token rotation` (plan reference missing)
+
+---
+
+### 10.3 Fill in the traceability table in every PR body
+
+**Rationale:** The PR body traceability table (from `.github/pull_request_template.md`)
+links the PR to a specific plan file and task list. Without it, the relationship
+exists only in the agent's memory — which is not durable.
+
+**Example:**
+- DO: Complete the `## Execution Plan` table with Plan ID, plan file path, and
+  tasks closed before calling `gh pr create`.
+- DON'T: Delete the traceability section or leave placeholder values (`PLAN-XXX`).
+
+---
+
+### 10.4 Include a `Plan: PLAN-NNN` trailer in every commit that belongs to a plan
+
+**Rationale:** `git log --grep="Plan: PLAN-001"` becomes a reliable audit query.
+Commit trailers are preserved through rebases and merges, making them more
+durable than PR body text.
+
+**Example:**
+- DO:
+  ```
+  feat: rotate refresh tokens on each use
+
+  Plan: PLAN-001
+  Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+  ```
+- DON'T: Omit the `Plan:` trailer or bury the plan ID in the commit subject only.
+
+---
+
+### 10.5 Update the plan YAML's `linked_prs` field immediately after opening a PR
+
+**Rationale:** The plan file is the canonical record of what was shipped. An
+unlinked PR means the plan shows tasks as `done` but the evidence (the PR) is
+not recorded. This breaks audit trails and makes the `harness-evaluate` CI
+check fail.
+
+**Example:**
+- DO: After `gh pr create` returns `https://github.com/org/repo/pull/42`,
+  read the plan YAML, append to `linked_prs`, update `updated_at`, and commit
+  the updated plan file on the feature branch.
+- DON'T: Open the PR and immediately mark the task `done` without writing the
+  PR URL back to the plan file.
+
+---
+
+### 10.6 Mark plan tasks `done` only after the PR is open and `linked_prs` is updated
+
+**Rationale:** Marking a task `done` signals to the orchestrator and downstream
+tasks that the work is complete and the artefact exists. If the PR is not yet
+linked, downstream agents may start work based on a task that has no verifiable
+deliverable.
+
+**Example:**
+- DO: PR open → `linked_prs` updated → task `lock_status: done` → PATCH state
+  service with `status=done`.
+- DON'T: Mark the task `done` as soon as the code is written, before the PR
+  is created or linked.
+
+---
+
+*Generated for the claw-forge agent harness. State service: http://localhost:8888.*
+
+---
+
+## 11. Module Boundary Rules
+> Generated by `/module-boundaries`. IDs MB001–MB014. Last updated: 2026-03-20 (re-run). Re-run `/module-boundaries` to refresh.
+
+10 Python packages scanned. `__all__` has now been declared in all 10 packages.
+Open violations (callers that still bypass `__init__` via deep submodule imports) remain
+and are listed per-domain in the principles below — migrate them on next touch.
+
+### 11.1 Never bypass a package's `__init__.py` with deep submodule imports (MB001–MB010)
+
+**Rationale:** Importing from internal submodules (`from pkg.internal_module import X`)
+couples callers to implementation details, makes refactoring painful, and defeats
+the purpose of the package boundary. Every symbol a caller needs must be re-exported
+through the package root's `__all__`.
+
+**Status per domain (current, post-fix):**
+
+| Domain | Surface | Open violations |
+|--------|---------|-----------------|
+| `harness_skills` | ✅ EXPLICIT (`__all__ = []`) | 0 |
+| `harness_skills/cli` | ✅ EXPLICIT (`cli`, `PipelineGroup`) | 1 (test imports `_emit`) |
+| `harness_skills/gates` | ✅ EXPLICIT (9 public symbols) | 5 (1 deep import + 4 private-symbol tests) |
+| `harness_skills/generators` | ✅ EXPLICIT | 7 (cli: evaluate/create/manifest bypasses + 3 test bypasses; manifest/config symbols absent from `__all__`) |
+| `harness_skills/models` | ✅ EXPLICIT (gate_configs now included) | ~17 (production + tests) |
+| `harness_skills/plugins` | ✅ EXPLICIT | 7 (tests bypass + import `_record_telemetry`) |
+| `harness_skills/utils` | ✅ EXPLICIT (`__all__ = []`) | 0 |
+| `harness_dashboard` | ✅ EXPLICIT (6 public symbols) | 5 (tests bypass) |
+| `dom_snapshot_utility` | ✅ EXPLICIT | 1 (test bypasses) |
+| `log_format_linter` | ✅ EXPLICIT | 1 (test bypasses) |
+
+**Example:**
+- DO: `from harness_skills.plugins import PluginGateConfig, run_plugin_gates`
+- DON'T: `from harness_skills.plugins.gate_plugin import PluginGateConfig` (deep import)
+- DON'T: `from harness_skills.plugins.runner import _record_telemetry` (private + deep)
+
+### 11.2 Never import private symbols (`_name`) from outside their defining package (MB002, MB003, MB006)
+
+**Rationale:** A leading underscore signals the symbol is an implementation detail not
+subject to the public API contract. Importing it from outside the package creates an
+invisible coupling that breaks silently on refactor.
+
+**Open violations:**
+- `tests/test_models/test_observe.py:232` — imports `_emit` from `harness_skills.cli.observe`
+- `tests/gates/test_coverage.py` — imports `_detect_format`, `_parse_json`, `_parse_lcov`, `_parse_xml`, `_ParseError` from `harness_skills.gates.coverage`
+- `tests/gates/test_docs_freshness.py` — imports `_extract_file_refs`, `_looks_like_file_path`, `_parse_generated_at` from `harness_skills.gates.docs_freshness`
+- `tests/plugins/test_runner.py:12` — imports `_record_telemetry` from `harness_skills.plugins.runner`
+
+**Example:**
+- DO: Refactor tests to exercise behaviour via the public API (`CoverageGate.run()`, etc.).
+- DON'T: `from harness_skills.cli.observe import _emit` in a test file.
+
+### 11.3 gate_configs symbols are now part of `harness_skills.models` — use the package root (MB005)
+
+**Rationale:** All `gate_configs` types (`CoverageGateConfig`, `RegressionGateConfig`, etc.)
+are now re-exported from `harness_skills/models/__init__.py` and listed in `__all__`.
+Callers that still reach into `harness_skills.models.gate_configs` directly must migrate.
+
+**Other open submodule violations in `harness_skills/models` (non-gate_configs):**
+- `harness_skills/cli/observe.py:62` — `from harness_skills.models.observe import LogEntry, ObserveResponse`
+  → fix: `from harness_skills.models import LogEntry, ObserveResponse`
+- `harness_skills/cli/status.py:56-57` — deep into `.models.base` / `.models.status`
+- `harness_skills/telemetry_reporter.py:36-37` — deep into `.models.base` / `.models.telemetry`
+- `harness_skills/stale_plan_detector.py:52-53` — deep into `.models.base` / `.models.stale`
+- `harness_skills/plugins/gate_plugin.py:9`, `harness_skills/plugins/runner.py:4` — deep into `.models.base`
+- `harness_skills/gates/runner.py:82` — deep into `.models.base`
+
+**Example:**
+- DO: `from harness_skills.models import CoverageGateConfig`
+- DON'T: `from harness_skills.models.gate_configs import CoverageGateConfig`
+
+---
+
+### 11.4 Providers Pattern — cross-cutting concerns must flow through designated providers (MB011–MB014)
+
+**Rationale:** Logging, config, and secrets are cross-cutting concerns used by every
+domain. Letting each domain call `logging.getLogger()`, open YAML files directly,
+or scatter `os.environ.get("API_KEY")` throughout business logic creates invisible
+coupling, defeats testability, and makes the security surface impossible to audit.
+A *provider* is a single module that owns the bootstrap and exposes a stable API;
+all other code is a consumer that receives what it needs through that API.
+
+**Three providers, three rules (see MB011–MB014 in .claude/principles.yaml):**
+
+| Concern | Provider | Correct import | Forbidden |
+|---------|----------|----------------|-----------|
+| Structured logging | `harness_skills.logging_config` | `get_logger("domain")` | `logging.getLogger()`, `print()` |
+| Harness config | `harness_skills.gates.HarnessConfigLoader` | `HarnessConfigLoader(path)` | raw `yaml.safe_load()`, `open()` |
+| API secrets / auth | constructor/param injection (bootstrap only) | receive `api_key` as argument | `os.environ.get("KEY")` in domain code |
+
+**Open violations (migrate on next touch):**
+
+*Logging provider (MB011):*
+- `stale_plan_detector.py:44` — `log = logging.getLogger("stale_detector")`
+- `harness_skills/plugins/loader.py:8` — `logger = logging.getLogger("harness_skills.plugins.loader")`
+- `harness_skills/plugins/runner.py:7` — `logger = logging.getLogger("harness_skills.plugins.runner")`
+
+*Secrets/auth provider (MB013):*
+- `harness_skills/stale_plan_detector.py:284` — inline `os.environ.get("ANTHROPIC_API_KEY")` inside domain method; accept as constructor param instead.
+- `harness_skills/plugins/gate_plugin.py:61` — `{**os.environ, **expanded_env}` inside gate class; move env preparation to the CLI/entry-point layer.
+
+**Migration example — logging:**
+```python
+# Before (violation)
+import logging
+logger = logging.getLogger("harness_skills.plugins.loader")
+
+# After (compliant)
+from harness_skills.logging_config import get_logger
+logger = get_logger("harness_skills.plugins.loader")
+```
+
+**Migration example — secrets:**
+```python
+# Before (violation — domain method reads os.environ directly)
+def run(self, api_key: str | None = None) -> None:
+    resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+
+# After (compliant — key is injected at construction; domain never touches os.environ)
+class StaleDetector:
+    def __init__(self, api_key: str) -> None:
+        self._api_key = api_key
+
+# Caller (boot / CLI layer — the only place permitted to read os.environ):
+detector = StaleDetector(api_key=os.environ["ANTHROPIC_API_KEY"])
+```
+
+**General rule (MB014):** When adding a *new* cross-cutting concern (feature flags,
+distributed tracing, metrics sink), create the provider module first, define a
+principle here, and only then write consuming code. Never let a second implementation
+of the same concern exist, even temporarily.
