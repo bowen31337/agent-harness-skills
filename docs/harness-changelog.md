@@ -43,7 +43,7 @@ the exact state at that point in time.
 - ✅ `docs/plan-to-pr-convention.md` — Added
 
 ### Spec
-- 📝 `app_spec.txt` — Modified
+- 📝 `spec/app_spec.txt` — Modified
 
 ### Commits
 - `0bae125` — Skill generates a prefer-shared-utilities-over-hand-rolled-helpers rule with pointers to existing utility packages in the codebase
@@ -250,7 +250,7 @@ the exact state at that point in time.
 
 ### Spec
 
-- 📝 `app_spec.txt` — Modified
+- 📝 `spec/app_spec.txt` — Modified
 
 ### Commits
 

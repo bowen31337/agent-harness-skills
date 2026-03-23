@@ -122,7 +122,7 @@ conflict_clusters:
   - coding-b7da9203
   - coding-e4908d0c
   recommendation: last-writer-wins acceptable; content is additive
-- cluster: task_lock.py + task_lock_example.py
+- cluster: task_lock.py + examples/task_lock_example.py
   description: Task-lock implementation
   agents_involved:
   - coding-21e3a32a

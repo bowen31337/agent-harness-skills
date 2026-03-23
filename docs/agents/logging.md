@@ -161,4 +161,4 @@ print('All entries valid')
 - **Observability skill** → `.claude/commands/observability.md` (749 lines)
 - **Telemetry skill** → `.claude/commands/harness/telemetry.md`
 - **Log schema** → `schemas/log_entry.schema.json`
-- **Logging convention spec (extended)** → `logging_convention_spec.txt` (26 KB)
+- **Logging convention spec (extended)** → `spec/logging_convention_spec.txt` (26 KB)

@@ -50,7 +50,7 @@ Use this skill to:
 |---|---|
 | `--generate` | Emit the Python hook-integration snippet (Step 2) |
 | `--fields` | Emit the `PerformanceReport` field reference table (Step 3) |
-| `--demo` | Run the synthetic demo via `performance_hooks_example.py` (Step 4) |
+| `--demo` | Run the synthetic demo via `examples/performance_hooks_example.py` (Step 4) |
 | `--all` | Execute Steps 2, 3, and 4 in order |
 | *(none)* | Default — run Step 2 only (generate snippet) |
 
@@ -166,12 +166,12 @@ Execute the built-in example script which runs all scenarios, including a
 no-API-key synthetic path that fires mock hook events and prints real output:
 
 ```bash
-uv run python performance_hooks_example.py 2>&1
+uv run python examples/performance_hooks_example.py 2>&1
 ```
 
 > **Fallback** — if `uv` is unavailable:
 > ```bash
-> python performance_hooks_example.py 2>&1
+> python examples/performance_hooks_example.py 2>&1
 > ```
 
 Capture and display the full output.
@@ -260,7 +260,7 @@ Append a short **Insights** section:
 |---|---|---|
 | `--generate` | on (default) | Emit the Python hook-integration snippet (Step 2) |
 | `--fields` | off | Emit the `PerformanceReport` field reference table (Step 3) |
-| `--demo` | off | Run `performance_hooks_example.py` synthetic demo (Step 4) |
+| `--demo` | off | Run `examples/performance_hooks_example.py` synthetic demo (Step 4) |
 | `--all` | off | Run Steps 2, 3, and 4 in sequence |
 
 ---

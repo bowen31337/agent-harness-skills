@@ -11,7 +11,7 @@ Shows three usage patterns:
 
 Run
 ---
-    python performance_hooks_example.py
+    python examples/performance_hooks_example.py
 
 Environment
 -----------
@@ -22,6 +22,12 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
+from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from harness_skills.performance_hooks import PerformanceTracker
 

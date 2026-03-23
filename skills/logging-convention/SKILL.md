@@ -226,7 +226,7 @@ After `--validate service.log`:
 | `.claude/commands/logging-convention.md` | Claude slash-command definition |
 | `skills/logging-convention/SKILL.md` | This file — implementation documentation |
 | `skills/logging-convention/scripts/generate_spec.py` | CLI script to generate SPEC.md / schema |
-| `logging_convention_spec.txt` | Source project specification (128 features across 9 categories) |
+| `spec/logging_convention_spec.txt` | Source project specification (128 features across 9 categories) |
 | `schemas/log_entry.schema.json` | Generated JSON Schema output |
 | `SPEC.md` | Generated convention document (primary output) |
 

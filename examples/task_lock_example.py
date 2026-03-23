@@ -2,7 +2,7 @@
 task_lock_example.py — Runnable demonstrations of the Task Lock Protocol.
 
 Run with:
-    python task_lock_example.py
+    python examples/task_lock_example.py
 
 Each section is self-contained and prints its own results.  No external
 services are required — locks are stored under /tmp/demo-task-locks/.
@@ -12,8 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import time
 from pathlib import Path
+
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
 from task_lock import LockConflictError, TaskLock, TaskLockProtocol  # noqa: F401
 

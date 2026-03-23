@@ -65,9 +65,9 @@ for feature in "${features[@]}"; do
 done
 ```
 
-### Step 5: Update app_spec.txt
+### Step 5: Update spec/app_spec.txt
 
-Append the new features to `.claw-forge/app_spec.txt` so the spec stays in sync:
+Append the new features to `spec/app_spec.txt` so the spec stays in sync:
 
 ```
 <n+1>. <New Feature Title>

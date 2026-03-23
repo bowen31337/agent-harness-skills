@@ -23,7 +23,7 @@ Quick-start
         finally:
             proto.release("feature/auth-refactor", agent_id="agent-42")
 
-See ``task_lock_example.py`` for full usage patterns including:
+See ``examples/task_lock_example.py`` for full usage patterns including:
   - extend mid-task
   - raise_on_conflict mode
   - Agent SDK hook integration

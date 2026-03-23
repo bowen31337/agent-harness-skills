@@ -229,7 +229,7 @@ custom_gates: <existing value>
 ```
 
 If `harness.config.yaml` does not exist, create it from scratch using the full
-schema (see the `harness.config.yaml` template in `app_spec.example.xml`).
+schema (see the `harness.config.yaml` template in `spec/app_spec.example.xml`).
 
 ---
 

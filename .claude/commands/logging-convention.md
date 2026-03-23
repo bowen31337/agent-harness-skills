@@ -556,7 +556,7 @@ Exit code mirrors `log-lint` (0 = all valid, 1 = any violation).
 | `SPEC.md` | Generated convention document (output of this skill) |
 | `schemas/log_entry.schema.json` | Canonical JSON Schema (draft-2020-12) |
 | `skills/logging-convention/SKILL.md` | Full skill implementation documentation |
-| `logging_convention_spec.txt` | Source project specification (128 features) |
+| `spec/logging_convention_spec.txt` | Source project specification (128 features) |
 | `harness_skills/` | Python reference implementation package |
 
 ---

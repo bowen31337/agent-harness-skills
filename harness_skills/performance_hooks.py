@@ -36,7 +36,7 @@ Live queries (mid-session)
     times       = tracker.get_response_times()         # list[ToolTiming]
     peak_bytes  = tracker.get_peak_memory_bytes()      # -1 before session start
 
-See ``performance_hooks_example.py`` for full runnable scenarios including a
+See ``examples/performance_hooks_example.py`` for full runnable scenarios including a
 synthetic (no-API-key) demo.
 """
 

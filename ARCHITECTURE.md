@@ -134,6 +134,17 @@ Top-level orchestration scripts
 ├── harness_telemetry.py ──► harness_skills (CLI / models)
 └── harness_context.py   ──► harness_skills (context helpers)
 
+examples/ (runnable demos; run from repo root)
+├── context_handoff_example.py  ──► handoff.py
+├── performance_hooks_example.py
+├── task_lock_example.py         ──► task_lock.py
+└── handoff_example.py
+
+spec/ (XML + text specifications)
+├── app_spec.txt
+├── app_spec.example.xml
+└── logging_convention_spec.txt
+
 Standalone (no local deps)
 ├── dom_snapshot_utility
 ├── harness_dashboard

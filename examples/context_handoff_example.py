@@ -4,35 +4,36 @@ Example: multi-session agent work with context handoff.
 Usage
 -----
 # First agent session — explores the codebase
-python example.py session1
+python examples/context_handoff_example.py session1
 
 # Second agent session — resumes from the handoff
-python example.py session2
+python examples/context_handoff_example.py session2
 
 # Inspect the latest handoff
-python example.py view
+python examples/context_handoff_example.py view
 
 # Print ONLY the resume_prompt (pipe it into the next session)
-python example.py resume
+python examples/context_handoff_example.py resume
 """
 
 from __future__ import annotations
 
-import sys
 import json
+import sys
 from pathlib import Path
 
 import anyio
 
 from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from handoff import HandoffTracker
 
-
-# ─── Configuration ────────────────────────────────────────────────────────────
-
-LOG_PATH = ".plan_progress.jsonl"
-PROJECT_DIR = str(Path(__file__).parent)
+LOG_PATH = str(_PROJECT_ROOT / ".plan_progress.jsonl")
+PROJECT_DIR = str(_PROJECT_ROOT)
 
 TASK = (
     "Audit the authentication module for security issues "
@@ -83,7 +84,7 @@ async def run_session2() -> None:
     """
     resume_prompt = HandoffTracker.get_resume_prompt(LOG_PATH)
     if not resume_prompt:
-        print("No handoff found.  Run 'python example.py session1' first.")
+        print("No handoff found.  Run 'python examples/context_handoff_example.py session1' first.")
         return
 
     hints = HandoffTracker.get_search_hints(LOG_PATH) or {}

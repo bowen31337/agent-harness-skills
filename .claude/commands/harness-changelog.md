@@ -40,8 +40,8 @@ git diff --name-status "$LAST_HASH" HEAD -- \
   'CLAUDE.md' \
   'docs/' \
   'README.md' \
-  'app_spec.txt' \
-  'app_spec.example.xml' 2>/dev/null || \
+  'spec/app_spec.txt' \
+  'spec/app_spec.example.xml' 2>/dev/null || \
 git diff --name-status "$LAST_HASH"..HEAD 2>/dev/null
 
 echo "---"
@@ -58,7 +58,7 @@ Categorize output into four groups:
 | **Skills** | `.claude/commands/*.md` |
 | **Config** | `claw-forge.yaml`, `CLAUDE.md`, `.env.example` |
 | **Docs** | `docs/**`, `README.md` |
-| **Spec** | `app_spec.txt`, `app_spec.example.xml` |
+| **Spec** | `spec/app_spec.txt`, `spec/app_spec.example.xml` |
 
 For each changed file record the status letter:
 - `A` → ✅ Added
