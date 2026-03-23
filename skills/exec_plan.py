@@ -117,8 +117,32 @@ class ExecPlan:
     # ------------------------------------------------------------------
 
     @classmethod
-    def init(cls, title: str, plan_id: str | None = None) -> "ExecPlan":
-        """Create a new plan file from the template and return an ExecPlan."""
+    def init(
+        cls,
+        title: str,
+        plan_id: str | None = None,
+        objective: str | None = None,
+        approach: str | None = None,
+        steps: list[str] | None = None,
+        completion_criteria: list[str] | None = None,
+    ) -> "ExecPlan":
+        """Create a new plan file from the template and return an ExecPlan.
+
+        Parameters
+        ----------
+        title:
+            Human-readable plan title.
+        plan_id:
+            Explicit plan ID (e.g. ``PLAN-007``).  Auto-assigned if omitted.
+        objective:
+            Concise statement of what the plan achieves.
+        approach:
+            Technical strategy, architecture decisions, and trade-offs.
+        steps:
+            Ordered list of high-level steps.
+        completion_criteria:
+            Verifiable conditions that must all be true before the plan is done.
+        """
         _EXEC_PLANS_DIR.mkdir(parents=True, exist_ok=True)
 
         # Auto-generate an incremental plan ID if not provided
@@ -146,6 +170,27 @@ class ExecPlan:
         instance._data["plan"]["created_at"] = _now()
         instance._data["plan"]["updated_at"] = _now()
         instance._data["plan"]["status"] = "pending"
+
+        # Populate narrative planning sections
+        instance._data["objective"] = objective or "<what this plan achieves and why it matters>"
+        instance._data["approach"] = approach or "<technical approach — architecture decisions, libraries, trade-offs>\n"
+        instance._data["steps"] = steps if steps is not None else [
+            "Step 1: <first action>",
+            "Step 2: <second action>",
+            "Step 3: <third action>",
+        ]
+        instance._data["context_assembly"] = {
+            "key_files": [],
+            "key_patterns": [],
+            "notes": "",
+        }
+        instance._data["progress_log"] = ".claw-forge/progress.log"
+        instance._data["known_debt"] = []
+        instance._data["completion_criteria"] = completion_criteria if completion_criteria is not None else [
+            "<criterion 1 — e.g. all tests pass with coverage ≥ 80 %>",
+            "<criterion 2 — e.g. no new lint errors>",
+            "<criterion 3 — e.g. PR approved and merged>",
+        ]
 
         # Reset tasks to a minimal single-task stub
         instance._data["tasks"] = [
@@ -486,6 +531,16 @@ def _build_parser() -> argparse.ArgumentParser:
     init_p.add_argument("--title", required=True, help="Human-readable plan title")
     init_p.add_argument("--plan-id", dest="plan_id", default=None,
                         help="Explicit plan ID (e.g. PLAN-007). Auto-assigned if omitted.")
+    init_p.add_argument("--objective", default=None,
+                        help="Concise statement of what the plan achieves.")
+    init_p.add_argument("--approach", default=None,
+                        help="Technical strategy, architecture decisions, and trade-offs.")
+    init_p.add_argument("--step", dest="steps", action="append", default=None,
+                        metavar="STEP",
+                        help="Ordered step (repeat flag for multiple steps).")
+    init_p.add_argument("--criterion", dest="completion_criteria", action="append",
+                        default=None, metavar="CRITERION",
+                        help="Completion criterion (repeat flag for multiple criteria).")
 
     # claim
     claim_p = sub.add_parser("claim", help="Lock a task for an agent")
@@ -547,7 +602,14 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "init":
-        ExecPlan.init(title=args.title, plan_id=args.plan_id)
+        ExecPlan.init(
+            title=args.title,
+            plan_id=args.plan_id,
+            objective=args.objective,
+            approach=args.approach,
+            steps=args.steps,
+            completion_criteria=args.completion_criteria,
+        )
 
     elif args.command == "claim":
         plan = ExecPlan.load(args.plan)
