@@ -231,10 +231,114 @@ schema (see the `harness.config.yaml` template in `app_spec.example.xml`).
 
 ---
 
+### Step 5.5 — Detect linter config and extract Code Conventions
+
+Before updating `AGENTS.md`, scan the codebase for linter and formatter configuration
+files and extract the conventions they enforce.  This data feeds the **Code Conventions**
+section written in Step 6.
+
+#### Linter config discovery (in order of precedence)
+
+```bash
+echo "=== Linter config detection ==="
+
+# Python — pyproject.toml (Ruff, Mypy, Black, isort)
+PYPROJECT="pyproject.toml"
+
+# Python — standalone Ruff config
+RUFF_TOML="ruff.toml"
+
+# Python — legacy flake8
+FLAKE8_CFG=".flake8"
+SETUP_CFG="setup.cfg"
+
+# TypeScript / JS — ESLint
+ESLINT_CONFIGS=(".eslintrc" ".eslintrc.js" ".eslintrc.cjs" ".eslintrc.json" ".eslintrc.yaml" ".eslintrc.yml" "eslint.config.js" "eslint.config.mjs")
+
+# TypeScript / JS — Prettier
+PRETTIER_CONFIGS=(".prettierrc" ".prettierrc.js" ".prettierrc.json" ".prettierrc.yaml" ".prettierrc.yml" "prettier.config.js")
+
+# Go — staticcheck, golangci-lint
+GOLANGCI=".golangci.yml"
+STATICCHECK="staticcheck.conf"
+
+for f in "$PYPROJECT" "$RUFF_TOML" "$FLAKE8_CFG" "$SETUP_CFG" "${ESLINT_CONFIGS[@]}" "${PRETTIER_CONFIGS[@]}" "$GOLANGCI" "$STATICCHECK"; do
+  [ -f "$f" ] && echo "FOUND: $f"
+done
+```
+
+#### Extraction rules per config type
+
+**`pyproject.toml` (Ruff)**
+
+Extract and map to human-readable conventions:
+
+| TOML key | Convention label |
+|---|---|
+| `tool.ruff.line-length` | Max line length |
+| `tool.ruff.target-version` | Min Python version |
+| `tool.ruff.lint.select` | Active rule sets (map to descriptions) |
+| `tool.ruff.lint.ignore` | Explicitly disabled rules (note reason from inline comment) |
+| `tool.ruff.format.quote-style` | String quote style |
+| `tool.ruff.format.indent-style` | Indentation style |
+| `tool.ruff.format.line-ending` | Line ending style |
+| `tool.ruff.lint.isort.known-first-party` | First-party import modules |
+
+**`pyproject.toml` (Mypy)**
+
+| TOML key | Convention label |
+|---|---|
+| `tool.mypy.strict` | Strict type checking required |
+| `tool.mypy.warn_return_any` | Ban `Any` return types |
+| `tool.mypy.python_version` | Target Python version |
+
+**`.eslintrc.*` / `eslint.config.*`**
+
+Parse `rules`, `extends`, `plugins`, and `env` sections.  Map enabled rules to
+convention summaries (e.g., `"no-var": "error"` → "prefer `const`/`let` over `var`").
+
+**`.prettierrc.*` / `prettier.config.*`**
+
+Extract `printWidth`, `tabWidth`, `useTabs`, `singleQuote`, `semi`, `trailingComma`,
+and `endOfLine`.
+
+#### Codebase pattern detection (supplement config)
+
+When no linter config is present (or to supplement it), detect conventions from code:
+
+```bash
+# Detect dominant quote style in Python files
+PY_DOUBLE=$(grep -rn --include='*.py' '"' . 2>/dev/null | wc -l || echo 0)
+PY_SINGLE=$(grep -rn --include='*.py' "'" . 2>/dev/null | wc -l || echo 0)
+[ "$PY_DOUBLE" -gt "$PY_SINGLE" ] \
+  && echo "detected_quote_style: double" \
+  || echo "detected_quote_style: single"
+
+# Detect dominant indentation in Python files
+PY_SPACES=$(grep -rn --include='*.py' '^    ' . 2>/dev/null | wc -l || echo 0)
+PY_TABS=$(grep -rn --include='*.py' '^\t' . 2>/dev/null | wc -l || echo 0)
+[ "$PY_SPACES" -gt "$PY_TABS" ] \
+  && echo "detected_indent: 4 spaces" \
+  || echo "detected_indent: tabs"
+
+# Detect type annotation usage
+PY_ANNOTATED=$(grep -rn --include='*.py' ') ->' . 2>/dev/null | wc -l || echo 0)
+[ "$PY_ANNOTATED" -gt 0 ] && echo "type_annotations: yes (return types detected)"
+
+# Detect pathlib usage (vs os.path)
+PY_PATHLIB=$(grep -rn --include='*.py' 'pathlib' . 2>/dev/null | wc -l || echo 0)
+[ "$PY_PATHLIB" -gt 0 ] && echo "path_style: pathlib preferred"
+```
+
+Store the extracted conventions in a structured variable set for use in Step 6.
+
+---
+
 ### Step 6 — Refresh `AGENTS.md` files
 
 Scan for `AGENTS.md` files in service/module directories and update the auto-managed
-header block while leaving the body intact.
+header block **and the `## Code Conventions` section** while leaving all other body
+content intact.
 
 ```bash
 # Find all AGENTS.md files (exclude venv, node_modules, dist, build, .git)
@@ -258,7 +362,114 @@ service: <directory name>
 <!-- /harness:auto-generated -->
 ```
 
-Leave everything else in the file unchanged.
+Then regenerate (or insert) the `## Code Conventions` section using the data extracted
+in Step 5.5.  This section is **auto-managed** — it is always regenerated from linter
+config and detected patterns; do not manually edit it.  Wrap it in markers so the
+update algorithm can locate and replace it reliably:
+
+```markdown
+<!-- harness:code-conventions-start — do not edit this block manually -->
+## Code Conventions
+
+> Auto-generated from linter config and detected codebase patterns.
+> Run `/harness:update` to refresh after changing linter settings.
+
+### Python
+- **Version**: <target-version> (use modern syntax: `match`, `X | Y` unions, PEP 604)
+- **Max line length**: <line-length> characters
+- **String quotes**: <quote-style> (enforced by Ruff formatter)
+- **Indentation**: <indent-style>
+- **Line endings**: <line-ending>
+
+### Linter (Ruff)
+
+Active rule sets:
+
+| Code | Rule set | Purpose |
+|------|----------|---------|
+| `E`/`W` | pycodestyle | PEP 8 style errors and warnings |
+| `F` | Pyflakes | Undefined names, unused imports |
+| `I` | isort | Import ordering |
+| `N` | pep8-naming | Class, function, and variable naming |
+| `UP` | pyupgrade | Modernise syntax for target Python version |
+| `B` | flake8-bugbear | Likely bugs and design issues |
+| `SIM` | flake8-simplify | Simplifiable code patterns |
+| `PTH` | flake8-use-pathlib | Prefer `pathlib` over `os.path` |
+
+Ignored rules (with rationale):
+
+| Rule | Rationale |
+|------|-----------|
+| `E501` | Long lines allowed when they contain a URL |
+| `B011` | `assert` is fine in tests |
+| `F401` | Star imports allowed in `__init__` re-export files |
+
+Per-file overrides:
+- `tests/**/*.py`, `test_*.py` — relaxed naming rules (`N802`, `N803`, `N806`)
+- `*_example.py` — relaxed naming and import-order rules
+- `harness_skills/cli/*.py` — relaxed naming rules
+
+### Type Checking (Mypy)
+- **Strict mode**: `mypy --strict` (all strictness flags enabled)
+- **`warn_return_any`**: `true` — functions must not silently return `Any`
+- **`ignore_missing_imports`**: `true` — third-party stubs not required
+- All functions must carry **full type annotations** (parameters + return type)
+
+### Imports
+- First-party modules: <known-first-party list>
+- Import ordering enforced by Ruff `I` (isort) rules
+- `force-sort-within-sections = true`
+
+### Naming
+- **Classes**: `PascalCase`
+- **Functions / methods / variables**: `snake_case`
+- **Constants**: `UPPER_SNAKE_CASE`
+- pep8-naming enforced via Ruff `N` rules
+- Test fixtures and parametrize IDs are exempt from naming rules
+
+### Paths
+- Use `pathlib.Path` instead of `os.path` string manipulation (Ruff `PTH` rules)
+
+<!-- harness:code-conventions-end -->
+```
+
+**Update algorithm for the Code Conventions section:**
+
+```python
+import pathlib, re
+
+SECTION_START = "<!-- harness:code-conventions-start — do not edit this block manually -->"
+SECTION_END   = "<!-- harness:code-conventions-end -->"
+
+def update_code_conventions(agents_md_path: pathlib.Path, new_section: str) -> None:
+    content = agents_md_path.read_text()
+
+    if SECTION_START in content:
+        # Replace existing section
+        content = re.sub(
+            re.escape(SECTION_START) + r".*?" + re.escape(SECTION_END),
+            new_section,
+            content,
+            flags=re.DOTALL,
+        )
+    else:
+        # Insert after the auto-generated front-matter block (or after the title)
+        AUTO_END = "<!-- /harness:auto-generated -->"
+        if AUTO_END in content:
+            content = content.replace(AUTO_END, AUTO_END + "\n\n" + new_section, 1)
+        else:
+            content = content + "\n\n" + new_section
+
+    agents_md_path.write_text(content)
+```
+
+**Rules:**
+- The `<!-- harness:code-conventions-start/end -->` block is **always regenerated** — it
+  is never treated as user content.
+- If no linter config is found, omit the "Linter" and "Type Checking" subsections and
+  emit only the pattern-detected conventions with a note: `> No linter config detected —
+  conventions inferred from codebase patterns.`
+- Do not add the section if `--skip agents-md` or `--skip conventions` is passed.
 
 ---
 
@@ -432,8 +643,8 @@ this update run:
 | Flag | Default | Effect |
 |---|---|---|
 | `--dry-run` | off | Print planned changes; write nothing |
-| `--only ARTIFACT` | *(all)* | Restrict to `skills`, `config`, `agents-md`, or `claude-md` |
-| `--skip ARTIFACT` | *(none)* | Skip a specific artifact type |
+| `--only ARTIFACT` | *(all)* | Restrict to `skills`, `config`, `agents-md`, `claude-md`, or `conventions` |
+| `--skip ARTIFACT` | *(none)* | Skip a specific artifact type; `--skip conventions` omits Code Conventions regeneration |
 | `--force` | off | Overwrite `<!-- CUSTOM -->` blocks and user-edited sections |
 | `--changelog` | off | Run `/harness:changelog` after updating |
 | `--no-stage` | off | Skip `git add` at the end |
@@ -451,6 +662,7 @@ this update run:
 | `## Build & Test` (non-default body) | **Preserve exactly** | Overwrite |
 | `harness.config.yaml` custom keys | **Preserve exactly** | Overwrite |
 | `AGENTS.md` body below front-matter | **Preserve exactly** | Overwrite |
+| `<!-- harness:code-conventions-start/end -->` | **Always regenerated** from linter config | Same |
 
 ---
 

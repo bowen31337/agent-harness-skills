@@ -194,3 +194,69 @@ playwright install chromium   # downloads the Chromium binary
 ```
 
 Both `playwright` and `pytest-playwright` are already listed in `requirements.txt`.
+
+---
+
+<!-- harness:code-conventions-start — do not edit this block manually -->
+## Code Conventions
+
+> Auto-generated from `pyproject.toml` linter config and detected codebase patterns.
+> Run `/harness:update` to refresh after changing linter settings.
+
+### Python
+- **Version**: Python 3.12+ (use modern syntax: `match`, `X | Y` unions, PEP 604, `tomllib`, etc.)
+- **Max line length**: 100 characters
+- **String quotes**: Double quotes (enforced by Ruff formatter)
+- **Indentation**: 4 spaces
+- **Line endings**: LF
+
+### Linter (Ruff)
+
+Active rule sets:
+
+| Code | Rule set | Purpose |
+|------|----------|---------|
+| `E`/`W` | pycodestyle | PEP 8 style errors and warnings |
+| `F` | Pyflakes | Undefined names, unused imports |
+| `I` | isort | Import ordering |
+| `N` | pep8-naming | Class, function, and variable naming |
+| `UP` | pyupgrade | Modernise syntax for Python 3.12 |
+| `B` | flake8-bugbear | Likely bugs and design issues |
+| `SIM` | flake8-simplify | Simplifiable code patterns |
+| `PTH` | flake8-use-pathlib | Prefer `pathlib` over `os.path` |
+
+Ignored rules (with rationale):
+
+| Rule | Rationale |
+|------|-----------|
+| `E501` | Long lines allowed when they contain a URL |
+| `B011` | `assert` is fine in tests |
+| `F401` | Star imports allowed in `__init__` re-export files |
+
+Per-file overrides:
+- `tests/**/*.py`, `test_*.py` — relaxed naming rules (`N802`, `N803`, `N806`)
+- `*_example.py` — relaxed naming and import-order rules (`N802`, `E402`)
+- `harness_skills/cli/*.py` — relaxed naming rules (`N802`)
+
+### Type Checking (Mypy)
+- **Strict mode**: enabled — run `mypy --strict` (all strictness flags on)
+- **`warn_return_any`**: `true` — functions must not silently return `Any`
+- **`ignore_missing_imports`**: `true` — third-party stubs not required
+- All functions must carry **full type annotations** (parameters + return type)
+
+### Imports
+- First-party modules: `harness_skills`, `harness_dashboard`, `log_format_linter`, `dom_snapshot_utility`
+- Import ordering enforced by Ruff `I` (isort) rules
+- `force-sort-within-sections = true` — no blank lines between import groups within a section
+
+### Naming
+- **Classes**: `PascalCase`
+- **Functions / methods / variables**: `snake_case`
+- **Constants**: `UPPER_SNAKE_CASE`
+- `pydantic.validator` and `pydantic.model_validator` decorators treated as classmethod-equivalents (may use PascalCase)
+- Test fixtures and parametrize IDs are exempt from naming rules (`tests/`, `test_*.py`)
+
+### Paths
+- Use `pathlib.Path` instead of `os.path` string manipulation (Ruff `PTH` rules)
+- Example: `Path("some/file").read_text()` not `open("some/file").read()`
+<!-- harness:code-conventions-end -->
