@@ -124,7 +124,9 @@ that every harness artifact carries a machine-readable provenance block.
 
 ```bash
 RUN_DATE=$(date '+%Y-%m-%d')
+RUN_TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 ```
 
 Write `PRINCIPLES.md` using this exact structure:
@@ -132,6 +134,8 @@ Write `PRINCIPLES.md` using this exact structure:
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: <RUN_DATE>
+generated_at: <RUN_TIMESTAMP>
+skill_version: <SKILL_VERSION>
 head: <HEAD_HASH>
 artifact: principles
 <!-- /harness:auto-generated -->

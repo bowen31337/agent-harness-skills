@@ -46,7 +46,9 @@ manual edits can be identified.
 ```bash
 RUN_DATE=$(date '+%Y-%m-%d')
 RUN_TIME=$(date '+%H:%M:%S')
+RUN_TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 
 echo "Harness update starting: $RUN_DATE $RUN_TIME  HEAD=$HEAD_HASH"
 
@@ -357,6 +359,8 @@ For each `AGENTS.md`, regenerate the auto-managed front-matter block:
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: <RUN_DATE>
+generated_at: <RUN_TIMESTAMP>
+skill_version: <SKILL_VERSION>
 head: <HEAD_HASH>
 service: <directory name>
 <!-- /harness:auto-generated -->
@@ -490,16 +494,20 @@ for ARTIFACT_FILE in ARCHITECTURE.md PRINCIPLES.md EVALUATION.md; do
     python3 - <<'PYEOF'
 import pathlib, re, sys, os
 
-artifact_file = os.environ["ARTIFACT_FILE"]
-run_date      = os.environ["RUN_DATE"]
-head_hash     = os.environ["HEAD_HASH"]
-artifact_kind = os.environ["ARTIFACT_KIND"]
+artifact_file  = os.environ["ARTIFACT_FILE"]
+run_date       = os.environ["RUN_DATE"]
+run_timestamp  = os.environ["RUN_TIMESTAMP"]
+head_hash      = os.environ["HEAD_HASH"]
+artifact_kind  = os.environ["ARTIFACT_KIND"]
+skill_version  = os.environ["SKILL_VERSION"]
 
 BLOCK_START = "<!-- harness:auto-generated — do not edit this block manually -->"
 BLOCK_END   = "<!-- /harness:auto-generated -->"
 NEW_BLOCK   = (
     f"{BLOCK_START}\n"
     f"last_updated: {run_date}\n"
+    f"generated_at: {run_timestamp}\n"
+    f"skill_version: {skill_version}\n"
     f"head: {head_hash}\n"
     f"artifact: {artifact_kind}\n"
     f"{BLOCK_END}"
@@ -526,6 +534,8 @@ PYEOF
     cat > "$ARTIFACT_FILE" <<STUB
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: ${RUN_DATE}
+generated_at: ${RUN_TIMESTAMP}
+skill_version: ${SKILL_VERSION}
 head: ${HEAD_HASH}
 artifact: ${ARTIFACT_KIND}
 <!-- /harness:auto-generated -->

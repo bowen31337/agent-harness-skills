@@ -5,21 +5,8 @@ idle threshold** and emit a structured `StalePlanResponse`.  When stale tasks ar
 found, an optional Claude-powered narrative diagnoses the root cause and recommends
 concrete recovery steps.
 
-In addition to plan-task staleness, the skill scans **all generated artifact files**
-(AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md) for two types of risk:
-
-1. **Age-based staleness** — artifact's `last_updated` date exceeds the threshold.
-2. **Source-file drift** — source files *referenced* inside the artifact have been
-   modified since the artifact was last updated, indicating the documentation may no
-   longer accurately describe the code it documents.
-
-Each artifact receives a composite **staleness score** (0.0 = fresh, 1.0 = severely
-stale) that blends age (60 %) with drift ratio (40 %), giving agents a single
-sortable signal for prioritising documentation refresh work.
-
-Use this skill whenever you need a fast answer to:
-- *"Is this plan still making progress, or has it quietly stalled?"*
-- *"Which of my generated docs are out of date or describe code that has changed?"*
+Use this skill whenever you need a fast answer to: *"Is this plan still making
+progress, or has it quietly stalled?"*
 
 ---
 
@@ -264,26 +251,63 @@ urgent tasks.
 
 ---
 
-### Step 6.5 — Scan harness artifact files for staleness and source-file drift
+### Step 6.5 — Scan harness artifact files for staleness
 
-In addition to scanning plan tasks, scan **all generated artifact files** for two
-documentation-risk categories:
-
-**1. Age-based staleness** — compare the artifact's `last_updated` front-matter
-date against the threshold.
-
-**2. Source-file drift** — extract every source-file path the artifact *references*
-(Python imports, backtick spans, explicit file paths) and check whether any of those
-files have been modified since the artifact's `last_updated` date.  A file modified
-after the doc signals that the documentation may no longer be accurate.
+In addition to scanning plan tasks, scan the canonical harness artifact files for
+staleness by reading their `last_updated` field from the
+`<!-- harness:auto-generated … -->` front-matter block.
 
 **Default artifact staleness threshold: 30 days** (overridable via
 `--artifact-threshold-days`).
 
-**Artifacts tracked:** AGENTS.md, ARCHITECTURE.md, PRINCIPLES.md, EVALUATION.md plus
-any `AGENTS.md` discovered in subdirectories.
+```bash
+# Find all four canonical artifact files plus any AGENTS.md in subdirectories
+ARTIFACT_FILES=(AGENTS.md ARCHITECTURE.md PRINCIPLES.md EVALUATION.md)
+SUBDIRECTORY_AGENTS=$(find . -name "AGENTS.md" \
+  -not -path '*/.git/*' -not -path '*/node_modules/*' \
+  -not -path '*/.venv/*' 2>/dev/null | sort)
 
-#### Age severity classification
+TODAY=$(date '+%Y-%m-%d')
+
+for FILE in "${ARTIFACT_FILES[@]}" $SUBDIRECTORY_AGENTS; do
+  [ -f "$FILE" ] || { echo "MISSING: $FILE"; continue; }
+
+  # Extract fields from auto-generated block
+  LAST_UPDATED=$(grep -m1 '^last_updated:' "$FILE" \
+    | awk '{print $2}' | tr -d '[:space:]')
+  GENERATED_AT=$(grep -m1 '^generated_at:' "$FILE" \
+    | awk '{print $2}' | tr -d '[:space:]')
+  SKILL_VERSION=$(grep -m1 '^skill_version:' "$FILE" \
+    | awk '{print $2}' | tr -d '[:space:]')
+
+  if [ -z "$LAST_UPDATED" ]; then
+    echo "NO_TIMESTAMP: $FILE"
+    continue
+  fi
+
+  # Calculate age in days using datetime precision when generated_at is available,
+  # falling back to date-only precision for older artifacts that lack the field
+  DAYS_OLD=$(python3 -c "
+from datetime import datetime, timezone, date
+now = datetime.now(timezone.utc)
+generated_at = '${GENERATED_AT}'
+if generated_at:
+    try:
+        updated_dt = datetime.fromisoformat(generated_at.replace('Z', '+00:00'))
+        print((now - updated_dt).days)
+    except (ValueError, AttributeError):
+        today = date.fromisoformat('${LAST_UPDATED}')
+        print((now.date() - today).days)
+else:
+    today = date.fromisoformat('${LAST_UPDATED}')
+    print((now.date() - today).days)
+" 2>/dev/null || echo "error")
+
+  echo "ARTIFACT: $FILE  last_updated=$LAST_UPDATED  generated_at=${GENERATED_AT:-none}  skill_version=${SKILL_VERSION:-unknown}  age=${DAYS_OLD}d"
+done
+```
+
+Parse the output and classify each artifact:
 
 | Condition | Severity |
 |---|---|
@@ -292,37 +316,12 @@ any `AGENTS.md` discovered in subdirectories.
 | `2×threshold < age ≤ 4×threshold` | `WARNING` — overdue for update |
 | `age > 4×threshold` | `CRITICAL` — severely out of date |
 | `last_updated` field missing | `WARNING` — artifact lacks version identifier |
+| `generated_at` field missing | `INFO` — artifact predates datetime-precision tracking; re-run `/harness:update` to add it |
+| `skill_version` field missing | `INFO` — artifact predates skill-version tracking; re-run `/harness:update` to add it |
 | File missing entirely | `ERROR` — expected artifact absent from repository |
 
-#### Staleness score formula
-
-Each artifact receives a composite **staleness score** in `[0.0, 1.0]`:
-
-```
-age_score   = min(1.0, age_days / (4 × threshold_days))
-drift_ratio = (missing_refs + drifted_refs) / total_refs
-staleness_score = 0.6 × age_score + 0.4 × drift_ratio
-```
-
-- `0.0` = completely fresh, no drift detected
-- `1.0` = severely old artifact AND all referenced files have changed
-
-#### Source-file reference extraction
-
-The detector looks for three pattern types inside each artifact:
-
-| Pattern | Example in doc | Mapped path |
-|---|---|---|
-| Python `from … import` | `from tests.browser.agent_driver import AgentDriver` | `tests/browser/agent_driver.py` |
-| Backtick span with extension | `` `requirements.txt` `` | `requirements.txt` |
-| Explicit path pattern | `tests/browser/conftest.py` | `tests/browser/conftest.py` |
-
-Only local paths with tracked extensions (`.py .ts .yaml .json .md .sh …`) are
-checked.  URLs, version numbers, and paths inside `.git/`, `.venv/`, `node_modules/`
-are automatically excluded.
-
-Include artifact staleness results in the `StalePlanResponse` JSON under
-`artifact_staleness`.  Each result now carries `drift` and `staleness_score`:
+Include artifact staleness results in the `StalePlanResponse` JSON under a new
+top-level key `artifact_staleness`:
 
 ```json
 "artifact_staleness": {
@@ -333,78 +332,50 @@ Include artifact staleness results in the `StalePlanResponse` JSON under
   "results": [
     {
       "file": "AGENTS.md",
-      "last_updated": "2026-03-22",
-      "age_days": 1,
-      "severity": "healthy",
-      "staleness_score": 0.002,
-      "drift": {
-        "referenced_files": ["tests/browser/agent_driver.py", "requirements.txt"],
-        "missing_files": [],
-        "drifted_files": [],
-        "drift_ratio": 0.0,
-        "staleness_score": 0.002
-      }
+      "last_updated": "2026-03-20",
+      "generated_at": "2026-03-20T10:30:00Z",
+      "skill_version": "0.1.0",
+      "age_days": 0,
+      "severity": "healthy"
     },
     {
       "file": "ARCHITECTURE.md",
       "last_updated": "2025-11-01",
+      "generated_at": "2025-11-01T14:22:00Z",
+      "skill_version": "0.1.0",
       "age_days": 139,
-      "severity": "CRITICAL",
-      "staleness_score": 0.892,
-      "drift": {
-        "referenced_files": ["harness_skills/stale_plan_detector.py", "harness_skills/models/stale.py"],
-        "missing_files": [],
-        "drifted_files": [
-          {
-            "path": "harness_skills/stale_plan_detector.py",
-            "exists": true,
-            "mtime_date": "2026-03-23",
-            "days_newer_than_doc": 143
-          }
-        ],
-        "drift_ratio": 0.5,
-        "staleness_score": 0.892
-      }
+      "severity": "CRITICAL"
     },
     {
       "file": "PRINCIPLES.md",
       "last_updated": "2026-02-14",
-      "age_days": 37,
-      "severity": "INFO",
-      "staleness_score": 0.185,
-      "drift": null
+      "generated_at": "2026-02-14T09:15:00Z",
+      "skill_version": "0.1.0",
+      "age_days": 34,
+      "severity": "INFO"
     },
     {
       "file": "EVALUATION.md",
       "last_updated": "2026-03-18",
-      "age_days": 5,
-      "severity": "healthy",
-      "staleness_score": 0.012,
-      "drift": {
-        "referenced_files": [],
-        "missing_files": [],
-        "drifted_files": [],
-        "drift_ratio": 0.0,
-        "staleness_score": 0.012
-      }
+      "generated_at": "2026-03-18T16:45:00Z",
+      "skill_version": "0.1.0",
+      "age_days": 2,
+      "severity": "healthy"
     }
   ]
 }
 ```
 
-Add a corresponding **Artifact Freshness** section to the human-readable report.
-When drift is detected, list the drifted files indented below the artifact line:
+Add a corresponding **Artifact Freshness** section to the human-readable report:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Artifact Freshness  (threshold: 30 days)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅  AGENTS.md          last_updated=2026-03-22   age=1d    score=0.002
-  🔴  ARCHITECTURE.md    last_updated=2025-11-01   age=139d  CRITICAL  score=0.892
-      ↳ drift: 1/2 referenced file(s) changed  (ratio=50%)
-         📝  harness_skills/stale_plan_detector.py  (143d newer)
-  🔵  PRINCIPLES.md      last_updated=2026-02-14   age=37d   INFO  score=0.185
-  ✅  EVALUATION.md      last_updated=2026-03-18   age=5d    score=0.012
+  ✅  AGENTS.md          generated_at=2026-03-20T10:30:00Z   skill_version=0.1.0   age=0d
+  🔴  ARCHITECTURE.md    generated_at=2025-11-01T14:22:00Z   skill_version=0.1.0   age=139d  CRITICAL
+  🔵  PRINCIPLES.md      generated_at=2026-02-14T09:15:00Z   skill_version=0.1.0   age=34d   INFO
+  ✅  EVALUATION.md      generated_at=2026-03-18T16:45:00Z   skill_version=0.1.0   age=2d
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   1 stale artifact(s) found
   → Run /harness:update to refresh all artifact timestamps.
