@@ -1,4 +1,10 @@
 .env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
 .claw-forge/state.log
 .claw-forge/state.db
 .claw-forge/state.db-journal
+.claw-forge/state.db-shm
+.claw-forge/state.db-wal
