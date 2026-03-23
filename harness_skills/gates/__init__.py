@@ -2,6 +2,7 @@
 
 Public API
 ----------
+    AgentsMdTokenGate       — AGENTS.md token-budget gate
     CoverageGate            — line-coverage gate (XML / JSON / lcov)
     DocsFreshnessGate       — documentation-staleness gate
     DocsGateConfig          — configuration for DocsFreshnessGate
@@ -16,6 +17,7 @@ Public API
     run_gates               — convenience entry-point used by `harness evaluate`
 """
 
+from harness_skills.gates.agents_md_token import AgentsMdTokenGate
 from harness_skills.gates.coverage import CoverageGate
 from harness_skills.gates.docs_freshness import DocsFreshnessGate
 from harness_skills.gates.docs_freshness import GateConfig as DocsGateConfig
@@ -33,6 +35,8 @@ from harness_skills.gates.runner import (
 from harness_skills.models.gate_configs import SecurityGateConfig
 
 __all__ = [
+    # ── agents-md token-budget gate ──────────────────────────────────────────
+    "AgentsMdTokenGate",
     # ── coverage gate ────────────────────────────────────────────────────────
     "CoverageGate",
     # ── docs-freshness gate ──────────────────────────────────────────────────

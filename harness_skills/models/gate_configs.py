@@ -385,6 +385,51 @@ class LintGateConfig(BaseGateConfig):
 
 
 # ---------------------------------------------------------------------------
+# AgentsMdTokenGate
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AgentsMdTokenGateConfig(BaseGateConfig):
+    """Configuration for the AGENTS.md token-budget gate.
+
+    The gate scans every file matching *glob_pattern* under the repository
+    root and fails when any single file's **estimated token count** exceeds
+    *max_tokens*.  Token estimation uses the character-count heuristic::
+
+        estimated_tokens = ceil(len(text) / chars_per_token)
+
+    This prevents AGENTS.md files from growing so large that they silently
+    pollute an agent's context window before it reads any task-relevant code.
+
+    Attributes
+    ----------
+    max_tokens:
+        Maximum allowed estimated tokens per matching file.  Defaults to
+        **800**.  Raise this value (in ``harness.config.yaml`` or via
+        ``--max-tokens``) for repositories with intentionally detailed
+        reference docs; lower it to enforce tighter discipline.
+    glob_pattern:
+        Glob pattern (relative to the repo root) used to discover files.
+        Defaults to ``"**/AGENTS.md"``.  Use ``"**/*AGENTS*.md"`` to also
+        catch files like ``FRONTEND_AGENTS.md`` or ``AGENTS_BROWSER.md``.
+    chars_per_token:
+        Characters-per-token ratio for the estimation heuristic.  The
+        widely-cited figure of **4.0** characters per token matches OpenAI's
+        guidance for English+code mixed content and is a good approximation
+        for Claude models as well.  Must be a positive float.
+
+    Inherited from :class:`BaseGateConfig`:
+        ``enabled``, ``fail_on_error``
+    """
+
+    enabled: bool = True
+    max_tokens: int = 800
+    glob_pattern: str = "**/AGENTS.md"
+    chars_per_token: float = 4.0
+
+
+# ---------------------------------------------------------------------------
 # GATE_CONFIG_CLASSES
 # Maps canonical gate IDs (as used in harness.config.yaml) to config classes.
 # Consumed by HarnessConfigLoader to iterate all built-in gates and apply
@@ -392,15 +437,16 @@ class LintGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
-    "regression":     RegressionGateConfig,
-    "coverage":       CoverageGateConfig,
-    "security":       SecurityGateConfig,
-    "performance":    PerformanceGateConfig,
-    "architecture":   ArchitectureGateConfig,
-    "principles":     PrinciplesGateConfig,
-    "docs_freshness": DocsFreshnessGateConfig,
-    "types":          TypesGateConfig,
-    "lint":           LintGateConfig,
+    "regression":       RegressionGateConfig,
+    "coverage":         CoverageGateConfig,
+    "security":         SecurityGateConfig,
+    "performance":      PerformanceGateConfig,
+    "architecture":     ArchitectureGateConfig,
+    "principles":       PrinciplesGateConfig,
+    "docs_freshness":   DocsFreshnessGateConfig,
+    "types":            TypesGateConfig,
+    "lint":             LintGateConfig,
+    "agents_md_token":  AgentsMdTokenGateConfig,
 }
 
 
@@ -412,36 +458,42 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
 
 PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
     "starter": {
-        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":       CoverageGateConfig(threshold=60.0, fail_on_error=True),
-        "security":       SecurityGateConfig(enabled=False),
-        "performance":    PerformanceGateConfig(enabled=False),
-        "architecture":   ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
-        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=False),
-        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
-        "types":          TypesGateConfig(enabled=False),
-        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":        CoverageGateConfig(threshold=60.0, fail_on_error=True),
+        "security":        SecurityGateConfig(enabled=False),
+        "performance":     PerformanceGateConfig(enabled=False),
+        "architecture":    ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
+        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=False),
+        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=30),
+        "types":           TypesGateConfig(enabled=False),
+        "lint":            LintGateConfig(enabled=True, fail_on_error=True),
+        "agents_md_token": AgentsMdTokenGateConfig(
+            enabled=True, fail_on_error=True, max_tokens=500,
+        ),
     },
     "standard": {
-        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":       CoverageGateConfig(threshold=80.0, fail_on_error=True),
-        "security":       SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
-        "performance":    PerformanceGateConfig(enabled=False),
-        "architecture":   ArchitectureGateConfig(enabled=True, fail_on_error=True),
-        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
-        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
-        "types":          TypesGateConfig(enabled=True, fail_on_error=True),
-        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":        CoverageGateConfig(threshold=80.0, fail_on_error=True),
+        "security":        SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
+        "performance":     PerformanceGateConfig(enabled=False),
+        "architecture":    ArchitectureGateConfig(enabled=True, fail_on_error=True),
+        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=True),
+        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=30),
+        "types":           TypesGateConfig(enabled=True, fail_on_error=True),
+        "lint":            LintGateConfig(enabled=True, fail_on_error=True),
+        "agents_md_token": AgentsMdTokenGateConfig(
+            enabled=True, fail_on_error=True, max_tokens=800,
+        ),
     },
     "advanced": {
-        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":       CoverageGateConfig(threshold=90.0, fail_on_error=True),
-        "security":       SecurityGateConfig(
+        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":        CoverageGateConfig(threshold=90.0, fail_on_error=True),
+        "security":        SecurityGateConfig(
             enabled=True, severity_threshold="MEDIUM",
             scan_dependencies=True, scan_secrets=True,
         ),
-        "performance":    PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
-        "architecture":   ArchitectureGateConfig(
+        "performance":     PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
+        "architecture":    ArchitectureGateConfig(
             enabled=True, fail_on_error=True,
             rules=[
                 "no_circular_dependencies",
@@ -450,9 +502,12 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
                 "enforce_naming_conventions",
             ],
         ),
-        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
-        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
-        "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
-        "lint":           LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
+        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=True),
+        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=14),
+        "types":           TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
+        "lint":            LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
+        "agents_md_token": AgentsMdTokenGateConfig(
+            enabled=True, fail_on_error=True, max_tokens=1500,
+        ),
     },
 }
