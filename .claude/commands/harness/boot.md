@@ -1,48 +1,62 @@
 # Harness Boot
 
-Generate a per-worktree boot script that launches an isolated application instance for the
-current agent task, then optionally execute the script and wait for its health check to pass.
+Generate a **per-worktree boot command** that starts an isolated application instance
+and waits for its health check to pass before returning.
 
-Each invocation writes a self-contained `boot_<worktree_id>.sh` to the project root.
-The script exports `PORT`, optional database-isolation variables, and any extra environment
-variables before launching the application.  After launch it polls a configurable health
-endpoint until the instance is ready or the timeout is exceeded.
+Each agent worktree gets its own TCP port and, for database-backed apps, its own schema
+or SQLite file — so concurrent agents never share state.  The skill supports two modes:
 
-Use this skill whenever an agent task needs its own running application instance — for
-integration tests, browser automation, API smoke checks, or any scenario where a live
-server must be available.
+- **Script mode** (default) — emit a self-contained `boot_<worktree_id>.sh` bash script
+  that any CI runner or human operator can execute later.
+- **Run mode** (`--run`) — generate the script *and* execute it immediately, streaming
+  logs and returning a structured `BootResult` once the health check passes (or times
+  out).
 
 ---
 
 ## Usage
 
 ```bash
-# Minimal — auto-detect worktree ID and use defaults
-/harness:boot
+# Generate a boot script (print to stdout, do not execute)
+/harness:boot --worktree-id abc123 --start-cmd "uvicorn myapp.main:app" --port 8001
 
-# Specify the start command explicitly
-/harness:boot --cmd "uvicorn myapp.main:app"
+# Write the script to disk
+/harness:boot --worktree-id abc123 --start-cmd "uvicorn myapp.main:app" --port 8001 \
+    --output boot_abc123.sh
 
-# Specify a port (default: auto-assigned from worktree ID hash)
-/harness:boot --port 8101
+# Generate AND immediately boot the instance (run mode)
+/harness:boot --worktree-id abc123 --start-cmd "uvicorn myapp.main:app" --port 8001 \
+    --run
 
-# SQLite file isolation (one DB file per worktree)
-/harness:boot --db-isolation file
+# Override the health endpoint path and timeout
+/harness:boot --worktree-id abc123 --start-cmd "python manage.py runserver 8002" \
+    --port 8002 --health-path /api/healthz --timeout 60
 
-# PostgreSQL schema isolation (one schema per worktree)
-/harness:boot --db-isolation schema --db-schema "wt_abc123"
+# Use HEAD instead of GET for the health probe (lighter-weight)
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 --health-method HEAD
 
-# Custom health path and timeout
-/harness:boot --health-path /api/healthz --health-timeout 60
+# PostgreSQL schema isolation (separate schema per worktree)
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 \
+    --db-isolation schema --db-schema worktree_abc123
 
-# Write the script but do not execute it
-/harness:boot --no-boot
+# SQLite file isolation (separate DB file per worktree)
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 \
+    --db-isolation file --db-file /tmp/harness_abc123.db
 
-# Write and execute — also emit health_check_spec.json
-/harness:boot --cmd "python -m myapp" --emit-spec
+# Pass extra environment variables to the app
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 \
+    --env FEATURE_FLAGS=beta --env LOG_LEVEL=debug
 
-# Override the log file path
-/harness:boot --log-file /tmp/harness_app.log
+# Redirect app output to a log file
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 \
+    --log-file /tmp/harness_abc123.log --run
+
+# Run from a specific directory
+/harness:boot --worktree-id abc123 --start-cmd "npm start" --port 3001 \
+    --working-dir /workspace/myapp --run
+
+# Emit only the raw JSON BootResult (agent/CI mode)
+/harness:boot --worktree-id abc123 --start-cmd "..." --port 8001 --run --format json
 ```
 
 ---
@@ -51,125 +65,23 @@ server must be available.
 
 ### Step 1 — Resolve the worktree ID
 
-The worktree ID is a short, filesystem-safe identifier for the current agent task.
-Resolve it in this priority order:
+If `--worktree-id` is provided, use it directly.  Otherwise, auto-detect it from git:
 
 ```bash
-# 1. Explicit environment variable (set by claw-forge when launching the agent)
-if [ -n "${HARNESS_WORKTREE_ID:-}" ]; then
-    WORKTREE_ID="$HARNESS_WORKTREE_ID"
-
-# 2. Git worktree path basename (works inside a git worktree)
-elif WORKTREE_PATH=$(git rev-parse --show-toplevel 2>/dev/null); then
-    WORKTREE_ID=$(basename "$WORKTREE_PATH" | sed 's/[^a-zA-Z0-9_-]/_/g' | cut -c1-32)
-
-# 3. Short git commit hash (always available)
-elif GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null); then
-    WORKTREE_ID="wt_${GIT_SHA}"
-
-# 4. Fallback — timestamp-based
-else
-    WORKTREE_ID="wt_$(date +%s)"
-fi
-
-echo "[harness:boot] Worktree ID: $WORKTREE_ID"
+WORKTREE_ID=$(git rev-parse --short HEAD 2>/dev/null || echo "local")
+echo "Resolved worktree ID: $WORKTREE_ID"
 ```
 
-If `--worktree-id` was passed explicitly, use that value and skip all detection.
+The worktree ID is used in:
+- The generated script filename (`boot_<worktree_id>.sh`)
+- Log prefixes (`[harness:boot] worktree=<id>`)
+- Auto-generated database schema and file names
 
 ---
 
-### Step 2 — Resolve the start command
+### Step 2 — Build the BootConfig
 
-Look up the start command in this priority order:
-
-1. **Explicit `--cmd` argument** — use as-is.
-2. **`harness.config.yaml` `boot.start_command` key** — read with:
-   ```bash
-   python -c "
-   import yaml, sys
-   try:
-       cfg = yaml.safe_load(open('harness.config.yaml'))
-       cmd = cfg.get('boot', {}).get('start_command', '')
-       print(cmd)
-   except Exception:
-       pass
-   "
-   ```
-3. **Stack heuristics** — infer from detected stack:
-
-   | Detected stack | Default start command |
-   |---|---|
-   | FastAPI / Uvicorn | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
-   | Flask | `flask run --host 0.0.0.0 --port $PORT` |
-   | Django | `python manage.py runserver 0.0.0.0:$PORT` |
-   | Next.js | `next start -p $PORT` |
-   | Express / Node | `node server.js` |
-   | Generic Python | `python -m http.server $PORT` |
-   | Unknown | (prompt the user — see Step 2a) |
-
-4. **Step 2a — Request the start command** — if no start command can be resolved,
-   emit a clear error and request human input:
-
-   ```bash
-   echo "[harness:boot] ERROR: No start command found." >&2
-   echo "  Provide one via --cmd, or add 'boot.start_command' to harness.config.yaml." >&2
-   exit 1
-   ```
-
----
-
-### Step 3 — Allocate a port
-
-Each worktree receives a deterministic port so that re-running the skill produces the
-same port (preventing orphaned processes on retries).
-
-```python
-import hashlib
-
-BASE_PORT = 8100
-PORT_RANGE = 900   # 8100–8999; avoids conflict with state service at 8420
-
-def worktree_port(worktree_id: str, base: int = BASE_PORT, span: int = PORT_RANGE) -> int:
-    digest = int(hashlib.sha256(worktree_id.encode()).hexdigest(), 16)
-    return base + (digest % span)
-```
-
-If `--port` is passed, use the explicit value (no hashing).
-
-After choosing a port, verify it is not already bound:
-
-```python
-import socket
-
-def port_is_free(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.bind(("127.0.0.1", port))
-            return True
-        except OSError:
-            return False
-```
-
-If the deterministic port is occupied, linearly scan upward (up to 20 attempts) for the
-next free port:
-
-```python
-port = worktree_port(worktree_id)
-for attempt in range(20):
-    if port_is_free(port):
-        break
-    port += 1
-else:
-    raise RuntimeError("No free port found in range 8100–9099")
-```
-
----
-
-### Step 4 — Build the `BootConfig`
-
-Assemble a `BootConfig` from the resolved values:
+Assemble a `BootConfig` from the resolved arguments:
 
 ```python
 from harness_skills.boot import (
@@ -179,184 +91,254 @@ from harness_skills.boot import (
     IsolationConfig,
 )
 
-db_isolation_map = {
-    "none":      DatabaseIsolation.NONE,
-    "schema":    DatabaseIsolation.SCHEMA,
-    "file":      DatabaseIsolation.FILE,
-    "container": DatabaseIsolation.CONTAINER,
-}
-
 isolation = IsolationConfig(
-    port=port,
-    db_isolation=db_isolation_map.get(db_isolation_arg, DatabaseIsolation.NONE),
-    db_schema=db_schema_arg or f"wt_{worktree_id}",
-    db_file=db_file_arg or f"/tmp/harness_{worktree_id}.db",
-    extra_env=extra_env_dict,   # parsed from --env KEY=VALUE flags
+    port=PORT,                           # --port (required)
+    db_isolation=DatabaseIsolation(DB_ISOLATION),  # --db-isolation (default: "none")
+    db_schema=DB_SCHEMA,                 # --db-schema (used when db_isolation=schema)
+    db_file=DB_FILE,                     # --db-file   (used when db_isolation=file)
+    extra_env=EXTRA_ENV,                 # --env KEY=VAL pairs (default: {})
 )
 
 config = BootConfig(
-    worktree_id=worktree_id,
-    start_command=start_command,
+    worktree_id=WORKTREE_ID,
+    start_command=START_COMMAND,         # --start-cmd (required)
     isolation=isolation,
-    health_path=health_path_arg,        # default: "/health"
-    health_method=HealthCheckMethod.GET,
-    health_timeout_s=float(health_timeout_arg),   # default: 30
-    health_interval_s=1.0,
-    working_dir=working_dir_arg or "",
-    log_file=log_file_arg or "",
+    health_path=HEALTH_PATH,             # --health-path (default: "/health")
+    health_method=HealthCheckMethod(HEALTH_METHOD),  # --health-method (default: "GET")
+    health_timeout_s=float(TIMEOUT),     # --timeout (default: 30.0)
+    health_interval_s=INTERVAL,          # --interval (default: 1.0)
+    working_dir=WORKING_DIR,             # --working-dir (default: "")
+    log_file=LOG_FILE,                   # --log-file (default: "")
 )
 ```
 
+**Validation rules:**
+- `--port` must be an integer in the range 1024–65535.
+- `--db-isolation` must be one of `none`, `schema`, `file`, `container`.
+- `--health-method` must be `GET` or `HEAD`.
+- `--timeout` must be a positive float.
+- When `--db-isolation schema`, `--db-schema` defaults to `worktree_<worktree_id>` if omitted.
+- When `--db-isolation file`, `--db-file` defaults to `/tmp/harness_<worktree_id>.db` if omitted.
+
 ---
 
-### Step 5 — Generate and write the boot script
+### Step 3 — Generate the boot script
+
+Call `generate_boot_script` to produce the bash script content:
 
 ```python
 from harness_skills.boot import generate_boot_script
-import os, stat
 
 script_content = generate_boot_script(config)
-script_path = f"boot_{worktree_id}.sh"
-
-with open(script_path, "w") as fh:
-    fh.write(script_content)
-
-# Make executable
-os.chmod(script_path, os.stat(script_path).st_mode | stat.S_IXUSR | stat.S_IXGRP)
-
-print(f"[harness:boot] Script written → {script_path}")
 ```
+
+The generated script:
+1. Exports `PORT` and any isolation environment variables (`DB_SCHEMA`, `DATABASE_URL`).
+2. Exports any `extra_env` key/value pairs.
+3. Changes to `working_dir` (if set).
+4. Launches the application in the background (`&`), redirecting to `log_file` if set.
+5. Polls `http://localhost:<port><health_path>` with `curl` every `health_interval_s`
+   seconds.
+6. Exits `0` when a `2xx` response is received; exits `1` if the timeout is reached
+   (and kills the background process first).
+
+**Script filename:** `boot_<worktree_id>.sh`
 
 ---
 
-### Step 6 — Optionally emit `health_check_spec.json`
+### Step 4 — Write the script to disk (if `--output` is provided)
 
-When `--emit-spec` is passed (or when `--no-boot` is used, so something else needs to
-know how to probe the instance), write a machine-readable spec:
+```python
+import os
+
+script_path = OUTPUT or f"boot_{config.worktree_id}.sh"
+with open(script_path, "w") as fh:
+    fh.write(script_content)
+os.chmod(script_path, 0o755)
+print(f"[harness:boot] Script written to: {script_path}")
+```
+
+If `--output` is not provided and `--run` is not set, print the script content to
+stdout (for piping or review) without writing a file.
+
+---
+
+### Step 5 — Generate the health check spec
+
+Always generate and emit the machine-readable `HealthCheckSpec`, regardless of whether
+`--run` is active.  Downstream agents use this spec to poll the endpoint independently.
 
 ```python
 from harness_skills.boot import generate_health_check_spec
-import json, dataclasses
 
 spec = generate_health_check_spec(config)
-spec_path = f"health_check_spec_{worktree_id}.json"
-
-with open(spec_path, "w") as fh:
-    json.dump(dataclasses.asdict(spec), fh, indent=2)
-
-print(f"[harness:boot] Health check spec → {spec_path}")
 ```
 
-The spec JSON looks like:
-
-```json
-{
-  "url": "http://localhost:8237/health",
-  "method": "GET",
-  "expected_codes": [200, 201, 202, 203, 204, 205, 206, 207, 208, 226],
-  "timeout_s": 5.0,
-  "interval_s": 1.0,
-  "max_wait_s": 30.0,
-  "headers": {}
-}
-```
-
-Downstream agents or CI scripts can read this file to poll the instance without needing
-to know port allocation details.
+The spec captures:
+- `url` — full health endpoint URL (e.g. `http://localhost:8001/health`)
+- `method` — HTTP method for probing
+- `expected_codes` — HTTP 2xx codes accepted as healthy (200–299)
+- `timeout_s` — per-request timeout (5 s)
+- `interval_s` — seconds between retries
+- `max_wait_s` — total wait budget
 
 ---
 
-### Step 7 — Boot the instance (unless `--no-boot`)
+### Step 6 — Boot the instance (run mode only)
 
-When `--no-boot` is **not** set, use `boot_instance()` to launch the process and wait
-for the health check to pass:
+Only execute this step when `--run` is set.
 
 ```python
 from harness_skills.boot import boot_instance
 
 result = boot_instance(config)
+```
 
-if result.ready:
-    print(
-        f"[harness:boot] ✓ Instance ready\n"
-        f"  PID:        {result.pid}\n"
-        f"  Port:       {result.port}\n"
-        f"  Health URL: {result.health_url}\n"
-        f"  Elapsed:    {result.elapsed_s:.1f}s"
-    )
-else:
-    import sys
-    print(
-        f"[harness:boot] ✗ Boot failed\n"
-        f"  Error:   {result.error}\n"
-        f"  Elapsed: {result.elapsed_s:.1f}s",
-        file=sys.stderr,
-    )
-    sys.exit(1)
+`boot_instance` blocks until the health check passes or `health_timeout_s` elapses.
+It always returns a `BootResult`; inspect `result.ready` to determine success.
+
+**On success (`result.ready == True`):**
+- `result.pid` — PID of the running process
+- `result.port` — port it is bound to
+- `result.health_url` — URL that passed the health check
+- `result.elapsed_s` — seconds from start to health pass
+
+**On failure (`result.ready == False`):**
+- `result.error` — human-readable diagnostic message
+- The subprocess has already been killed
+
+---
+
+### Step 7 — Emit the human-readable summary
+
+#### Script mode (no `--run`)
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  harness boot  —  Boot Script Generated
+  Worktree : <worktree_id>
+  Port     : <port>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Start command : <start_command>
+  Health URL    : http://localhost:<port><health_path>
+  Health method : <GET|HEAD>
+  Timeout       : <timeout_s>s   Interval: <interval_s>s
+  DB isolation  : <none|schema|file|container>
+  Log file      : <log_file | inherited streams>
+
+  ── Generated script ──────────────────────────────────
+  <script content printed verbatim>
+  ──────────────────────────────────────────────────────
+
+  Script written to: <output_path>        ← only if --output was given
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  To execute:  bash boot_<worktree_id>.sh
+  Health spec: see JSON block below
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### Run mode (with `--run`)
+
+**On success:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  harness boot  —  Instance Ready  ✅
+  Worktree : <worktree_id>
+  Port     : <port>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PID          : <pid>
+  Health URL   : <health_url>
+  Elapsed      : <elapsed_s>s
+  DB isolation : <isolation_type>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Instance is healthy — ready to accept traffic.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**On failure:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  harness boot  —  Boot Failed  ❌
+  Worktree : <worktree_id>
+  Port     : <port>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Error   : <error>
+  Elapsed : <elapsed_s>s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Troubleshooting tips
+  • Check the log file for startup errors: <log_file>
+  • Confirm the port is not already in use:
+      lsof -i :<port>
+  • Increase the timeout with --timeout <seconds>
+  • Verify the start command is correct:
+      <start_command>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 ---
 
-### Step 8 — Emit the boot summary
+### Step 8 — Emit machine-readable JSON
 
-After a successful boot (or after script generation when `--no-boot`), display a
-structured summary:
+Always emit the following JSON block after the human-readable summary, regardless of
+mode.  This is the canonical `BootResult` envelope consumed by downstream agents.
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Harness Boot — worktree: <worktree_id>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#### Script mode
 
-  Script        boot_<worktree_id>.sh
-  Port          <port>
-  DB isolation  <none | file | schema | container>
-  Health URL    http://localhost:<port><health_path>
-  Status        ✓ ready  (elapsed: <N>s)   [or: script written, not started]
-
-  Environment
-  ────────────────────────────────────────────────────
-  PORT=<port>
-  <DB_SCHEMA=wt_...>           (schema isolation only)
-  <DATABASE_URL=sqlite:///...> (file isolation only)
-  <EXTRA_KEY=value>            (each --env pair)
-
-  Artifacts
-  ────────────────────────────────────────────────────
-  boot_<worktree_id>.sh            (executable boot script)
-  health_check_spec_<id>.json      (emitted with --emit-spec)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Tip: re-run with --no-boot to regenerate the script
-  without starting a new process.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```json
+{
+  "command": "harness boot",
+  "mode": "script",
+  "worktree_id": "<worktree_id>",
+  "script_path": "<output_path | null>",
+  "health_check_spec": {
+    "url": "http://localhost:<port><health_path>",
+    "method": "<GET|HEAD>",
+    "expected_codes": [200, 201, 202, 203, 204, 205, 206, 207, 208, 226],
+    "timeout_s": 5.0,
+    "interval_s": <interval_s>,
+    "max_wait_s": <timeout_s>
+  },
+  "boot_result": null
+}
 ```
 
----
+#### Run mode
 
-### Step 9 — Register with the state service (optional)
-
-If the state service is reachable and a feature ID is available, record the running
-instance so other agents can discover it:
-
-```bash
-FEATURE_ID="${HARNESS_FEATURE_ID:-}"
-STATE_URL="${CLAW_FORGE_STATE_URL:-http://localhost:8888}"
-
-if [ -n "$FEATURE_ID" ]; then
-    curl -sf -X PATCH "$STATE_URL/features/$FEATURE_ID" \
-        -H "Content-Type: application/json" \
-        -d "{
-              \"boot_port\": $PORT,
-              \"boot_pid\": $APP_PID,
-              \"boot_health_url\": \"$HEALTH_URL\",
-              \"boot_script\": \"$SCRIPT_PATH\"
-            }" \
-    && echo "[harness:boot] Registered instance with state service" \
-    || echo "[harness:boot] Warning: state service update failed (non-fatal)"
-fi
+```json
+{
+  "command": "harness boot",
+  "mode": "run",
+  "worktree_id": "<worktree_id>",
+  "script_path": "<output_path | null>",
+  "health_check_spec": {
+    "url": "http://localhost:<port><health_path>",
+    "method": "<GET|HEAD>",
+    "expected_codes": [200, 201, 202, 203, 204, 205, 206, 207, 208, 226],
+    "timeout_s": 5.0,
+    "interval_s": <interval_s>,
+    "max_wait_s": <timeout_s>
+  },
+  "boot_result": {
+    "worktree_id": "<worktree_id>",
+    "pid": <pid>,
+    "port": <port>,
+    "health_url": "http://localhost:<port><health_path>",
+    "ready": <true|false>,
+    "elapsed_s": <elapsed>,
+    "error": "<error message or empty string>"
+  }
+}
 ```
 
-Registration failure is non-fatal — the instance is still usable.
+When `--format json` is passed, emit **only** this JSON block (no human-readable header).
 
 ---
 
@@ -364,28 +346,43 @@ Registration failure is non-fatal — the instance is still usable.
 
 | Flag | Default | Effect |
 |---|---|---|
-| `--worktree-id ID` | auto-detected | Override the worktree identifier |
-| `--cmd COMMAND` | auto-detected | Shell command that starts the application |
-| `--port PORT` | hash-derived (8100–8999) | TCP port the instance should bind to |
-| `--db-isolation MODE` | `none` | Database isolation: `none`, `file`, `schema`, `container` |
-| `--db-schema NAME` | `wt_<worktree_id>` | Schema name (only with `--db-isolation schema`) |
-| `--db-file PATH` | `/tmp/harness_<id>.db` | SQLite file path (only with `--db-isolation file`) |
+| `--worktree-id ID` | auto (git short SHA) | Identifier for this agent worktree |
+| `--start-cmd CMD` | *(required)* | Shell command to start the application |
+| `--port PORT` | *(required)* | TCP port the application will bind to |
 | `--health-path PATH` | `/health` | URL path of the health check endpoint |
-| `--health-timeout N` | `30` | Seconds to wait for health check before failing |
-| `--no-boot` | off | Write the script but do not execute it |
-| `--emit-spec` | off | Write `health_check_spec_<id>.json` alongside the boot script |
-| `--log-file PATH` | — | Redirect application stdout/stderr to this file |
-| `--working-dir DIR` | — | Working directory for the application process |
-| `--env KEY=VALUE` | — | Extra environment variable to inject (repeatable) |
+| `--health-method METHOD` | `GET` | HTTP method for health probes (`GET` or `HEAD`) |
+| `--timeout SECS` | `30.0` | Maximum seconds to wait for the health check |
+| `--interval SECS` | `1.0` | Seconds between health check polls |
+| `--db-isolation TYPE` | `none` | Database isolation strategy: `none`, `schema`, `file`, `container` |
+| `--db-schema NAME` | `worktree_<id>` | PostgreSQL schema name (only with `--db-isolation schema`) |
+| `--db-file PATH` | `/tmp/harness_<id>.db` | SQLite file path (only with `--db-isolation file`) |
+| `--env KEY=VAL` | *(none)* | Extra environment variable; repeat for multiple |
+| `--working-dir DIR` | *(inherited)* | Working directory for the application process |
+| `--log-file PATH` | *(inherited streams)* | File to redirect application stdout/stderr |
+| `--output PATH` | *(stdout)* | Write the generated boot script to this path |
+| `--run` | off | Generate the script *and* immediately execute it |
+| `--format json` | human | Emit only raw JSON; suppress human-readable header |
 
 ---
 
-## Output artifacts
+## Database isolation reference
 
-| Artifact | Description |
+| `--db-isolation` | Environment variable set | Use when |
+|---|---|---|
+| `none` | *(none)* | App has no database, or isolation is handled externally |
+| `schema` | `DB_SCHEMA=<name>` | App connects to PostgreSQL and reads `DB_SCHEMA` |
+| `file` | `DATABASE_URL=sqlite:///<path>` | App uses SQLite and reads `DATABASE_URL` |
+| `container` | *(none — external)* | Container orchestrator provides a dedicated DB container |
+
+---
+
+## Exit codes
+
+| Code | Meaning |
 |---|---|
-| `boot_<worktree_id>.sh` | Self-contained boot script; `chmod +x` ready to execute |
-| `health_check_spec_<worktree_id>.json` | Machine-readable health check specification (only with `--emit-spec` or `--no-boot`) |
+| `0` | Script generated successfully **or** instance booted and health check passed |
+| `1` | Health check timed out (run mode) or invalid arguments |
+| `2` | Process failed to start (run mode) |
 
 ---
 
@@ -393,28 +390,32 @@ Registration failure is non-fatal — the instance is still usable.
 
 | Scenario | Recommended skill |
 |---|---|
-| Agent needs a live app instance for integration tests | **`/harness:boot`** ← you are here |
-| Generate the script without launching anything | **`/harness:boot --no-boot`** |
-| Run all quality gates (includes boot if configured) | `/harness:evaluate` |
-| Open a browser against the booted instance | `/browser-automation` |
-| Show health and status of running plans | `/harness:status` |
+| Start an isolated app instance before running browser tests | **`/harness:boot`** ← you are here |
+| Check if an already-running instance is healthy | probe `health_check_spec.url` directly |
+| Capture a DOM snapshot of a running instance | `/harness:screenshot` |
+| Run all quality gates on the current branch | `/harness:evaluate` |
+| Show active plan / task status | `/harness:status` |
+| Coordinate concurrent agent worktrees | `/coordinate` |
 
 ---
 
 ## Notes
 
-- **Port determinism** — the same worktree ID always produces the same base port,
-  so the skill is safe to re-run inside a retry loop without accumulating orphaned
-  processes.
-- **Isolation is opt-in** — the default `--db-isolation none` shares whatever database
-  is already configured.  Use `file` for SQLite apps or `schema` for PostgreSQL apps
-  that need full state isolation per agent.
-- **Script is idempotent** — re-running `/harness:boot --no-boot` regenerates
-  `boot_<id>.sh` from the same config.  The script itself is deterministic for a given
-  `BootConfig`.
-- **State service is optional** — Step 9 registration is best-effort; unreachable
-  service is logged but does not fail the skill.
-- **Never auto-commits** — boot scripts are ephemeral; add `boot_*.sh` and
-  `health_check_spec_*.json` to `.gitignore` if they should not appear in commits.
-- **CI usage** — in CI environments set `HARNESS_WORKTREE_ID` to the job ID or
-  pipeline run ID for collision-free port allocation across parallel jobs.
+- **Idempotent script generation** — calling `/harness:boot` twice with the same
+  arguments produces an identical script. The script itself is not idempotent: running
+  it twice will launch a second process on the same port.
+- **Port conflicts** — it is the caller's responsibility to ensure each worktree uses a
+  unique port. A common convention is `BASE_PORT + worktree_index`.
+- **Health check contract** — the application must expose a health endpoint that returns
+  HTTP 2xx when ready. See `docs/health-check-endpoint-spec.md` for the full response
+  schema.
+- **Process ownership** — in run mode, `boot_instance` launches a background subprocess
+  owned by the current process. If the parent exits, the subprocess may be orphaned;
+  ensure your CI pipeline or agent harness sends a `SIGTERM` on cleanup.
+- **Container isolation** — when `--db-isolation container` is chosen, the boot script
+  emits a comment noting that `DATABASE_URL` must already be set by the container
+  orchestrator. No automatic container lifecycle management is performed.
+- **`--format json` in CI** — pipe the JSON block into `jq` to extract the PID or port:
+  ```bash
+  PORT=$(/harness:boot ... --run --format json | jq -r '.boot_result.port')
+  ```
