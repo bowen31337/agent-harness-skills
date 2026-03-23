@@ -385,48 +385,91 @@ class LintGateConfig(BaseGateConfig):
 
 
 # ---------------------------------------------------------------------------
-# AgentsMdTokenGate
+# FileSizeGate
 # ---------------------------------------------------------------------------
 
 
 @dataclass
-class AgentsMdTokenGateConfig(BaseGateConfig):
-    """Configuration for the AGENTS.md token-budget gate.
+class FileSizeGateConfig(BaseGateConfig):
+    """Configuration for the file-size gate.
 
-    The gate scans every file matching *glob_pattern* under the repository
-    root and fails when any single file's **estimated token count** exceeds
-    *max_tokens*.  Token estimation uses the character-count heuristic::
-
-        estimated_tokens = ceil(len(text) / chars_per_token)
-
-    This prevents AGENTS.md files from growing so large that they silently
-    pollute an agent's context window before it reads any task-relevant code.
+    Prevents monolithic source files that are hard for agents and humans to
+    reason about by enforcing a maximum line-count threshold per file.
 
     Attributes
     ----------
-    max_tokens:
-        Maximum allowed estimated tokens per matching file.  Defaults to
-        **800**.  Raise this value (in ``harness.config.yaml`` or via
-        ``--max-tokens``) for repositories with intentionally detailed
-        reference docs; lower it to enforce tighter discipline.
-    glob_pattern:
-        Glob pattern (relative to the repo root) used to discover files.
-        Defaults to ``"**/AGENTS.md"``.  Use ``"**/*AGENTS*.md"`` to also
-        catch files like ``FRONTEND_AGENTS.md`` or ``AGENTS_BROWSER.md``.
-    chars_per_token:
-        Characters-per-token ratio for the estimation heuristic.  The
-        widely-cited figure of **4.0** characters per token matches OpenAI's
-        guidance for English+code mixed content and is a good approximation
-        for Claude models as well.  Must be a positive float.
+    max_lines:
+        Hard limit — files whose line count **exceeds** this value produce an
+        *error* violation (blocks the gate when ``fail_on_error=True``).
+        Defaults to **500**.
+    warn_lines:
+        Soft limit — files whose line count **exceeds** this value (but is
+        still within ``max_lines``) produce a *warning* violation that is
+        always advisory.  Set to ``0`` to disable the soft limit.
+        Defaults to **300**.
+    include_patterns:
+        Glob patterns (relative to the project root) for files to scan.
+        Defaults to common source-code extensions across popular languages.
+    exclude_patterns:
+        Glob patterns to skip.  Matched against the full path relative to the
+        project root.  Defaults to generated / vendored directories
+        (``node_modules/``, ``dist/``, ``build/``, ``migrations/``, etc.).
+    report_only:
+        When ``True``, *all* violations are downgraded to warnings regardless
+        of ``fail_on_error``, so the gate never blocks a merge.  Useful for
+        gradually introducing the rule into an existing large codebase.
 
     Inherited from :class:`BaseGateConfig`:
         ``enabled``, ``fail_on_error``
+
+    Example harness.config.yaml override::
+
+        gates:
+          file_size:
+            enabled: true
+            max_lines: 400
+            warn_lines: 250
+            exclude_patterns:
+              - "tests/fixtures/**"
+              - "src/generated/**"
     """
 
-    enabled: bool = True
-    max_tokens: int = 800
-    glob_pattern: str = "**/AGENTS.md"
-    chars_per_token: float = 4.0
+    max_lines: int = 500
+    warn_lines: int = 300
+    include_patterns: list[str] = field(default_factory=lambda: [
+        "**/*.py",
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.js",
+        "**/*.jsx",
+        "**/*.go",
+        "**/*.rs",
+        "**/*.rb",
+        "**/*.java",
+        "**/*.kt",
+        "**/*.swift",
+        "**/*.c",
+        "**/*.cpp",
+        "**/*.cs",
+    ])
+    exclude_patterns: list[str] = field(default_factory=lambda: [
+        ".git/**",
+        "node_modules/**",
+        "__pycache__/**",
+        "*.pyc",
+        "dist/**",
+        "build/**",
+        ".venv/**",
+        "venv/**",
+        "vendor/**",
+        "migrations/**",
+        "*.min.js",
+        "*.min.css",
+        "*.generated.*",
+        "*.g.ts",
+        "*.g.py",
+    ])
+    report_only: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -437,16 +480,16 @@ class AgentsMdTokenGateConfig(BaseGateConfig):
 # ---------------------------------------------------------------------------
 
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
-    "regression":       RegressionGateConfig,
-    "coverage":         CoverageGateConfig,
-    "security":         SecurityGateConfig,
-    "performance":      PerformanceGateConfig,
-    "architecture":     ArchitectureGateConfig,
-    "principles":       PrinciplesGateConfig,
-    "docs_freshness":   DocsFreshnessGateConfig,
-    "types":            TypesGateConfig,
-    "lint":             LintGateConfig,
-    "agents_md_token":  AgentsMdTokenGateConfig,
+    "regression":     RegressionGateConfig,
+    "coverage":       CoverageGateConfig,
+    "security":       SecurityGateConfig,
+    "performance":    PerformanceGateConfig,
+    "architecture":   ArchitectureGateConfig,
+    "principles":     PrinciplesGateConfig,
+    "docs_freshness": DocsFreshnessGateConfig,
+    "types":          TypesGateConfig,
+    "lint":           LintGateConfig,
+    "file_size":      FileSizeGateConfig,
 }
 
 
@@ -458,42 +501,42 @@ GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
 
 PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
     "starter": {
-        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":        CoverageGateConfig(threshold=60.0, fail_on_error=True),
-        "security":        SecurityGateConfig(enabled=False),
-        "performance":     PerformanceGateConfig(enabled=False),
-        "architecture":    ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
-        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=False),
-        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=30),
-        "types":           TypesGateConfig(enabled=False),
-        "lint":            LintGateConfig(enabled=True, fail_on_error=True),
-        "agents_md_token": AgentsMdTokenGateConfig(
-            enabled=True, fail_on_error=True, max_tokens=500,
-        ),
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=60.0, fail_on_error=True),
+        "security":       SecurityGateConfig(enabled=False),
+        "performance":    PerformanceGateConfig(enabled=False),
+        "architecture":   ArchitectureGateConfig(enabled=False, fail_on_error=False, report_only=True),
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=False),
+        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
+        "types":          TypesGateConfig(enabled=False),
+        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        # Advisory only in starter — warn at 300 lines, hard limit at 500
+        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=False, report_only=True,
+                                             max_lines=500, warn_lines=300),
     },
     "standard": {
-        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":        CoverageGateConfig(threshold=80.0, fail_on_error=True),
-        "security":        SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
-        "performance":     PerformanceGateConfig(enabled=False),
-        "architecture":    ArchitectureGateConfig(enabled=True, fail_on_error=True),
-        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=True),
-        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=30),
-        "types":           TypesGateConfig(enabled=True, fail_on_error=True),
-        "lint":            LintGateConfig(enabled=True, fail_on_error=True),
-        "agents_md_token": AgentsMdTokenGateConfig(
-            enabled=True, fail_on_error=True, max_tokens=800,
-        ),
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=80.0, fail_on_error=True),
+        "security":       SecurityGateConfig(enabled=True, severity_threshold="HIGH"),
+        "performance":    PerformanceGateConfig(enabled=False),
+        "architecture":   ArchitectureGateConfig(enabled=True, fail_on_error=True),
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
+        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
+        "types":          TypesGateConfig(enabled=True, fail_on_error=True),
+        "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        # Blocking in standard — fail on files over 500 lines
+        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=True,
+                                             max_lines=500, warn_lines=300),
     },
     "advanced": {
-        "regression":      RegressionGateConfig(enabled=True, fail_on_error=True),
-        "coverage":        CoverageGateConfig(threshold=90.0, fail_on_error=True),
-        "security":        SecurityGateConfig(
+        "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
+        "coverage":       CoverageGateConfig(threshold=90.0, fail_on_error=True),
+        "security":       SecurityGateConfig(
             enabled=True, severity_threshold="MEDIUM",
             scan_dependencies=True, scan_secrets=True,
         ),
-        "performance":     PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
-        "architecture":    ArchitectureGateConfig(
+        "performance":    PerformanceGateConfig(enabled=True, regression_threshold_pct=10.0),
+        "architecture":   ArchitectureGateConfig(
             enabled=True, fail_on_error=True,
             rules=[
                 "no_circular_dependencies",
@@ -502,12 +545,12 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, Any]] = {
                 "enforce_naming_conventions",
             ],
         ),
-        "principles":      PrinciplesGateConfig(enabled=True, fail_on_error=True),
-        "docs_freshness":  DocsFreshnessGateConfig(max_staleness_days=14),
-        "types":           TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
-        "lint":            LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
-        "agents_md_token": AgentsMdTokenGateConfig(
-            enabled=True, fail_on_error=True, max_tokens=1500,
-        ),
+        "principles":     PrinciplesGateConfig(enabled=True, fail_on_error=True),
+        "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
+        "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
+        "lint":           LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
+        # Stricter limits in advanced — tighter soft and hard caps
+        "file_size":      FileSizeGateConfig(enabled=True, fail_on_error=True,
+                                             max_lines=400, warn_lines=250),
     },
 }
