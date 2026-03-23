@@ -215,18 +215,26 @@ def validate_cmd(
 
 def _emit_error(
     *,
-    fmt: str,
+    fmt: Optional[str] = None,
+    output_json: bool = False,
     error: str,
     path: Optional[Path] = None,
     verbosity: str = VerbosityLevel.normal,
 ) -> None:
-    """Emit a fatal error as a schema-validated ManifestValidateResponse or plain text."""
+    """Emit a fatal error as a schema-validated ManifestValidateResponse or plain text.
+
+    ``output_json=True`` is a convenience alias for ``fmt="json"``.
+    """
+    # Resolve effective format: output_json flag takes precedence when fmt is not set.
+    if fmt is None:
+        fmt = "json" if output_json else "table"
+
     if fmt in ("json", "yaml"):
         response = ManifestValidateResponse(
             status=Status.FAILED,
             timestamp=datetime.now(timezone.utc).isoformat(),
             valid=False,
-            path=str(path) if path is not None else "",
+            path=str(path) if path is not None else None,
             error_count=1,
             errors=[ManifestValidationError(jsonpath="$", message=error)],
         )

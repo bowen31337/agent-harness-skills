@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse
@@ -13,7 +15,7 @@ class ManifestValidationError(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     jsonpath: str = Field(description="JSONPath location of the violation (e.g. '$.artifacts[0].artifact_type').")
-    message: str = Field(description="Human-readable description of the schema violation.")
+    message: str = Field(min_length=1, description="Human-readable description of the schema violation.")
 
 
 class ManifestValidateResponse(HarnessResponse):
@@ -55,8 +57,9 @@ class ManifestValidateResponse(HarnessResponse):
     valid: bool = Field(
         description="True when the manifest passed all schema checks; False otherwise.",
     )
-    path: str = Field(
-        description="Path to the validated manifest file (as passed on the CLI).",
+    path: Optional[str] = Field(
+        default=None,
+        description="Path to the validated manifest file (as passed on the CLI), or null if not applicable.",
     )
     error_count: int = Field(
         ge=0,
