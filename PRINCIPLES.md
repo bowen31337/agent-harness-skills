@@ -1,6 +1,6 @@
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: 2026-03-23
-head: architecture-do-skill-infers-dependency-direction-betwe
+head: module-boundaries-rescan
 artifact: principles
 <!-- /harness:auto-generated -->
 # PRINCIPLES.md
@@ -700,61 +700,3 @@ detector = StaleDetector(api_key=os.environ["ANTHROPIC_API_KEY"])
 distributed tracing, metrics sink), create the provider module first, define a
 principle here, and only then write consuming code. Never let a second implementation
 of the same concern exist, even temporarily.
-
----
-
-### 11.5 Dependency direction is strictly layered — never import upward (MB015)
-
-**Rationale:** When lower-level packages (e.g. `models`) depend on higher-level ones
-(e.g. `cli`), circular imports, test isolation failures, and deployment-ordering
-problems follow. The approved layer order was inferred from static import analysis
-(2026-03-23) and encodes the acyclic dependency graph the project has organically
-evolved toward. Codifying it prevents accidental reversals.
-
-**Dependency flow diagram** (`→` = "imports from / depends on"):
-
-```
-  dom_snapshot_utility    harness_dashboard    log_format_linter
-          ↑                  (standalone)         (standalone)
-          │
-  harness_skills.dom_snapshot_skill
-          │
-  harness_skills root modules
-  (resume · telemetry_reporter · stale_plan_detector)
-          ↑────────────────────────────────────────────┐
-          │                                            │
-  harness_skills.cli ──────────────── harness_skills.gates
-          │  ↑                                 │  ↑
-          │  └─ harness_skills.generators      │  └─ harness_skills.plugins
-          │               │                   │               │
-          └───────────────┴───────────────────┴───────────────┘
-                                    ↓
-                          harness_skills.models
-                                    ↓
-                          harness_skills.task_lock
-                             (stdlib only — leaf)
-```
-
-**Approved layer order (lower number = lower layer = no upward deps):**
-
-| Layer | Package(s) | May depend on |
-|-------|-----------|----------------|
-| 0 | `task_lock`, `dom_snapshot_utility`, `harness_dashboard`, `log_format_linter` | stdlib / third-party only |
-| 1 | `harness_skills.models` | `task_lock` |
-| 2 | `harness_skills.plugins`, `harness_skills.generators` | `models` |
-| 3 | `harness_skills.gates` | `models`, `plugins` |
-| 4 | `harness_skills.cli` | `models`, `generators` |
-| 5 | Root modules, entry-points | `cli`, `models`, `dom_snapshot_utility` |
-
-**Forbidden directions (reverse-layer violations):**
-- `models` → `cli` / `generators` / `gates` / `plugins`
-- `plugins` → `cli` / `generators` / `gates`
-- `generators` → `cli` / `gates` / `plugins`
-- `gates` → `cli`
-- `task_lock` → any intra-project package
-- `dom_snapshot_utility` / `harness_dashboard` / `log_format_linter` → `harness_skills.*`
-
-**Example:**
-- DO: `from harness_skills.models import Status` inside `harness_skills/gates/`
-- DON'T: `from harness_skills.cli import vecho` inside `harness_skills/models/` (upward dep)
-- DON'T: `from harness_skills.gates import run_gates` inside `harness_skills/generators/` (skip-layer dep)
