@@ -166,6 +166,140 @@ done
 
 ---
 
+### Step 3.55 — Populate the Security Protocols section of `AGENTS.md`
+
+After the `AGENTS.md` stub is created (or if the file already exists), append a
+**Security Protocols** section covering secret handling, input validation patterns,
+and auth conventions — unless the section is already present.
+
+```bash
+# Only add the section when it does not already exist
+if ! grep -q "## Security Protocols" AGENTS.md 2>/dev/null; then
+
+  cat >> AGENTS.md <<'SECURITY_SECTION'
+
+---
+
+## Security Protocols
+
+### Secret Handling
+
+Never commit credentials, API keys, tokens, or passwords to source control.
+Use environment variables for all sensitive values.
+
+**Required pattern — always use `os.environ`:**
+
+```python
+import os
+
+# Good — loaded from the environment
+api_key    = os.environ["ANTHROPIC_API_KEY"]
+db_url     = os.environ["DATABASE_URL"]
+jwt_secret = os.environ["JWT_SECRET"]
+
+# Bad — never do this
+api_key = "sk-abc123..."                  # SEC003 — hardcoded API key
+db_url  = "postgres://user:pass@host/db"  # SEC006 — credentials in URL
+```
+
+The security gate (`/harness:security-check-gate --scan-secrets`) flags these
+rule IDs:
+
+| Rule ID | Pattern caught |
+|---------|----------------|
+| SEC001  | Generic `password =` / `secret =` literal assignments |
+| SEC002  | PEM private keys (`-----BEGIN … PRIVATE KEY-----`) |
+| SEC003  | AI provider API keys (Anthropic, OpenAI, Cohere …) |
+| SEC004  | AWS credentials (`AKIA…`) |
+| SEC005  | GitHub personal access tokens |
+| SEC006  | Database URLs with embedded credentials |
+| SEC007  | `Authorization: Bearer <token>` string literals |
+| SEC008  | High-entropy hex strings (≥ 32 chars) |
+
+If a secret is accidentally committed, **rotate it immediately** and scrub git
+history with `git filter-repo` or BFG Repo Cleaner.
+
+---
+
+### Input Validation Patterns
+
+All user-supplied data must be validated before use.  Use **Pydantic ≥ 2.0**
+as the standard validation layer.
+
+**Validate request payloads with Pydantic:**
+
+```python
+from pydantic import BaseModel, HttpUrl, field_validator
+
+class TaskRequest(BaseModel):
+    feature_id: str
+    target_url: HttpUrl | None = None
+
+    @field_validator("feature_id")
+    @classmethod
+    def feature_id_alphanumeric(cls, v: str) -> str:
+        if not v.replace("-", "").isalnum():
+            raise ValueError("feature_id must be alphanumeric with dashes only")
+        return v
+```
+
+**Unsafe patterns the security gate catches (INV rules):**
+
+| Rule ID | Dangerous pattern | Safe alternative |
+|---------|-------------------|-----------------|
+| INV001  | `cursor.execute(f"… {request…}")` | Parameterised query |
+| INV003  | `subprocess.call(user_input, shell=True)` | `subprocess.run([cmd], shell=False)` |
+| INV004  | `eval(request.data)` | Never pass user input to `eval`/`exec` |
+| INV005  | `open(request.args["path"])` | Resolve + allow-list check |
+| INV006  | `requests.get(request.args["url"])` | Validate scheme + host allow-list |
+| INV008  | `pickle.loads(request.body)` | Use JSON or Pydantic |
+
+---
+
+### Auth Conventions
+
+All authenticated requests use **Bearer token** authentication:
+
+```python
+import os, requests
+
+def authenticated_get(path: str) -> dict:
+    resp = requests.get(
+        f"{os.environ['BASE_URL']}{path}",
+        headers={"Authorization": f"Bearer {os.environ['API_TOKEN']}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+```
+
+| Convention       | Rule                                                            |
+|------------------|-----------------------------------------------------------------|
+| Token source     | Always `os.environ["VAR"]` — never a string literal            |
+| Header name      | `Authorization: Bearer <token>`                                 |
+| Timeout          | `timeout=30` external; `timeout=10` localhost                   |
+| TLS              | Production must use `https://`; `http://` only for localhost    |
+| Credential rotation | Rotate immediately if exposed in logs, errors, or commits    |
+SECURITY_SECTION
+
+  echo "Security Protocols section added to AGENTS.md"
+else
+  echo "Security Protocols section already present in AGENTS.md — skipping"
+fi
+```
+
+**Rules:**
+- The section is appended only when absent — idempotent on repeated runs.
+- The content is language-aware: if `--stack node` was resolved, swap the Python
+  snippets for equivalent TypeScript/JS examples (use `process.env.VAR` in place
+  of `os.environ["VAR"]`; use `zod` in place of Pydantic).
+- The section is intentionally written as **agent instructions**, not user docs —
+  keep examples minimal, rule tables scannable, and patterns copy-paste-ready.
+- `harness:update --only agents-md` preserves this section verbatim unless
+  `--force` is passed.
+
+---
+
 ### Step 3.6 — Generate `harness_manifest.json` and `harness_manifest.schema.json`
 
 After scaffolding the artifact stubs, write the manifest and its companion schema

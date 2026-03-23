@@ -111,77 +111,155 @@ playwright install chromium   # downloads the Chromium binary
 
 Both `playwright` and `pytest-playwright` are already listed in `requirements.txt`.
 
-<!-- harness:git-workflow — do not edit this block manually -->
+---
+
+## Security Protocols
+
+### Secret Handling
+
+Never commit credentials, API keys, tokens, or passwords to source control.
+Use environment variables for all sensitive values.
+
+**Required pattern — always use `os.environ`:**
+
+```python
+import os
+
+# Good — loaded from the environment
+api_key    = os.environ["ANTHROPIC_API_KEY"]
+db_url     = os.environ["DATABASE_URL"]
+jwt_secret = os.environ["JWT_SECRET"]
+
+# Bad — never do this
+api_key = "sk-abc123..."                      # SEC003 — hardcoded API key
+db_url  = "postgres://user:pass@host/db"      # SEC006 — credentials in URL
+```
+
+The security gate (`/harness:security-check-gate --scan-secrets`) flags these rule IDs:
+
+| Rule ID | Pattern caught |
+|---------|----------------|
+| SEC001  | Generic `password =` / `secret =` literal assignments |
+| SEC002  | PEM private keys (`-----BEGIN … PRIVATE KEY-----`) |
+| SEC003  | AI provider API keys (Anthropic, OpenAI, Cohere …) |
+| SEC004  | AWS credentials (`AKIA…`) |
+| SEC005  | GitHub personal access tokens |
+| SEC006  | Database URLs with embedded credentials |
+| SEC007  | `Authorization: Bearer <token>` string literals |
+| SEC008  | High-entropy hex strings (≥ 32 chars) |
+
+If a secret is accidentally committed, **rotate it immediately** — treat it as
+compromised.  Then scrub git history with `git filter-repo` or BFG Repo Cleaner.
+
+**Environment variables used by this service:**
+
+| Variable            | Purpose                                        | Required |
+|---------------------|------------------------------------------------|----------|
+| `STATE_SERVICE_URL` | claw-forge state service endpoint              | Yes      |
+| `FEATURE_ID`        | Current feature ID for state updates           | Yes      |
+| `BASE_URL`          | Target URL for browser automation              | Optional |
+| `ANTHROPIC_API_KEY` | Anthropic API key for the agent SDK            | Optional |
+| `SCREENSHOT_DIR`    | Directory where browser PNGs are saved         | Optional |
 
 ---
 
-## Git Workflow
+### Input Validation Patterns
 
-> Full convention: [docs/plan-to-pr-convention.md](docs/plan-to-pr-convention.md)
+All user-supplied data must be validated before use.  This project uses
+**Pydantic ≥ 2.0** as the standard validation layer.
 
-### Branch naming
+**Always validate request payloads with Pydantic:**
 
-```
-feat/PLAN-NNN-<kebab-slug-of-title>
-```
+```python
+from pydantic import BaseModel, HttpUrl, field_validator
 
-Examples:
-- `feat/PLAN-001-auth-refresh-token`
-- `feat/PLAN-007-logging-structured-output`
+class TaskRequest(BaseModel):
+    feature_id: str
+    target_url: HttpUrl | None = None
+    tags: list[str] = []
 
-The `PLAN-NNN` prefix lets reviewers and CI identify the source plan without
-opening the PR body.
-
-### Commit message format
-
-```
-<type>: <imperative short description>
-
-<body — what and why, not how>
-
-Plan: PLAN-NNN
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+    @field_validator("feature_id")
+    @classmethod
+    def feature_id_alphanumeric(cls, v: str) -> str:
+        if not v.replace("-", "").isalnum():
+            raise ValueError("feature_id must be alphanumeric with dashes only")
+        return v
 ```
 
-- **type**: `feat` | `fix` | `chore` | `docs` | `refactor` | `test`
-- **Plan trailer**: required for every commit that belongs to an execution plan
-- **Co-Authored-By trailer**: always include the agent attribution line
-- Use a HEREDOC when passing the commit message via `git commit -m` to preserve
-  multi-line formatting and trailers exactly
+**Unsafe patterns the security gate catches (INV rules):**
 
-### PR process
+| Rule ID | Dangerous pattern | Safe alternative |
+|---------|-------------------|-----------------|
+| INV001  | `cursor.execute(f"… {request…}")` | Parameterised query: `cursor.execute("…", (value,))` |
+| INV002  | `"… %s" % request_data` in SQL context | Parameterised query |
+| INV003  | `subprocess.call(user_input, shell=True)` | `subprocess.run([cmd, arg], shell=False)` with validated args |
+| INV004  | `eval(request.data)` / `exec(user_input)` | Never pass user input to `eval`/`exec` |
+| INV005  | `open(request.args["path"])` (path traversal) | `(Path(root) / path).resolve()` + allow-list check |
+| INV006  | `requests.get(request.args["url"])` (SSRF) | Validate scheme + hostname against an explicit allow-list |
+| INV007  | `Template(user_input).render()` (SSTI) | Never use user data as a template string |
+| INV008  | `pickle.loads(request.body)` | Use JSON or Pydantic for deserialisation |
 
-1. **Title**: `[PLAN-NNN] <imperative short description>`
-   Machine-parseable prefix — `gh pr list --search "[PLAN-001]"` returns all PRs for a plan.
-2. **Body**: must include the traceability table:
-   ```markdown
-   ## Execution Plan
-   | Field        | Value |
-   |--------------|-------|
-   | Plan ID      | `PLAN-NNN` |
-   | Plan file    | `docs/exec-plans/PLAN-NNN-<slug>.yaml` |
-   | Tasks closed | TASK-NNN, TASK-NNN |
-   | Plan status  | running |
-   ```
-3. **After `gh pr create`**: update the plan YAML `linked_prs` list with the
-   returned PR URL, then commit the updated plan file on the feature branch.
-4. **Before marking a task `done`**: verify the checklist in
-   `docs/plan-to-pr-convention.md §6`.
-
-### Quick traceability queries
+Run the gate locally before pushing:
 
 ```bash
-# All PRs for a plan
-gh pr list --search "[PLAN-001]" --json number,title,url,state
-
-# Plan for a given PR (from PR body)
-gh pr view 42 --json body | jq '.body' | grep "Plan ID"
-
-# All open plan PRs in this repo
-grep -r "pr_url" docs/exec-plans/ | grep -v "Example"
-
-# Verify all plan tasks have a linked PR
-python skills/exec_plan.py verify-prs PLAN-001
+/harness:security-check-gate --scan-secrets --scan-input-validation
 ```
 
-<!-- /harness:git-workflow -->
+---
+
+### Auth Conventions
+
+All authenticated requests use **Bearer token** authentication via the
+`Authorization` header.
+
+**Standard pattern (using `requests`):**
+
+```python
+import os
+import requests
+
+def authenticated_get(path: str) -> dict:
+    token   = os.environ["API_TOKEN"]          # never hardcode
+    base    = os.environ["BASE_URL"]
+    resp    = requests.get(
+        f"{base}{path}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()
+```
+
+**claw-forge state service (no token — local only):**
+
+```python
+import os
+import requests
+
+STATE_URL  = os.environ.get("STATE_SERVICE_URL", "http://localhost:8888")
+FEATURE_ID = os.environ["FEATURE_ID"]
+
+# Report task complete
+requests.patch(
+    f"{STATE_URL}/features/{FEATURE_ID}",
+    json={"status": "done"},
+    timeout=10,
+).raise_for_status()
+
+# Request human input
+requests.post(
+    f"{STATE_URL}/features/{FEATURE_ID}/human-input",
+    json={"question": "Which environment should this run against?"},
+    timeout=10,
+).raise_for_status()
+```
+
+**Auth conventions at a glance:**
+
+| Convention       | Rule                                                               |
+|------------------|--------------------------------------------------------------------|
+| Token source     | Always `os.environ["VAR"]` — never a string literal               |
+| Header name      | `Authorization: Bearer <token>`                                    |
+| Timeout          | `timeout=30` for external services; `timeout=10` for localhost     |
+| TLS              | Production endpoints must use `https://`; `http://` only for localhost |
+| Credential rotation | Rotate immediately if a token appears in logs, errors, or commits |
