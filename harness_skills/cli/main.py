@@ -6,6 +6,15 @@ chained in a single invocation without extra shell glue:
     harness create --then lint --then evaluate
 
 Each step runs in sequence; execution stops on the first non-zero exit code.
+
+Verbosity
+---------
+A global ``--verbosity`` option controls how much output every subcommand
+produces:
+
+    harness --verbosity quiet evaluate --format json   # machine-parseable only
+    harness --verbosity verbose status                 # adds rationale & timing
+    harness --verbosity debug create                   # enables DEBUG logging
 """
 
 from __future__ import annotations
@@ -15,13 +24,16 @@ from typing import Any
 
 import click
 
-from harness_skills.cli.context import context_cmd
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
-from harness_skills.cli.lint import lint_cmd
 from harness_skills.cli.manifest import manifest_cmd
 from harness_skills.cli.observe import observe_cmd
 from harness_skills.cli.status import status_cmd
+from harness_skills.cli.verbosity import (
+    VERBOSITY_OPTION,
+    VerbosityLevel,
+    apply_verbosity,
+)
 from harness_skills.telemetry_reporter import telemetry_cmd
 
 
@@ -63,9 +75,9 @@ class PipelineGroup(click.Group):
     ::
 
         # Single command (normal behaviour)
-        harness evaluate --output-format json
+        harness evaluate --format json
 
-        # Pipeline (composition) — equivalent to: harness create && harness lint
+        # Pipeline (composition) — equivalent to harness create && harness lint
         harness create --then lint --then evaluate
         harness create --profile standard --then lint --gate architecture
     """
@@ -126,7 +138,9 @@ class PipelineGroup(click.Group):
 
 @click.group(cls=PipelineGroup)
 @click.version_option()
-def cli() -> None:
+@VERBOSITY_OPTION
+@click.pass_context
+def cli(ctx: click.Context, verbosity: str) -> None:
     """Harness Skills — agent harness engineering toolkit.
 
     Subcommands can be chained with ``--then`` for single-invocation pipelines:
@@ -135,13 +149,24 @@ def cli() -> None:
         harness create --then lint --then evaluate
 
     Each stage runs in order; a failing stage aborts the remainder.
+
+    \b
+    Verbosity levels:
+        quiet    machine-parseable results only (best for CI / pipes)
+        normal   standard messages — default
+        verbose  adds rationale, context, and timing
+        debug    enables DEBUG logging and exposes internal state
     """
+    # Store verbosity on ctx.obj so subcommands and pipeline stages can read it
+    ctx.ensure_object(dict)
+    ctx.obj["verbosity"] = verbosity
+
+    # Configure structured logging as early as possible
+    apply_verbosity(verbosity)
 
 
-cli.add_command(context_cmd)
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
-cli.add_command(lint_cmd)
 cli.add_command(manifest_cmd)
 cli.add_command(observe_cmd)
 cli.add_command(status_cmd)

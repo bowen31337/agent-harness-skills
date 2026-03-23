@@ -32,9 +32,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import click
-import yaml
 
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 from harness_skills.models.base import HarnessResponse, Status
 from harness_skills.models.telemetry import (
     ArtifactMetric,
@@ -397,7 +396,14 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
     show_default=True,
     help="Path to the harness-telemetry.json file to analyse.",
 )
-@output_format_option()
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    show_default=True,
+    help="Output format.",
+)
 @click.option(
     "--min-reads",
     default=0,
@@ -410,39 +416,52 @@ def render_report(report: TelemetryReport, *, color: bool = True) -> str:
     type=int,
     help="Cap the artifact list at N entries (sorted by reads descending).",
 )
+@click.pass_context
 def telemetry_cmd(
+    ctx: click.Context,
     telemetry_file: str,
-    output_format: Optional[str],
+    output_format: str,
     min_reads: int,
     top_n: Optional[int],
 ) -> None:
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 
-    fmt = resolve_output_format(output_format)
+    verbosity = get_verbosity(ctx)
     path = Path(telemetry_file)
+
+    vecho(
+        f"  Analysing telemetry file: {path}",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.verbose,
+    )
+
     report = build_report(path, min_reads=min_reads, top_n=top_n)
 
-    if fmt == "json":
+    if output_format == "json":
+        # Machine-parseable — always emitted.
         click.echo(report.model_dump_json(indent=2))
         return
 
-    if fmt == "yaml":
-        data = json.loads(report.model_dump_json())
-        click.echo(
-            yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True),
-            nl=False,
-        )
-        return
+    # Table output: human-readable report is suppressed in quiet mode.
+    # The trailing JSON block (machine-parseable) is always emitted.
+    if output_format == "table":
+        vecho(render_report(report), verbosity=verbosity)
+        vecho("", verbosity=verbosity)
 
-    # Table output
-    click.echo(render_report(report))
-    click.echo("")
+    # Machine-parseable JSON block — always emitted so scripts can parse results.
     click.echo("```json")
     click.echo(report.model_dump_json(indent=2))
     click.echo("```")
 
-    # Exit 1 if there are cold/unused artifacts or silent gates to flag.
+    # Verbose: explain the exit code before exiting.
     if report.summary.cold_artifact_count > 0 or report.summary.silent_gate_count > 0:
+        vecho(
+            f"  {report.summary.cold_artifact_count} cold/unused artifact(s) · "
+            f"{report.summary.silent_gate_count} silent gate(s) — exit 1",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.verbose,
+            err=True,
+        )
         sys.exit(1)
 
 

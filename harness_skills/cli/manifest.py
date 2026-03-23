@@ -9,10 +9,7 @@ Usage (CLI)::
     harness manifest validate path/to/harness_manifest.json
 
     # Machine-readable JSON report (suitable for CI / agent consumption)
-    harness manifest validate --output-format json
-
-    # YAML report
-    harness manifest validate --output-format yaml
+    harness manifest validate --json
 
 Exit codes::
 
@@ -29,9 +26,8 @@ from pathlib import Path
 from typing import Optional
 
 import click
-import yaml
 
-from harness_skills.cli.fmt import output_format_option, resolve_output_format
+from harness_skills.cli.verbosity import VerbosityLevel, get_verbosity, vecho
 
 
 # ---------------------------------------------------------------------------
@@ -61,27 +57,21 @@ def manifest_cmd() -> None:
     metavar="PATH",
     type=click.Path(exists=False, dir_okay=False, path_type=Path),
 )
-@output_format_option(
-    help_extra=(
-        "json: machine-readable report with JSONPath error locations.  "
-        "yaml: same report as YAML.  "
-        "table: human-readable text with checkmarks/crosses."
-    ),
-)
 @click.option(
     "--json",
-    "output_json_flag",
+    "output_json",
     is_flag=True,
     default=False,
-    hidden=True,
-    help="[Deprecated] Use --output-format json instead.",
+    help=(
+        "Emit a machine-readable JSON report to stdout instead of "
+        "human-readable text.  Errors still set exit code 1."
+    ),
 )
 @click.pass_context
 def validate_cmd(
     ctx: click.Context,
     path: Path,
-    output_format: Optional[str],
-    output_json_flag: bool,
+    output_json: bool,
 ) -> None:
     """Validate PATH against ``harness_manifest.schema.json``.
 
@@ -97,21 +87,18 @@ def validate_cmd(
     Examples:
         harness manifest validate
         harness manifest validate .harness/harness_manifest.json
-        harness manifest validate --output-format json | jq '.errors'
-        harness manifest validate --output-format yaml
+        harness manifest validate --json | jq '.errors'
     """
-    # --json flag is a deprecated alias for --output-format json
-    if output_json_flag and output_format is None:
-        output_format = "json"
-
-    fmt = resolve_output_format(output_format)
+    verbosity = get_verbosity(ctx)
 
     # ------------------------------------------------------------------
     # 1. Read the file
     # ------------------------------------------------------------------
+    vecho(f"  Validating: {path}", verbosity=verbosity, min_level=VerbosityLevel.verbose)
+
     if not path.exists():
         _emit_error(
-            fmt=fmt,
+            output_json=output_json,
             error=f"harness manifest validate: file not found: {path}",
             path=path,
         )
@@ -123,7 +110,7 @@ def validate_cmd(
         data: dict = json.loads(raw)
     except json.JSONDecodeError as exc:
         _emit_error(
-            fmt=fmt,
+            output_json=output_json,
             error=f"harness manifest validate: invalid JSON in {path}: {exc}",
             path=path,
         )
@@ -138,7 +125,7 @@ def validate_cmd(
             validate_manifest,
         )
     except ImportError as exc:
-        _emit_error(fmt=fmt, error=str(exc), path=path)
+        _emit_error(output_json=output_json, error=str(exc), path=path)
         ctx.exit(1)
         return
 
@@ -147,7 +134,8 @@ def validate_cmd(
     # ------------------------------------------------------------------
     errors = validate_manifest(data)
 
-    if fmt in ("json", "yaml"):
+    if output_json:
+        # JSON output is always machine-parseable — always emitted.
         result = {
             "valid": len(errors) == 0,
             "path": str(path),
@@ -156,33 +144,34 @@ def validate_cmd(
                 {"jsonpath": jp, "message": msg} for jp, msg in errors
             ],
         }
-        if fmt == "json":
-            click.echo(json.dumps(result, indent=2))
-        else:
-            click.echo(
-                yaml.dump(
-                    result,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                ),
-                nl=False,
-            )
+        click.echo(json.dumps(result, indent=2))
         if errors:
             ctx.exit(1)
         return
 
-    # Human-readable table output
+    # Human-readable output
     if not errors:
-        click.echo(f"✓  {path}  is valid against harness_manifest.schema.json")
+        # Success message suppressed in quiet mode (not machine-parseable).
+        vecho(
+            f"✓  {path}  is valid against harness_manifest.schema.json",
+            verbosity=verbosity,
+        )
         return
 
-    click.echo(
+    # Validation errors always shown — they explain a non-zero exit code.
+    vecho(
         f"✗  {path}  failed schema validation — {len(errors)} error(s):",
+        verbosity=verbosity,
+        min_level=VerbosityLevel.quiet,
         err=True,
     )
     for jsonpath, message in errors:
-        click.echo(f"  {jsonpath}  →  {message}", err=True)
+        vecho(
+            f"  {jsonpath}  →  {message}",
+            verbosity=verbosity,
+            min_level=VerbosityLevel.quiet,
+            err=True,
+        )
     ctx.exit(1)
 
 
@@ -193,29 +182,22 @@ def validate_cmd(
 
 def _emit_error(
     *,
-    fmt: str,
+    output_json: bool,
     error: str,
     path: Optional[Path] = None,
 ) -> None:
-    """Emit a fatal error in either JSON, YAML, or human-readable format."""
-    if fmt in ("json", "yaml"):
-        result = {
-            "valid": False,
-            "path": str(path) if path is not None else None,
-            "error_count": 1,
-            "errors": [{"jsonpath": "$", "message": error}],
-        }
-        if fmt == "json":
-            click.echo(json.dumps(result, indent=2))
-        else:
-            click.echo(
-                yaml.dump(
-                    result,
-                    default_flow_style=False,
-                    sort_keys=False,
-                    allow_unicode=True,
-                ),
-                nl=False,
+    """Emit a fatal error in either JSON or human-readable format."""
+    if output_json:
+        click.echo(
+            json.dumps(
+                {
+                    "valid": False,
+                    "path": str(path) if path is not None else None,
+                    "error_count": 1,
+                    "errors": [{"jsonpath": "$", "message": error}],
+                },
+                indent=2,
             )
+        )
     else:
         click.echo(error, err=True)
