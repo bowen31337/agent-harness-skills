@@ -10,87 +10,93 @@ Agent-facing reference for this repository.
 
 ---
 
-## Architecture Overview
+## Build, Test & Lint
 
-### Domain Map
+### Install
 
-| # | Domain | Lang | API Surface | Key Symbols | Role |
-|---|--------|------|-------------|-------------|------|
-| 1 | `harness_skills/models` | Python | ✅ EXPLICIT | `Status`, `Severity`, `GateResult`, `Violation`, `HarnessResponse`, … | Foundation — no local deps |
-| 2 | `harness_skills/utils` | Python | ✅ EXPLICIT | *(internal helpers only)* | Foundation — no local deps |
-| 3 | `harness_skills/plugins` | Python | ✅ EXPLICIT | `PluginGateConfig`, `PluginGateRunner`, `load_plugin_gates`, `run_plugin_gates` | Gate plugin system |
-| 4 | `harness_skills/gates` | Python | ✅ EXPLICIT | `CoverageGate`, `GateEvaluator`, `run_gates`, `DocsFreshnessGate` | Built-in evaluation gate runners |
-| 5 | `harness_skills/generators` | Python | ✅ EXPLICIT | `EvaluationReport`, `GateResult`, `run_all_gates` | Artifact generators |
-| 6 | `harness_skills/cli` | Python | ✅ EXPLICIT | `cli`, `PipelineGroup` | Orchestration — CLI entry point |
-| 7 | `dom_snapshot_utility` | Python | ✅ EXPLICIT | `DOMSnapshot`, `snapshot_from_html`, `snapshot_from_url`, `snapshot_to_text` | Standalone — browser-free DOM inspection |
-| 8 | `harness_dashboard` | Python | ✅ EXPLICIT | `compute_scores`, `render_dashboard`, `generate_dataset`, `HarnessRecord` | Standalone — effectiveness scoring |
-| 9 | `log_format_linter` | Python | ✅ EXPLICIT | `generate_rules`, `detect_framework`, `check_file`, `check_directory` | Standalone — structured-log linter |
-| 10 | `harness_skills` (root) | Python | ✅ EXPLICIT | `__all__ = []` (all symbols owned by sub-packages) | Namespace root |
+```bash
+# Install the package in editable mode with all dev dependencies
+pip install -e ".[dev]"
 
-### Dependency Flow
-
-```
-harness_skills/cli  ──────────────────► harness_skills/models
-        │                             ► harness_skills/generators
-        │
-harness_skills/gates ─────────────────► harness_skills/models
-        │                             ► harness_skills/plugins
-        │
-harness_skills/generators ────────────► harness_skills/models
-        │
-harness_skills/plugins ───────────────► harness_skills/models
-        │
-harness_skills/models     (foundation — no outgoing local deps)
-harness_skills/utils      (foundation — no outgoing local deps)
-
-── facade / script layer ──────────────────────────────────────
-harness_skills.dom_snapshot_skill  ──► dom_snapshot_utility
-harness_skills.effectiveness_stats ──► harness_skills.pr_effectiveness
-
-── skills/ agent scripts ──────────────────────────────────────
-context-handoff   ──► harness_skills.handoff
-write_handoff     ──► harness_skills.handoff
-harness-resume    ──► harness_skills.resume
-dom-snapshot      ──► harness_skills.dom_snapshot_skill
-error-aggregation ──► harness_skills.error_aggregation
-                  ──► harness_skills.error_query_agent
-
-── top-level orchestration scripts ────────────────────────────
-coordinate.py        ──► harness_skills.task_lock
-harness_status.py    ──► harness_skills.handoff
-harness_telemetry.py ──► harness_skills (CLI / models)
-harness_context.py   ──► harness_skills (context helpers)
-
-── standalone (no local deps — safe to import anywhere) ───────
-dom_snapshot_utility
-harness_dashboard
-log_format_linter
+# Download the Chromium binary required by Playwright
+playwright install chromium
 ```
 
-### Module Boundary Status
+### Test
 
-> Source of truth: run `/module-boundaries` to refresh. Full violation list in `ARCHITECTURE.md`.
+```bash
+# Run the full test suite
+pytest tests/ -v
 
-| Domain | Boundary | Violations |
-|--------|----------|------------|
-| `harness_skills` (root) | ✅ EXPLICIT | 0 |
-| `harness_skills/models` | ✅ EXPLICIT | 17 (tests + internal — deep-import pattern) |
-| `harness_skills/plugins` | ✅ EXPLICIT | 6 (tests + `gates/runner.py`) |
-| `harness_skills/gates` | ✅ EXPLICIT | 5 (tests only) |
-| `harness_skills/generators` | ✅ EXPLICIT | 3 (`cli/` + test) |
-| `harness_skills/cli` | ✅ EXPLICIT | 1 (private symbol in test) |
-| `harness_skills/utils` | ✅ EXPLICIT | 0 |
-| `dom_snapshot_utility` | ✅ EXPLICIT | 1 (test only) |
-| `harness_dashboard` | ✅ EXPLICIT | 5 (tests only) |
-| `log_format_linter` | ✅ EXPLICIT | 1 (test only) |
+# Browser (Playwright) e2e tests only
+pytest tests/browser/ -v
 
-**Rules agents must follow:**
-- Always import from the domain root: `from harness_skills.models import Status, GateResult` — never `from harness_skills.models.base import …`
-- Never import a private symbol (leading `_`) across a domain boundary.
-- Standalone packages (`dom_snapshot_utility`, `harness_dashboard`, `log_format_linter`) have no local deps — safe to use anywhere.
-- Enforcement: `/check-code` and `/review-pr` enforce `MB001`–`MB014` in `.claude/principles.yaml`.
+# Headed mode — opens a visible browser window (useful for local debugging)
+pytest tests/browser/ --headed
 
-> Regenerate this section at any time: `/agents-md-generator --arch-only`
+# Single test file
+pytest tests/browser/test_smoke.py -v
+
+# Target a non-default environment
+BASE_URL=https://staging.example.com pytest tests/browser/ -v
+
+# Run with coverage collection (outputs XML + terminal summary)
+uv run pytest --cov --cov-report=xml --cov-report=term-missing -q
+```
+
+### Lint & Format
+
+```bash
+# Check for linting errors (ruff: E/W/F/I/N/UP/B/SIM/PTH rule sets)
+ruff check .
+
+# Auto-fix linting errors where possible
+ruff check . --fix
+
+# Check formatting without writing changes
+ruff format --check .
+
+# Apply formatting
+ruff format .
+```
+
+### Type Check
+
+```bash
+# Strict mypy type check (configured via pyproject.toml [tool.mypy])
+mypy .
+```
+
+### Quality Gates
+
+These gates are run in CI (GitHub Actions + GitLab CI) and can be invoked locally:
+
+```bash
+# Coverage gate — enforces ≥ 90 % line coverage
+uv run python -m harness_skills.gates.coverage \
+    --root . --threshold 90 \
+    --coverage-file coverage.xml --format auto
+
+# Principles gate — checks Golden Principles compliance
+uv run python scripts/check_principles.py \
+    --path . --format json \
+    --output principles-report.json --skill check-code
+
+# Type safety gate
+uv run harness evaluate --gate types --fail-on error --format json
+
+# Security gates (secrets scan, dependency audit, input-validation)
+uv run harness evaluate --gate secrets       --fail-on error --format json
+uv run harness evaluate --gate dependencies  --fail-on error --format json
+uv run harness evaluate --gate input-validation --fail-on error --format json
+
+# Performance gate (thresholds defined in .harness/perf-thresholds.yml)
+uv run harness evaluate --gate performance \
+    --thresholds .harness/perf-thresholds.yml --format json
+
+# Run all evaluation gates at once
+uv run harness evaluate --format json
+```
 
 ---
 
@@ -194,69 +200,3 @@ playwright install chromium   # downloads the Chromium binary
 ```
 
 Both `playwright` and `pytest-playwright` are already listed in `requirements.txt`.
-
----
-
-<!-- harness:code-conventions-start — do not edit this block manually -->
-## Code Conventions
-
-> Auto-generated from `pyproject.toml` linter config and detected codebase patterns.
-> Run `/harness:update` to refresh after changing linter settings.
-
-### Python
-- **Version**: Python 3.12+ (use modern syntax: `match`, `X | Y` unions, PEP 604, `tomllib`, etc.)
-- **Max line length**: 100 characters
-- **String quotes**: Double quotes (enforced by Ruff formatter)
-- **Indentation**: 4 spaces
-- **Line endings**: LF
-
-### Linter (Ruff)
-
-Active rule sets:
-
-| Code | Rule set | Purpose |
-|------|----------|---------|
-| `E`/`W` | pycodestyle | PEP 8 style errors and warnings |
-| `F` | Pyflakes | Undefined names, unused imports |
-| `I` | isort | Import ordering |
-| `N` | pep8-naming | Class, function, and variable naming |
-| `UP` | pyupgrade | Modernise syntax for Python 3.12 |
-| `B` | flake8-bugbear | Likely bugs and design issues |
-| `SIM` | flake8-simplify | Simplifiable code patterns |
-| `PTH` | flake8-use-pathlib | Prefer `pathlib` over `os.path` |
-
-Ignored rules (with rationale):
-
-| Rule | Rationale |
-|------|-----------|
-| `E501` | Long lines allowed when they contain a URL |
-| `B011` | `assert` is fine in tests |
-| `F401` | Star imports allowed in `__init__` re-export files |
-
-Per-file overrides:
-- `tests/**/*.py`, `test_*.py` — relaxed naming rules (`N802`, `N803`, `N806`)
-- `*_example.py` — relaxed naming and import-order rules (`N802`, `E402`)
-- `harness_skills/cli/*.py` — relaxed naming rules (`N802`)
-
-### Type Checking (Mypy)
-- **Strict mode**: enabled — run `mypy --strict` (all strictness flags on)
-- **`warn_return_any`**: `true` — functions must not silently return `Any`
-- **`ignore_missing_imports`**: `true` — third-party stubs not required
-- All functions must carry **full type annotations** (parameters + return type)
-
-### Imports
-- First-party modules: `harness_skills`, `harness_dashboard`, `log_format_linter`, `dom_snapshot_utility`
-- Import ordering enforced by Ruff `I` (isort) rules
-- `force-sort-within-sections = true` — no blank lines between import groups within a section
-
-### Naming
-- **Classes**: `PascalCase`
-- **Functions / methods / variables**: `snake_case`
-- **Constants**: `UPPER_SNAKE_CASE`
-- `pydantic.validator` and `pydantic.model_validator` decorators treated as classmethod-equivalents (may use PascalCase)
-- Test fixtures and parametrize IDs are exempt from naming rules (`tests/`, `test_*.py`)
-
-### Paths
-- Use `pathlib.Path` instead of `os.path` string manipulation (Ruff `PTH` rules)
-- Example: `Path("some/file").read_text()` not `open("some/file").read()`
-<!-- harness:code-conventions-end -->
