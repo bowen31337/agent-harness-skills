@@ -6,6 +6,7 @@ head: 2cccee2
 artifact: principles
 <!-- /harness:auto-generated -->
 
+
 # Project Principles (Quick Reference)
 
 > Source of truth: `.claude/principles.yaml` — edit principles with `/define-principles`.
@@ -35,6 +36,11 @@ artifact: principles
 | P021 | error-handling | 🔴 blocking | review-pr, check-code | All errors raised as structured exception classes (inheriting common base) with `code`, `message`, `context` |
 | P022 | error-handling | 🔴 blocking | review-pr, check-code | Error codes follow `<DOMAIN>_<NOUN>_<VERB>` format declared as `StrEnum ErrorCode`; never inlined as string literals |
 | P023 | error-handling | 🔴 blocking | review-pr, check-code | Structured logging via `log_config.py`; every log includes level, ts, logger, msg, trace_id; never `print()` |
+| **P036** | **error-handling** | 🔴 **blocking** | review-pr, check-code | **Gate runner boundary:** `GateRunner.run()` must always return `GateResult`; exceptions must never escape; catch specific exceptions first, broad `Exception` last, and return `GateResult(status=Status.FAILED, ...)` |
+| **P037** | **error-handling** | 🔴 **blocking** | review-pr, check-code | **Violation rule IDs:** every `Violation.rule_id` must be a slash-namespaced string from the canonical registry (`<namespace>/<kebab-slug>`, e.g. `arch/layer-violation`); free-form rule_id strings are forbidden |
+| **P038** | **error-handling** | 🔴 **blocking** | review-pr, check-code | **Severity assignment:** default to `ERROR` for gate violations; `CRITICAL` is reserved exclusively for security/data-integrity issues; never use `CRITICAL` for config, style, or coverage violations |
+| **P039** | **error-handling** | 🔴 **blocking** | review-pr, check-code | **Silent boundaries:** `except Exception: pass` is only permitted at telemetry/metadata recording boundaries and must be accompanied by a comment explaining why silence is intentional; forbidden inside gate logic |
+| **P040** | **error-handling** | 🔴 **blocking** | review-pr, check-code | **Log call format:** use `%`-style lazy formatting (never f-strings) in all `logger.*()` calls; use `logger.exception()` (not `.error()`) when catching unexpected exceptions; log messages must be lowercase |
 | P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations use `async`/`await`; blocking calls inside coroutines are forbidden |
 | P025 | concurrency | 🔴 blocking | review-pr, check-code | Shared mutable state between coroutines protected by `asyncio.Lock` via `async with` |
 | P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async loops use `asyncio.Event` + graceful shutdown pattern |
@@ -48,7 +54,7 @@ artifact: principles
 | P034 | naming | 🟡 suggestion | review-pr, check-code | Methods use conventional prefixes: `get_*`, `is_*`, `has_*`, `set_*`, or action verbs for I/O |
 | P035 | naming | 🔴 blocking | review-pr, check-code | Identifier / foreign-key fields end with `_id` suffix; bare `id` only on single-entity primary key |
 
-*35 principles active.*
+*40 principles active.*
 
 
 # PRINCIPLES.md
