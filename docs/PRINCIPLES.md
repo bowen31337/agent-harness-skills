@@ -62,8 +62,13 @@ artifact: principles
 | MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: domain code must receive credentials as constructor/parameter arguments |
 | MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: logging, config, and auth must always flow through their designated providers |
 | P036 | style | 🟡 suggestion | review-pr, check-code | Prefer shared utility packages over hand-rolled helpers; check existing utilities before writing new ones |
+| P037 | error-handling | 🔴 blocking | review-pr, check-code | Gate runner boundary — `GateRunner.run()` must always return a `GateResult`; exceptions must never escape |
+| P038 | error-handling | 🔴 blocking | review-pr, check-code | Violation rule IDs must be slash-namespaced `<namespace>/<kebab-slug>` from canonical registry |
+| P039 | error-handling | 🔴 blocking | review-pr, check-code | Severity assignment: ERROR for violations, WARNING for degraded, INFO for notes, CRITICAL for security only |
+| P040 | error-handling | 🔴 blocking | review-pr, check-code | Silent `except Exception: pass` only at telemetry/plugin-metadata boundaries with explanatory comment |
+| P041 | error-handling | 🔴 blocking | review-pr, check-code | Log calls use `%`-style formatting, `logger.exception()` for unexpected errors, lowercase messages |
 
-*50 principles active.*
+*55 principles active.*
 
 ---
 
