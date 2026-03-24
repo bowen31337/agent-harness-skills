@@ -931,3 +931,64 @@ principles:
       The bare name `id` is only permitted as the primary-key field on a model that
       represents exactly one entity type. All references to that key from other
       models must use the `<entity>_id` pattern (e.g. `task_id`, not `id`).
+
+  - id: "P036"
+    category: "style"
+    severity: "suggestion"
+    applies_to: ["review-pr", "check-code"]
+    rule: >
+      Prefer shared utility packages over hand-rolled helpers. Before writing a new
+      helper function, check whether an equivalent already exists in one of the
+      established utility packages in this codebase:
+
+        • Structured logging / trace IDs
+            harness_skills.logging_config — configure(), get_logger(domain),
+            set_trace_id(), get_current_trace_id(), DomainLogger
+            (Do NOT re-implement JSON formatters or ContextVar trace injection.)
+
+        • Pydantic response models and value objects
+            harness_skills.models — Status, Violation, GateResult, Severity,
+            FileLocation, TaskInfo, and all command-specific response types.
+            (Do NOT define ad-hoc TypedDict or plain-dict shapes for data that
+            already has a model here.)
+
+        • Gate evaluation and code-quality checks
+            harness_skills.gates — run_gates(), CoverageGate, DocsFreshnessGate,
+            PrinciplesGate, TypesGate, FileSizeGate, SecurityGate, RegressionGate.
+            (Do NOT re-implement coverage parsing or principles-checking loops.)
+
+        • Config and artifact generation
+            harness_skills.generators — detect_stack(), run_all_gates(),
+            detect_import_conventions(), generate_import_principle().
+            (Do NOT write custom codebase-scan logic; extend generators/ instead.)
+
+        • CLI verbosity and output helpers
+            harness_skills.cli.verbosity — VerbosityLevel, vecho(), get_verbosity(),
+            VERBOSITY_OPTION.
+            (Do NOT use raw click.echo() with manual --verbose guards; use vecho().)
+
+        • Environment isolation and port assignment
+            harness_skills.env_isolation — generate_dotenv(), generate_env_config(),
+            assign_port(), schema_name(), container_name(), EnvIsolationSpec.
+            (Do NOT call random.randint() for port selection; use assign_port().)
+
+        • Isolated-instance boot configuration
+            harness_skills.boot — generate_boot_script(), generate_health_check_spec(),
+            boot_instance(), BootConfig, BootResult.
+
+        • DOM inspection and HTML parsing
+            dom_snapshot_utility — snapshot_from_html(), snapshot_from_url(),
+            snapshot_to_text(), DOMSnapshot.
+            (Do NOT use raw BeautifulSoup traversal where a DOMSnapshot method suffices.)
+
+        • Log-format linting and framework detection
+            log_format_linter — generate_rules(), check_file(), check_directory(),
+            detect_framework().
+
+        • Harness effectiveness scoring and dashboards
+            harness_dashboard — compute_scores(), render_dashboard(), HarnessRecord.
+
+      A hand-rolled helper is acceptable only when none of the above packages covers
+      the use-case after a good-faith search. In that case, add the helper to the
+      appropriate shared package (not to a local file) and update this principle if
+      a new canonical utility location is established.

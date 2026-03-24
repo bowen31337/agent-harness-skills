@@ -2,7 +2,7 @@
 last_updated: 2026-03-24
 generated_at: 2026-03-24T00:00:00Z
 skill_version: unknown
-head: 2cccee2
+head: 822e39b
 artifact: principles
 <!-- /harness:auto-generated -->
 
@@ -47,8 +47,9 @@ artifact: principles
 | P033 | naming | 🔴 blocking | review-pr, check-code | Class names carry a semantic suffix reflecting role (`*Config`, `*Gate`, `*Runner`, `*Reporter`, etc.) |
 | P034 | naming | 🟡 suggestion | review-pr, check-code | Methods use conventional prefixes: `get_*`, `is_*`, `has_*`, `set_*`, or action verbs for I/O |
 | P035 | naming | 🔴 blocking | review-pr, check-code | Identifier / foreign-key fields end with `_id` suffix; bare `id` only on single-entity primary key |
+| P036 | style | 🟡 suggestion | review-pr, check-code | Prefer shared utility packages over hand-rolled helpers — check `harness_skills.logging_config`, `.models`, `.gates`, `.generators`, `.cli.verbosity`, `.env_isolation`, `.boot`, `dom_snapshot_utility`, `log_format_linter`, `harness_dashboard` before writing new helpers |
 
-*35 principles active.*
+*36 principles active.*
 
 
 # PRINCIPLES.md
