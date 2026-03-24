@@ -61,8 +61,9 @@ artifact: principles
 | MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER: always use `HarnessConfigLoader`; never open `harness.config.yaml` directly |
 | MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: domain code must receive credentials as constructor/parameter arguments |
 | MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: logging, config, and auth must always flow through their designated providers |
+| P036 | style | 🟡 suggestion | review-pr, check-code | Prefer shared utility packages over hand-rolled helpers; check existing utilities before writing new ones |
 
-*49 principles active.*
+*50 principles active.*
 
 ---
 
