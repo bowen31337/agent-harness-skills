@@ -67,8 +67,16 @@ artifact: principles
 | P039 | error-handling | 🔴 blocking | review-pr, check-code | Severity assignment: ERROR for violations, WARNING for degraded, INFO for notes, CRITICAL for security only |
 | P040 | error-handling | 🔴 blocking | review-pr, check-code | Silent `except Exception: pass` only at telemetry/plugin-metadata boundaries with explanatory comment |
 | P041 | error-handling | 🔴 blocking | review-pr, check-code | Log calls use `%`-style formatting, `logger.exception()` for unexpected errors, lowercase messages |
+| BV001 | architecture | 🔴 blocking | review-pr, check-code | Boundary-only validation — parsing/validation at system boundaries only; gates receive typed objects |
+| BV002 | architecture | 🔴 blocking | review-pr, check-code | External data adapter pattern — raw tool output parsed in dedicated adapter/parser before gate receives it |
+| BV003 | architecture | 🔴 blocking | review-pr, check-code | No duplicate validation — each invariant validated in exactly one place at the boundary |
+| BV004 | architecture | 🔴 blocking | review-pr, check-code | Typed gate parameters — no `dict`, `Any`, `object`, or unparameterized `list` in gate/generator/plugin signatures |
+| BV005 | architecture | 🔴 blocking | review-pr, check-code | Domain exceptions for state invariants — structured exceptions, never bare `ValueError`/`TypeError` |
+| BV010 | architecture | 🔴 blocking | review-pr, check-code | `security.py` isinstance() checks must move to `AuditReportParser` adapter |
+| BV011 | architecture | 🔴 blocking | review-pr, check-code | `performance.py` isinstance() checks must move to `PerformanceReportParser` adapter |
+| BV012 | architecture | 🔴 blocking | review-pr, check-code | `runner.py` isinstance() checks eliminated via `HarnessConfigLoader` (per MB012) |
 
-*55 principles active.*
+*63 principles active.*
 
 ---
 
