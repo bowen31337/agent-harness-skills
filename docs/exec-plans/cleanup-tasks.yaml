@@ -1,72 +1,202 @@
-generated_at: "2026-03-22T10:00:00Z"
-generated_from_head: "22da8f3"
-task_count: 4
+generated_at: "2026-03-24T00:00:00Z"
+generated_from_head: "2cccee2"
+task_count: 8
 tasks:
-  - id: "cleanup-P008-tests-gates-test-coverage-py"
-    principle_id: "P008"
-    principle_category: "testing"
+  - id: cleanup-mb011-harness-skills-plugins-loader-py
+    principle_id: "MB011"
+    principle_category: "architecture"
     severity: "blocking"
-    title: "Enforce test naming pattern test_<unit>_<scenario>_<expected_outcome> (P008)"
+    title: "Enforce architecture rule: LOGGING PROVIDER — all production code must obtain (MB011)"
     scope:
-      - "tests/gates/test_coverage.py"
-      - "tests/gates/test_docs_freshness.py"
+      - harness_skills/plugins/loader.py
+      - harness_skills/plugins/runner.py
+      - harness_tools/stale_plan_detector.py
     description: |
-      Principle P008 (testing/blocking) is violated in 2 file(s).
+      Principle MB011 (architecture/blocking) is violated in 3 file(s).
 
-      Rule: Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>`
-      (e.g. `test_login_with_expired_token_returns_401`) so the failure message alone
-      communicates what broke and why it matters.
+      Rule: LOGGING PROVIDER — all production code must obtain loggers exclusively via
+      `from harness_skills.logging_config import get_logger` followed by
+      `logger = get_logger("<domain>")`. Calling `logging.getLogger()` directly
+      in domain code is forbidden; it bypasses trace-ID injection, domain-field
+      tagging, and the structured JSON formatter configured by `configure()`.
+      The only permitted direct use of `logging.getLogger()` is inside
+      harness_skills/logging_config.py itself (the provider implementation).
 
       Affected files:
-        - tests/gates/test_coverage.py:115  — Test name 'test_xml_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_coverage.py:118  — Test name 'test_json_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_coverage.py:121  — Test name 'test_info_extension' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_coverage.py:143  — Test name 'test_full_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_coverage.py:147  — Test name 'test_zero_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_coverage.py:151  — Test name 'test_partial_coverage' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_docs_freshness.py:37  — Test name 'test_py_file' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_docs_freshness.py:40  — Test name 'test_url_rejected' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_docs_freshness.py:50  — Test name 'test_html_comment' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_docs_freshness.py:136  — Test name 'test_fresh_ok' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
-        - tests/gates/test_docs_freshness.py:141  — Test name 'test_stale_violation' does not follow test_<unit>_<scenario>_<expected_outcome> pattern (only 3 parts)
+        - harness_skills/plugins/loader.py:8  — logger = logging.getLogger("harness_skills.plugins.loader")
+        - harness_skills/plugins/runner.py:7  — logger = logging.getLogger("harness_skills.plugins.runner")
+        - harness_tools/stale_plan_detector.py:44  — log = logging.getLogger("stale_detector")
 
       Refactoring steps:
-        1. In tests/gates/test_coverage.py, rename each violating test function to follow
-           test_<unit>_<scenario>_<expected_outcome>. Examples:
-             test_xml_extension       → test_detect_format_xml_extension_returns_xml
-             test_json_extension      → test_detect_format_json_extension_returns_json
-             test_info_extension      → test_detect_format_info_extension_returns_lcov
-             test_full_coverage       → test_parse_xml_full_coverage_returns_100_pct
-             test_zero_coverage       → test_parse_xml_zero_coverage_returns_0_pct
-             test_partial_coverage    → test_parse_xml_partial_coverage_returns_correct_pct
-        2. In tests/gates/test_docs_freshness.py, rename each violating test function:
-             test_py_file             → test_looks_like_file_path_py_file_returns_true
-             test_url_rejected        → test_looks_like_file_path_url_input_returns_false
-             test_html_comment        → test_parse_generated_at_html_comment_returns_date
-             test_fresh_ok            → test_check_freshness_fresh_doc_returns_no_violation
-             test_stale_violation     → test_check_freshness_stale_doc_returns_violation
-        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
-        4. Update or add unit/integration tests covering the refactored code.
-    pr_title: "refactor: enforce P008 testing across tests/gates/test_coverage.py, tests/gates/test_docs_freshness.py"
+        1. In each file, replace `import logging` + `logging.getLogger(...)` with
+           `from harness_skills.logging_config import get_logger` and
+           `logger = get_logger("<domain>")` at module level using the existing domain
+           name (e.g. "harness_skills.plugins.loader").
+        2. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        3. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB011 architecture across harness_skills/plugins/loader.py, harness_skills/plugins/runner.py, harness_tools/stale_plan_detector.py"
     pr_body: |
       ## What & Why
 
-      Enforces principle P008 (testing/blocking):
-      "Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>`
-      (e.g. `test_login_with_expired_token_returns_401`) so the failure message alone
-      communicates what broke and why it matters."
+      Enforces principle MB011 (architecture/blocking):
+      "LOGGING PROVIDER — all production code must obtain loggers exclusively via
+      `from harness_skills.logging_config import get_logger` followed by
+      `logger = get_logger("<domain>")`. Calling `logging.getLogger()` directly
+      in domain code is forbidden."
 
       This PR was generated automatically by `/golden-principles-cleanup` after
-      detecting 11 violation(s) across the following files:
+      detecting 3 violation(s) across the following files:
+      - harness_skills/plugins/loader.py
+      - harness_skills/plugins/runner.py
+      - harness_tools/stale_plan_detector.py
+
+      ## Changes
+
+      - harness_skills/plugins/loader.py: replace `logging.getLogger(...)` with `get_logger("harness_skills.plugins.loader")`
+      - harness_skills/plugins/runner.py: replace `logging.getLogger(...)` with `get_logger("harness_skills.plugins.runner")`
+      - harness_tools/stale_plan_detector.py: replace `logging.getLogger("stale_detector")` with `get_logger("stale_detector")`
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
+    status: "pending"
+
+  - id: cleanup-mb013-harness-skills-stale-plan-detector-py
+    principle_id: "MB013"
+    principle_category: "architecture"
+    severity: "blocking"
+    title: "Enforce architecture rule: SECRETS / AUTH PROVIDER — direct os.environ.get() (MB013)"
+    scope:
+      - harness_skills/stale_plan_detector.py
+      - harness_skills/plugins/gate_plugin.py
+      - harness_tools/checkpoint_agent.py
+    description: |
+      Principle MB013 (architecture/blocking) is violated in 3 file(s).
+
+      Rule: SECRETS / AUTH PROVIDER — direct `os.environ.get()` / `os.getenv()` calls
+      for sensitive values (API keys, tokens, credentials, secrets) are permitted
+      only in designated bootstrap or top-level entry-point modules.
+      All domain packages and sub-packages must receive credentials as constructor
+      arguments or function parameters — never call os.environ inline inside a
+      domain service, gate, plugin, or model.
+
+      Affected files:
+        - harness_skills/stale_plan_detector.py:464  — os.environ.get("ANTHROPIC_API_KEY") inside domain class method
+        - harness_skills/plugins/gate_plugin.py:61  — {**os.environ, **expanded_env} merges environment inside gate class
+        - harness_tools/checkpoint_agent.py:59  — AGENT_ID = os.environ.get("AGENT_ID", ...) / TASK_ID = os.environ.get("TASK_ID", ...)
+
+      Refactoring steps:
+        1. In harness_skills/stale_plan_detector.py: remove os.environ.get("ANTHROPIC_API_KEY")
+           from the domain class method; add an `api_key` parameter to the constructor
+           and thread it through to the call site.
+        2. In harness_skills/plugins/gate_plugin.py: move the `{**os.environ, **expanded_env}`
+           env-merging to the CLI/entry-point layer; pass the merged dict as a parameter.
+        3. In harness_tools/checkpoint_agent.py: move module-level env reads to the
+           `if __name__ == "__main__"` block or a designated bootstrap function,
+           then pass values as arguments to the domain logic.
+        4. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        5. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB013 architecture across 3 files"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle MB013 (architecture/blocking):
+      "SECRETS / AUTH PROVIDER — direct `os.environ.get()` / `os.getenv()` calls
+      for sensitive values are permitted only in designated bootstrap or top-level
+      entry-point modules."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 3 violation(s) across the following files:
+      - harness_skills/stale_plan_detector.py
+      - harness_skills/plugins/gate_plugin.py
+      - harness_tools/checkpoint_agent.py
+
+      ## Changes
+
+      - harness_skills/stale_plan_detector.py: accept api_key as constructor parameter instead of os.environ.get inline
+      - harness_skills/plugins/gate_plugin.py: move env dict preparation to entry-point layer; accept pre-merged dict
+      - harness_tools/checkpoint_agent.py: move os.environ reads to bootstrap block; pass values as parameters
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
+    status: "pending"
+
+  - id: cleanup-mb003-tests-gates-test-runner-plugin-integration-py
+    principle_id: "MB003"
+    principle_category: "architecture"
+    severity: "blocking"
+    title: "Enforce architecture rule: harness_skills/gates: __all__ is now declared (MB003)"
+    scope:
+      - tests/gates/test_runner_plugin_integration.py
+      - tests/gates/test_coverage.py
+      - tests/gates/test_docs_freshness.py
+    description: |
+      Principle MB003 (architecture/blocking) is violated in 3 file(s).
+
+      Rule: harness_skills/gates: __all__ is now declared, listing:
+        CoverageGate, DocsFreshnessGate, DocsGateConfig,
+        EvaluationSummary, GateEvaluator, GateFailure, GateOutcome,
+        HarnessConfigLoader, run_gates.
+      All imports from outside harness_skills/gates/ must go through
+      harness_skills.gates — never from harness_skills.gates.<module> directly.
+      DEEP IMPORT VIOLATIONS and PRIVATE SYMBOL VIOLATIONS must be refactored.
+
+      Affected files:
+        - tests/gates/test_runner_plugin_integration.py:20  — imports GateEvaluator, run_gates, EvaluationSummary from harness_skills.gates.runner directly
+        - tests/gates/test_coverage.py:34  — imports private symbols _detect_format, _parse_json, _parse_lcov, _parse_xml, _ParseError from harness_skills.gates.coverage
+        - tests/gates/test_docs_freshness.py:8  — imports private symbols _extract_file_refs, _looks_like_file_path, _parse_generated_at from gates.docs_freshness
+
+      Refactoring steps:
+        1. In tests/gates/test_runner_plugin_integration.py:20, replace
+           `from harness_skills.gates.runner import GateEvaluator, run_gates, EvaluationSummary`
+           with `from harness_skills.gates import GateEvaluator, run_gates, EvaluationSummary`.
+        2. In tests/gates/test_coverage.py and tests/gates/test_docs_freshness.py,
+           refactor tests to stop importing private implementation details; test only
+           the public gate interface (CoverageGate.run(), DocsFreshnessGate.run()).
+        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        4. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB003 architecture across test_runner_plugin_integration.py, test_coverage.py, test_docs_freshness.py"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle MB003 (architecture/blocking):
+      "All imports from outside harness_skills/gates/ must go through
+      harness_skills.gates — never from harness_skills.gates.<module> directly."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 3 violation(s) across the following files:
+      - tests/gates/test_runner_plugin_integration.py
       - tests/gates/test_coverage.py
       - tests/gates/test_docs_freshness.py
 
       ## Changes
 
-      - Renamed 6 test functions in `tests/gates/test_coverage.py` to match the
-        `test_<unit>_<scenario>_<expected_outcome>` naming pattern
-      - Renamed 5 test functions in `tests/gates/test_docs_freshness.py` to match
-        the same pattern
+      - tests/gates/test_runner_plugin_integration.py: update deep import to use harness_skills.gates public surface
+      - tests/gates/test_coverage.py: refactor to test CoverageGate.run() instead of private _parse_* functions
+      - tests/gates/test_docs_freshness.py: refactor to test DocsFreshnessGate.run() instead of private helpers
       - Updated affected call-sites to use the new abstraction
 
       ## Testing
@@ -80,68 +210,74 @@ tasks:
 
       - [ ] PR title follows conventional commits (`refactor:` prefix)
       - [ ] No unrelated changes included
-      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
-    generated_at: "2026-03-22T10:00:00Z"
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
     status: "pending"
 
-  - id: "cleanup-P011-checkpoint-agent-py"
-    principle_id: "P011"
-    principle_category: "style"
+  - id: cleanup-mb004-harness-skills-cli-evaluate-py
+    principle_id: "MB004"
+    principle_category: "architecture"
     severity: "blocking"
-    title: "Enforce no magic numbers: extract numeric literals to named constants (P011)"
+    title: "Enforce architecture rule: harness_skills/generators: __all__ is declared (MB004)"
     scope:
-      - "checkpoint_agent.py"
-      - "coordinate.py"
-      - "handoff.py"
-      - "harness_context.py"
+      - harness_skills/cli/evaluate.py
+      - harness_skills/cli/create.py
+      - harness_skills/cli/manifest.py
+      - harness_skills/generators/config_generator.py
+      - tests/test_generators/test_evaluation.py
+      - tests/test_generators/test_manifest_generator.py
+      - tests/test_cli/test_manifest_cmd.py
     description: |
-      Principle P011 (style/blocking) is violated in 4 file(s).
+      Principle MB004 (architecture/blocking) is violated in 7 file(s).
 
-      Rule: No magic numbers: every numeric literal that carries domain or configuration
-      meaning must be extracted to a named constant in UPPER_SNAKE_CASE. Pure domain
-      constants belong in `src/<pkg>/constants.py`. Runtime-tunable values must be read
-      from a config object or environment variable — never inlined. Exemptions: trivially
-      obvious values such as 0, 1, and -1.
+      Rule: harness_skills/generators: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside harness_skills/generators/ must go through
+      harness_skills.generators (the subpackage root) — never from
+      harness_skills.generators.<module> directly.
 
       Affected files:
-        - checkpoint_agent.py:119  — Magic number 20 used as max_turns argument inline: max_turns=20
-        - coordinate.py:643       — Magic number 300 used as default_timeout_seconds inline: default_timeout_seconds=300
-        - handoff.py:269          — Magic number 4096 used as max_tokens argument inline: max_tokens=4096
-        - harness_context.py:102  — Magic number 20 used as default for max_turns parameter inline: max_turns: int = 20
+        - harness_skills/cli/evaluate.py:40  — deep import from generators.evaluation
+        - harness_skills/cli/create.py:40  — deep import from generators.config_generator
+        - harness_skills/cli/manifest.py:118  — deep import from generators.manifest_generator (inline import)
+        - harness_skills/generators/config_generator.py:31  — deep import from models.gate_configs (cross-domain, see MB005)
+        - tests/test_generators/test_evaluation.py:20  — deep import from generators.evaluation
+        - tests/test_generators/test_manifest_generator.py:21  — deep import from generators.manifest_generator
+        - tests/test_cli/test_manifest_cmd.py:23  — deep import from generators.manifest_generator
 
       Refactoring steps:
-        1. In checkpoint_agent.py: Extract `max_turns=20` to a module-level constant
-           `_MAX_AGENT_TURNS = 20` (or import from a shared constants module) and replace
-           the inline literal with the constant.
-        2. In coordinate.py: Extract `default_timeout_seconds=300` to a module-level
-           constant `_DEFAULT_TIMEOUT_SECONDS = 300` and replace the inline literal.
-        3. In handoff.py: Extract `max_tokens=4096` to a module-level constant
-           `_MAX_TOKENS = 4096` and replace the inline literal.
-        4. In harness_context.py: Extract `max_turns: int = 20` default to a module-level
-           constant `_DEFAULT_MAX_TURNS = 20` and reference it in the function signature.
-        5. Run `/harness:lint --gate principles` to verify zero remaining violations.
-        6. Update or add unit/integration tests covering the refactored code.
-    pr_title: "refactor: enforce P011 style across 4 files"
+        1. Add generate_manifest, write_manifest_pair, generate_gate_config, write_harness_config
+           to harness_skills/generators/__init__.py __all__ as prerequisites.
+        2. Update all callers to import from harness_skills.generators instead of
+           harness_skills.generators.<module>.
+        3. Fix the cross-domain import in config_generator.py (see MB005 for models boundary).
+        4. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        5. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB004 architecture across 7 files"
     pr_body: |
       ## What & Why
 
-      Enforces principle P011 (style/blocking):
-      "No magic numbers: every numeric literal that carries domain or configuration
-      meaning must be extracted to a named constant in UPPER_SNAKE_CASE."
+      Enforces principle MB004 (architecture/blocking):
+      "All imports from outside harness_skills/generators/ must go through
+      harness_skills.generators (the subpackage root) — never from
+      harness_skills.generators.<module> directly."
 
       This PR was generated automatically by `/golden-principles-cleanup` after
-      detecting 4 violation(s) across the following files:
-      - checkpoint_agent.py
-      - coordinate.py
-      - handoff.py
-      - harness_context.py
+      detecting 7 violation(s) across the following files:
+      - harness_skills/cli/evaluate.py
+      - harness_skills/cli/create.py
+      - harness_skills/cli/manifest.py
+      - harness_skills/generators/config_generator.py
+      - tests/test_generators/test_evaluation.py
+      - tests/test_generators/test_manifest_generator.py
+      - tests/test_cli/test_manifest_cmd.py
 
       ## Changes
 
-      - `checkpoint_agent.py`: extract `max_turns=20` → `_MAX_AGENT_TURNS = 20` constant
-      - `coordinate.py`: extract `default_timeout_seconds=300` → `_DEFAULT_TIMEOUT_SECONDS = 300` constant
-      - `handoff.py`: extract `max_tokens=4096` → `_MAX_TOKENS = 4096` constant
-      - `harness_context.py`: extract `max_turns: int = 20` default → `_DEFAULT_MAX_TURNS = 20` constant
+      - harness_skills/generators/__init__.py: export generate_manifest, write_manifest_pair, generate_gate_config, write_harness_config in __all__
+      - harness_skills/cli/evaluate.py: update import to use harness_skills.generators public surface
+      - harness_skills/cli/create.py: update import to use harness_skills.generators public surface
+      - harness_skills/cli/manifest.py: update inline import to use harness_skills.generators
+      - All test files: update deep imports to use harness_skills.generators
       - Updated affected call-sites to use the new abstraction
 
       ## Testing
@@ -155,62 +291,211 @@ tasks:
 
       - [ ] PR title follows conventional commits (`refactor:` prefix)
       - [ ] No unrelated changes included
-      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
-    generated_at: "2026-03-22T10:00:00Z"
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
     status: "pending"
 
-  - id: "cleanup-P012-coordinate-py"
-    principle_id: "P012"
-    principle_category: "style"
+  - id: cleanup-mb005-harness-skills-stale-plan-detector-py
+    principle_id: "MB005"
+    principle_category: "architecture"
     severity: "blocking"
-    title: "Enforce no hardcoded config strings: move URLs/hostnames to config (P012)"
+    title: "Enforce architecture rule: harness_skills/models: __all__ is declared (MB005)"
     scope:
-      - "coordinate.py"
-      - "harness_skills/boot.py"
+      - harness_skills/stale_plan_detector.py
+      - harness_skills/cli/status.py
+      - harness_skills/cli/observe.py
+      - harness_skills/plugins/gate_plugin.py
+      - harness_skills/plugins/runner.py
+      - harness_skills/telemetry_reporter.py
+      - harness_skills/gates/coverage.py
+      - harness_skills/gates/runner.py
+      - harness_skills/generators/config_generator.py
     description: |
-      Principle P012 (style/blocking) is violated in 2 file(s).
+      Principle MB005 (architecture/blocking) is violated in 9 file(s).
 
-      Rule: No hardcoded strings: string literals that represent configuration (URLs,
-      hostnames, file paths, queue names, feature-flag keys, error-code strings) must
-      not appear inline in business logic. Config strings must be sourced from environment
-      variables via `src/config.py`. Shared string constants must be declared as
-      module-level constants or a `StrEnum`.
+      Rule: harness_skills/models: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside harness_skills/models/ must go through
+      harness_skills.models — never from harness_skills.models.<module> directly.
 
       Affected files:
-        - coordinate.py:587       — Hardcoded URL 'http://localhost:8420' used as default argparse argument value in business logic
-        - harness_skills/boot.py:301 — Hardcoded URL constructed inline as f-string 'http://localhost:{port}{config.health_path}' in generate_boot_script()
+        - harness_skills/stale_plan_detector.py:54  — from harness_skills.models.base import Severity, Status
+        - harness_skills/stale_plan_detector.py:55  — from harness_skills.models.stale import (...)
+        - harness_skills/cli/status.py:57  — from harness_skills.models.base import Status
+        - harness_skills/cli/status.py:58  — from harness_skills.models.status import (...)
+        - harness_skills/cli/observe.py:63  — from harness_skills.models.observe import LogEntry, ObserveResponse
+        - harness_skills/plugins/gate_plugin.py:9  — from harness_skills.models.base import GateResult, Status, Violation
+        - harness_skills/plugins/runner.py:4  — from harness_skills.models.base import GateResult, Status
+        - harness_skills/telemetry_reporter.py:37  — from harness_skills.models.base import HarnessResponse, Status
+        - harness_skills/telemetry_reporter.py:38  — from harness_skills.models.telemetry import (...)
+        - harness_skills/gates/coverage.py:57  — from harness_skills.models.gate_configs import CoverageGateConfig
+        - harness_skills/gates/runner.py:68  — from harness_skills.models.gate_configs import (...)
+        - harness_skills/gates/runner.py:83  — from harness_skills.models.base import GateResult as BaseGateResult, Status
+        - harness_skills/generators/config_generator.py:31  — from harness_skills.models.gate_configs import (...)
 
       Refactoring steps:
-        1. In coordinate.py: Replace the inline `"http://localhost:8420"` default with a
-           module-level constant `_DEFAULT_STATE_URL = "http://localhost:8420"` (or, better,
-           read from `os.environ.get("CLAW_FORGE_STATE_URL", "http://localhost:8420")` via
-           a config object) and reference the constant in the argparse default.
-        2. In harness_skills/boot.py: Move the localhost scheme+host string into a
-           config-sourced value or module-level constant. The f-string URL construction
-           should reference `config.state_url` or a `_LOCALHOST_BASE = "http://localhost"`
-           constant rather than inlining the literal.
+        1. Update each listed file to import from `harness_skills.models` instead of
+           `harness_skills.models.<module>` — e.g. `from harness_skills.models import Status, Violation`.
+        2. Verify all needed symbols are exported from harness_skills/models/__init__.py __all__.
         3. Run `/harness:lint --gate principles` to verify zero remaining violations.
         4. Update or add unit/integration tests covering the refactored code.
-    pr_title: "refactor: enforce P012 style across coordinate.py, harness_skills/boot.py"
+    pr_title: "refactor: enforce MB005 architecture across 9 files"
     pr_body: |
       ## What & Why
 
-      Enforces principle P012 (style/blocking):
-      "No hardcoded strings: string literals that represent configuration (URLs,
-      hostnames, file paths, queue names, feature-flag keys, error-code strings) must
-      not appear inline in business logic."
+      Enforces principle MB005 (architecture/blocking):
+      "All imports from outside harness_skills/models/ must go through
+      harness_skills.models — never from harness_skills.models.<module> directly."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 9 violation(s) across the following files:
+      - harness_skills/stale_plan_detector.py
+      - harness_skills/cli/status.py
+      - harness_skills/cli/observe.py
+      - harness_skills/plugins/gate_plugin.py
+      - harness_skills/plugins/runner.py
+      - harness_skills/telemetry_reporter.py
+      - harness_skills/gates/coverage.py
+      - harness_skills/gates/runner.py
+      - harness_skills/generators/config_generator.py
+
+      ## Changes
+
+      - All listed files: update sub-module imports to use `from harness_skills.models import X`
+      - harness_skills/models/__init__.py: verify all required symbols are in __all__
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
+    status: "pending"
+
+  - id: cleanup-mb006-tests-plugins-test-runner-py
+    principle_id: "MB006"
+    principle_category: "architecture"
+    severity: "blocking"
+    title: "Enforce architecture rule: harness_skills/plugins: __all__ is declared (MB006)"
+    scope:
+      - tests/plugins/test_runner.py
+      - tests/plugins/test_integration.py
+      - tests/plugins/test_loader.py
+    description: |
+      Principle MB006 (architecture/blocking) is violated in 3 file(s).
+
+      Rule: harness_skills/plugins: __all__ is declared and the boundary is EXPLICIT.
+      All imports from outside harness_skills/plugins/ must go through
+      harness_skills.plugins (the subpackage root) — never from
+      harness_skills.plugins.<module> directly.
+      The private function `_record_telemetry` in plugins/runner.py must not be
+      imported by any file outside the plugins subpackage.
+
+      Affected files:
+        - tests/plugins/test_runner.py:12  — imports _record_telemetry private symbol from harness_skills.plugins.runner
+        - tests/plugins/test_integration.py:13  — imports load_plugin_gates from harness_skills.plugins.loader directly
+        - tests/plugins/test_integration.py:14  — imports run_plugin_gates from harness_skills.plugins.runner directly
+        - tests/plugins/test_loader.py:10  — imports load_plugin_gates from harness_skills.plugins.loader directly
+
+      Refactoring steps:
+        1. In tests/plugins/test_runner.py: remove the direct import of `_record_telemetry`;
+           refactor tests that call it directly to use `patch("harness_skills.plugins.runner._record_telemetry")`
+           without importing the symbol.
+        2. In tests/plugins/test_integration.py and test_loader.py: update imports to use
+           `from harness_skills.plugins import load_plugin_gates, run_plugin_gates`.
+        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        4. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB006 architecture across test_runner.py, test_integration.py, test_loader.py"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle MB006 (architecture/blocking):
+      "All imports from outside harness_skills/plugins/ must go through
+      harness_skills.plugins (the subpackage root) — never from
+      harness_skills.plugins.<module> directly."
+
+      This PR was generated automatically by `/golden-principles-cleanup` after
+      detecting 3 violation(s) across the following files:
+      - tests/plugins/test_runner.py
+      - tests/plugins/test_integration.py
+      - tests/plugins/test_loader.py
+
+      ## Changes
+
+      - tests/plugins/test_runner.py: remove direct _record_telemetry import; use patch() without import
+      - tests/plugins/test_integration.py: update imports to use harness_skills.plugins public surface
+      - tests/plugins/test_loader.py: update imports to use harness_skills.plugins public surface
+      - Updated affected call-sites to use the new abstraction
+
+      ## Testing
+
+      - [ ] All refactored code has unit tests
+      - [ ] No violations remain: `uv run python -m harness_skills.cli.main evaluate --gate principles --format json`
+      - [ ] `/harness:lint` passes with 0 blocking violations
+      - [ ] Existing test suite passes: `pytest tests/ -v`
+
+      ## Checklist
+
+      - [ ] PR title follows conventional commits (`refactor:` prefix)
+      - [ ] No unrelated changes included
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
+    status: "pending"
+
+  - id: cleanup-mb008-tests-test-scorer-py
+    principle_id: "MB008"
+    principle_category: "architecture"
+    severity: "blocking"
+    title: "Enforce architecture rule: harness_dashboard: __all__ is now declared (MB008)"
+    scope:
+      - tests/test_scorer.py
+      - tests/test_data_generator.py
+    description: |
+      Principle MB008 (architecture/blocking) is violated in 2 file(s).
+
+      Rule: harness_dashboard: __all__ is now declared, listing:
+        compute_scores, render_dashboard, generate_dataset,
+        ArtifactType, HarnessRecord, PRRecord.
+      All imports from outside harness_dashboard/ must go through
+      harness_dashboard (the package root) — never from harness_dashboard.<module> directly.
+
+      Affected files:
+        - tests/test_scorer.py:18  — from harness_dashboard.models import (...)
+        - tests/test_scorer.py:24  — from harness_dashboard.scorer import compute_scores
+        - tests/test_scorer.py:102  — from harness_dashboard.scorer import _tier (private symbol)
+        - tests/test_data_generator.py:20  — from harness_dashboard.models import ArtifactType, HarnessRecord, PRRecord
+
+      Refactoring steps:
+        1. In tests/test_scorer.py: replace deep imports with `from harness_dashboard import compute_scores, HarnessRecord, PRRecord`.
+        2. In tests/test_scorer.py:102: remove the import of private `_tier`; refactor the test to
+           assert on observable behaviour through the public compute_scores() interface instead.
+        3. In tests/test_data_generator.py: replace deep imports with `from harness_dashboard import ArtifactType, HarnessRecord, PRRecord`.
+        4. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        5. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce MB008 architecture across tests/test_scorer.py, tests/test_data_generator.py"
+    pr_body: |
+      ## What & Why
+
+      Enforces principle MB008 (architecture/blocking):
+      "All imports from outside harness_dashboard/ must go through
+      harness_dashboard (the package root) — never from harness_dashboard.<module> directly."
 
       This PR was generated automatically by `/golden-principles-cleanup` after
       detecting 2 violation(s) across the following files:
-      - coordinate.py
-      - harness_skills/boot.py
+      - tests/test_scorer.py
+      - tests/test_data_generator.py
 
       ## Changes
 
-      - `coordinate.py`: replace inline `"http://localhost:8420"` with
-        `_DEFAULT_STATE_URL` constant or env-var-backed config lookup
-      - `harness_skills/boot.py`: extract hardcoded localhost URL in
-        `generate_boot_script()` to a config-sourced value or module constant
+      - tests/test_scorer.py: update all deep imports to use harness_dashboard public surface; remove _tier private import
+      - tests/test_data_generator.py: update deep imports to use harness_dashboard public surface
       - Updated affected call-sites to use the new abstraction
 
       ## Testing
@@ -224,100 +509,62 @@ tasks:
 
       - [ ] PR title follows conventional commits (`refactor:` prefix)
       - [ ] No unrelated changes included
-      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
-    generated_at: "2026-03-22T10:00:00Z"
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
     status: "pending"
 
-  - id: "cleanup-P013-harness-skills-stale-plan-detector-py"
-    principle_id: "P013"
-    principle_category: "style"
-    severity: "suggestion"
-    title: "Enforce import ordering: future imports first in every module (P013)"
+  - id: cleanup-p029-harness-tools-coordinate-py
+    principle_id: "P029"
+    principle_category: "concurrency"
+    severity: "blocking"
+    title: "Enforce concurrency rule: Agent SDK sessions must always be driven from (P029)"
     scope:
-      - "conftest.py"
-      - "harness_dashboard/__init__.py"
-      - "harness_skills/cli/__init__.py"
-      - "harness_skills/gates/coverage.py"
-      - "harness_skills/gates/runner.py"
-      - "harness_skills/generators/evaluation.py"
-      - "harness_skills/generators/manifest_generator.py"
-      - "harness_skills/logging_config.py"
-      - "harness_skills/performance_hooks.py"
-      - "harness_skills/stale_plan_detector.py"
-      - "skills/debt_tracker.py"
-      - "skills/exec_plan.py"
-      - "skills/golden_principles_cleanup.py"
-      - "task_lock.py"
+      - harness_tools/coordinate.py
+      - examples/performance_hooks_example.py
+      - examples/task_lock_example.py
+      - harness_skills/task_lock.py
     description: |
-      Principle P013 (style/suggestion) is violated in 14 file(s).
+      Principle P029 (concurrency/blocking) is violated in 4 file(s).
 
-      Rule: Imports must follow the four-group isort order — future, stdlib, third-party,
-      first-party — with exactly one blank line between each group.
-      `from __future__ import annotations` must appear as the very first import in every
-      Python module.
+      Rule: Agent SDK sessions (`ClaudeSDKClient` / `query()`) must always be driven
+      from an async context; the top-level sync-to-async bridge must use
+      `anyio.run(main)` — never `asyncio.run()` — so that the anyio backend
+      (asyncio or trio) is selected consistently and SDK internals that depend
+      on anyio primitives work correctly.
 
       Affected files:
-        - harness_skills/stale_plan_detector.py:14   — 'from __future__ import annotations' is not the first import (appears after other import lines)
-        - harness_skills/performance_hooks.py:19     — 'from __future__ import annotations' is not the first import in the module
-        - harness_skills/gates/coverage.py:34        — 'from __future__ import annotations' is not the first import (appears after stdlib imports)
-        - harness_skills/gates/runner.py:34          — 'from __future__ import annotations' is not the first import in the module
-        - harness_skills/generators/evaluation.py:32 — 'from __future__ import annotations' is not the first import in the module
-        - harness_skills/generators/manifest_generator.py:19 — 'from __future__ import annotations' is not the first import in the module
-        - skills/exec_plan.py:30                     — 'from __future__ import annotations' is not the first import in the module
-        - skills/golden_principles_cleanup.py:29     — 'from __future__ import annotations' is not the first import in the module
-        - skills/debt_tracker.py:28                  — 'from __future__ import annotations' is not the first import in the module
-        - harness_skills/logging_config.py:27        — 'from __future__ import annotations' is not the first import in the module
-        - conftest.py:2                              — Module is missing 'from __future__ import annotations'
-        - task_lock.py:6                             — Module is missing 'from __future__ import annotations'
-        - harness_dashboard/__init__.py:19           — Module is missing 'from __future__ import annotations'
-        - harness_skills/cli/__init__.py:3           — Module is missing 'from __future__ import annotations'
+        - harness_tools/coordinate.py:664  — asyncio.run(main()) at entry point
+        - examples/performance_hooks_example.py:237  — asyncio.run(main())
+        - examples/task_lock_example.py:229  — asyncio.run(demo_hooks_async())
+        - harness_skills/task_lock.py:889  — asyncio.run(main())
 
       Refactoring steps:
-        1. For each file where 'from __future__ import annotations' is present but
-           mis-ordered: move the line to be the very first import statement (directly
-           after the module docstring if present, before all other imports).
-        2. For each file missing 'from __future__ import annotations' entirely
-           (conftest.py, task_lock.py, harness_dashboard/__init__.py,
-           harness_skills/cli/__init__.py): add `from __future__ import annotations`
-           as the first import.
-        3. While editing each file, ensure import groups follow the isort four-group
-           order (future → stdlib → third-party → first-party) with one blank line
-           between each group.
-        4. Run `/harness:lint --gate principles` to verify zero remaining violations.
-        5. Update or add unit/integration tests covering the refactored code.
-    pr_title: "refactor: enforce P013 style across 14 files"
+        1. In each affected file, replace `import asyncio` + `asyncio.run(main())`
+           with `import anyio` + `anyio.run(main)` at the entry-point block.
+        2. Ensure `anyio` is already listed in pyproject.toml dependencies (it is).
+        3. Run `/harness:lint --gate principles` to verify zero remaining violations.
+        4. Update or add unit/integration tests covering the refactored code.
+    pr_title: "refactor: enforce P029 concurrency across coordinate.py, task_lock.py, and examples"
     pr_body: |
       ## What & Why
 
-      Enforces principle P013 (style/suggestion):
-      "Imports must follow the four-group isort order — future, stdlib, third-party,
-      first-party — with exactly one blank line between each group.
-      `from __future__ import annotations` must appear as the very first import in
-      every Python module."
+      Enforces principle P029 (concurrency/blocking):
+      "The top-level sync-to-async bridge must use `anyio.run(main)` — never
+      `asyncio.run()` — so that the anyio backend is selected consistently."
 
       This PR was generated automatically by `/golden-principles-cleanup` after
-      detecting 14 violation(s) across the following files:
-      - conftest.py
-      - harness_dashboard/__init__.py
-      - harness_skills/cli/__init__.py
-      - harness_skills/gates/coverage.py
-      - harness_skills/gates/runner.py
-      - harness_skills/generators/evaluation.py
-      - harness_skills/generators/manifest_generator.py
-      - harness_skills/logging_config.py
-      - harness_skills/performance_hooks.py
-      - harness_skills/stale_plan_detector.py
-      - skills/debt_tracker.py
-      - skills/exec_plan.py
-      - skills/golden_principles_cleanup.py
-      - task_lock.py
+      detecting 4 violation(s) across the following files:
+      - harness_tools/coordinate.py
+      - examples/performance_hooks_example.py
+      - examples/task_lock_example.py
+      - harness_skills/task_lock.py
 
       ## Changes
 
-      - Moved or added `from __future__ import annotations` to be the first import
-        in each of the 14 affected modules
-      - Ensured isort-compatible four-group ordering (future → stdlib → third-party →
-        first-party) with one blank line separating each group
+      - harness_tools/coordinate.py: replace asyncio.run(main()) with anyio.run(main)
+      - examples/performance_hooks_example.py: replace asyncio.run(main()) with anyio.run(main)
+      - examples/task_lock_example.py: replace asyncio.run(...) with anyio.run(...)
+      - harness_skills/task_lock.py: replace asyncio.run(main()) with anyio.run(main)
       - Updated affected call-sites to use the new abstraction
 
       ## Testing
@@ -331,6 +578,6 @@ tasks:
 
       - [ ] PR title follows conventional commits (`refactor:` prefix)
       - [ ] No unrelated changes included
-      - [ ] PRINCIPLES.md is up to date (run `/define-principles` if needed)
-    generated_at: "2026-03-22T10:00:00Z"
+      - [ ] docs/PRINCIPLES.md is up to date (run `/define-principles` if needed)
+    generated_at: "2026-03-24T00:00:00Z"
     status: "pending"
