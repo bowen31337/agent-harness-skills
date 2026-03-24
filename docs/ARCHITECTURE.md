@@ -1,5 +1,7 @@
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-21
+last_updated: 2026-03-24
+generated_at: 2026-03-24T00:00:00Z
+skill_version: unknown
 head: 0e893bd
 artifact: architecture
 <!-- /harness:auto-generated -->

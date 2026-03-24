@@ -443,19 +443,32 @@ Skip this step unless `--write-architecture` was passed (which also implies `--d
 
 Write the full per-domain definition output from Step 2.5 to `docs/ARCHITECTURE.md`, under the heading `## Layered Architecture — Per Domain`.
 
-Wrap the generated block with harness auto-generated markers so it can be refreshed idempotently:
+First, gather provenance metadata:
+
+```bash
+RUN_DATE=$(date '+%Y-%m-%d')
+RUN_TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
+SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
+```
+
+Wrap the generated block with a full harness provenance header so it can be refreshed idempotently and staleness-detected across the full artifact set:
 
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
-...generated content...
+last_updated: <RUN_DATE>
+generated_at: <RUN_TIMESTAMP>
+skill_version: <SKILL_VERSION>
+head: <HEAD_HASH>
+artifact: architecture
 <!-- /harness:auto-generated -->
 ```
 
 **Idempotency rules:**
 
-- If `docs/ARCHITECTURE.md` already exists and contains the markers, replace only the content between the markers.
-- If the markers are absent, append a new `## Layered Architecture — Per Domain` section containing the markers and generated content.
-- If `docs/ARCHITECTURE.md` does not exist, create it with the heading and generated block.
+- If `docs/ARCHITECTURE.md` already exists and contains the markers, replace only the content between the markers (including the provenance fields — refresh them with the current values).
+- If the markers are absent, prepend the provenance header, then append a new `## Layered Architecture — Per Domain` section containing the generated content.
+- If `docs/ARCHITECTURE.md` does not exist, create it beginning with the provenance header, then the heading and generated block.
 
 After writing, print:
 

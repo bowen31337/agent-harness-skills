@@ -283,14 +283,19 @@ Compose the final `AGENTS.md` in this order:
 
 ```bash
 RUN_DATE=$(date '+%Y-%m-%d')
+RUN_TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
 SERVICE=$(basename "$(pwd)")
+SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 ```
 
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: <RUN_DATE>
+generated_at: <RUN_TIMESTAMP>
+skill_version: <SKILL_VERSION>
 head: <HEAD_HASH>
+artifact: agents
 service: <SERVICE>
 <!-- /harness:auto-generated -->
 
@@ -323,7 +328,7 @@ When `--dry-run` is passed, print the full file to stdout; do not write to disk.
 
   Sections written
   ─────────────────────────────────────────────────────
-  ✅ Auto-generated header   (last_updated: <date>)
+  ✅ Auto-generated header   (last_updated: <date>, generated_at: <timestamp>, skill_version: <version>)
   ✅ Browser Automation      (framework: <playwright|none>)
   ✅ Testing Conventions     (runner: <pytest>, coverage: <N>%)
   ─────────────────────────────────────────────────────

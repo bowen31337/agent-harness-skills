@@ -31,8 +31,10 @@ understand the codebase structure before writing any code.
 
 ```bash
 RUN_DATE=$(date '+%Y-%m-%d')
+RUN_TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 HEAD_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "no-git")
 SERVICE_NAME=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+SKILL_VERSION=$(python3 -c "from importlib.metadata import version; print(version('harness-skills'))" 2>/dev/null || echo "unknown")
 ```
 
 ---
@@ -285,7 +287,10 @@ Write (or overwrite) `AGENTS.md` using this exact structure:
 ```markdown
 <!-- harness:auto-generated — do not edit this block manually -->
 last_updated: <RUN_DATE>
+generated_at: <RUN_TIMESTAMP>
+skill_version: <SKILL_VERSION>
 head: <HEAD_HASH>
+artifact: agents
 service: <SERVICE_NAME>
 <!-- /harness:auto-generated -->
 
