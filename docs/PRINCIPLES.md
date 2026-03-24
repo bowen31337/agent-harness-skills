@@ -1,8 +1,55 @@
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-21
-head: 0e893bd
+last_updated: 2026-03-24
+generated_at: 2026-03-24T00:00:00Z
+skill_version: unknown
+head: 2cccee2
 artifact: principles
 <!-- /harness:auto-generated -->
+
+# Project Principles (Quick Reference)
+
+> Source of truth: `.claude/principles.yaml` — edit principles with `/define-principles`.
+
+| ID | Category | Severity | Applies to | Rule |
+|---|---|---|---|---|
+| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan |
+| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to `plans/` before a PR is opened |
+| P003 | traceability | 🟡 suggestion | review-pr, check-code | Plan reference must appear as structured `Plan: <path-or-url>` at top of PR body |
+| P004 | traceability | 🟡 suggestion | review-pr | PRs that deviate from their plan must include a `Deviations:` section |
+| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft` |
+| P006 | ci | 🔴 blocking | review-pr, check-code | CI pipeline must include a principles compliance gate that exits non-zero on blocking violations |
+| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow Arrange-Act-Assert (AAA) structure with blank lines between phases |
+| P008 | testing | 🔴 blocking | review-pr, check-code | Test names must follow `test_<unit>_<scenario>_<expected_outcome>` pattern |
+| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible; shared mutable fixtures live in `conftest.py` |
+| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test |
+| **P011** | **style** | 🔴 **blocking** | review-pr, check-code | **No magic numbers:** extract numeric literals to `UPPER_SNAKE_CASE` constants in `src/<pkg>/constants.py`; runtime-tunable values via config/env vars |
+| **P012** | **style** | 🔴 **blocking** | review-pr, check-code | **No hardcoded strings:** config strings via env vars and `src/config.py` (Pydantic `BaseSettings`); shared constants in `constants.py` or `StrEnum`; test sentinels in `tests/constants.py` |
+| P013 | style | 🟡 suggestion | review-pr, check-code | Four-group isort import order; `from __future__ import annotations` always first |
+| P014 | naming | 🔴 blocking | review-pr, check-code | Python functions/methods use `snake_case`; private helpers prefixed `_snake_case` |
+| P015 | naming | 🔴 blocking | review-pr, check-code | Local variables/params use descriptive `snake_case`; single-letter names forbidden outside loop counters |
+| P016 | naming | 🔴 blocking | review-pr, check-code | Class names use `PascalCase`; test classes prefixed `Test` |
+| P017 | naming | 🔴 blocking | review-pr, check-code | Python source files and package directories use `snake_case` |
+| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants use `UPPER_SNAKE_CASE`; private constants additionally prefixed `_` |
+| P019 | naming | 🔴 blocking | review-pr, check-code | `Enum` / `StrEnum` members use `UPPER_SNAKE_CASE` |
+| P020 | naming | 🔴 blocking | review-pr, check-code | Pydantic model fields and ORM column names use `snake_case` |
+| P021 | error-handling | 🔴 blocking | review-pr, check-code | All errors raised as structured exception classes (inheriting common base) with `code`, `message`, `context` |
+| P022 | error-handling | 🔴 blocking | review-pr, check-code | Error codes follow `<DOMAIN>_<NOUN>_<VERB>` format declared as `StrEnum ErrorCode`; never inlined as string literals |
+| P023 | error-handling | 🔴 blocking | review-pr, check-code | Structured logging via `log_config.py`; every log includes level, ts, logger, msg, trace_id; never `print()` |
+| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations use `async`/`await`; blocking calls inside coroutines are forbidden |
+| P025 | concurrency | 🔴 blocking | review-pr, check-code | Shared mutable state between coroutines protected by `asyncio.Lock` via `async with` |
+| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async loops use `asyncio.Event` + graceful shutdown pattern |
+| P027 | concurrency | 🔴 blocking | review-pr, check-code | Inter-process coordination uses filesystem locks (atomic `O_CREAT|O_EXCL` or `fcntl.flock`) |
+| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O through `httpx.AsyncClient` with explicit timeout; never `requests` in async code |
+| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions use `anyio.run(main)` as sync-to-async bridge; never `asyncio.run()` |
+| P030 | concurrency | 🟡 suggestion | review-pr, check-code | Sync Playwright permitted only in test files; production async code uses `async_playwright()` |
+| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation at system boundaries only (route handlers / adapters); domain services receive validated objects |
+| P032 | architecture | 🔴 blocking | review-pr, check-code | Reuse canonical shared utilities (logging, models, locking, handoff) before writing new helpers |
+| P033 | naming | 🔴 blocking | review-pr, check-code | Class names carry a semantic suffix reflecting role (`*Config`, `*Gate`, `*Runner`, `*Reporter`, etc.) |
+| P034 | naming | 🟡 suggestion | review-pr, check-code | Methods use conventional prefixes: `get_*`, `is_*`, `has_*`, `set_*`, or action verbs for I/O |
+| P035 | naming | 🔴 blocking | review-pr, check-code | Identifier / foreign-key fields end with `_id` suffix; bare `id` only on single-entity primary key |
+
+*35 principles active.*
+
 
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
