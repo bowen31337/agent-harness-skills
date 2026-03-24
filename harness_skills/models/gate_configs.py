@@ -375,16 +375,30 @@ class PrinciplesGateConfig(BaseGateConfig):
 
     Attributes
     ----------
+    fail_on_critical:
+        When ``True`` (the default), any violation whose source principle
+        has ``severity: "blocking"`` causes the gate to fail with an
+        ``"error"``-severity :class:`~harness_skills.gates.runner.GateFailure`.
+        Set to ``False`` to run in fully advisory mode (all violations
+        downgraded to ``"warning"``).
     principles_file:
         Path (relative to project root) of the principles definition file.
+        Defaults to ``".claude/principles.yaml"``.  Engineers define custom
+        project-specific golden rules in this file (via ``/define-principles``
+        or ``python scripts/import_principles.py --from-file …``).
     rules:
-        Subset of rule names to enforce.  ``["all"]`` applies every rule
-        defined in *principles_file*.
+        Subset of built-in scanner rule names to enforce.  ``["all"]``
+        (the default) activates every built-in scanner.  Pass a list such
+        as ``["no_magic_numbers", "no_hardcoded_urls"]`` to restrict which
+        scanners run.
 
     Inherited from :class:`BaseGateConfig`:
         ``enabled``, ``fail_on_error``
     """
 
+    # fail_on_critical controls blocking-principle behaviour independently of
+    # the general fail_on_error flag inherited from BaseGateConfig.
+    fail_on_critical: bool = True
     # Advisory by default — override inherited fail_on_error=True
     fail_on_error: bool = False
     principles_file: str = ".claude/principles.yaml"
