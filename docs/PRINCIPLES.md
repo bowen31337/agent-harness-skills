@@ -1,8 +1,70 @@
 <!-- harness:auto-generated — do not edit this block manually -->
-last_updated: 2026-03-21
-head: 0e893bd
+last_updated: 2026-03-24
+generated_at: 2026-03-24T02:34:41Z
+skill_version: unknown
+head: 2cccee2
 artifact: principles
 <!-- /harness:auto-generated -->
+
+# Project Principles
+
+> Source of truth: `.claude/principles.yaml` — edit principles with `/define-principles`.
+
+| ID | Category | Severity | Applies to | Rule |
+|---|---|---|---|---|
+| P001 | traceability | 🔴 blocking | review-pr, check-code | Every PR description must include a `Plan:` field linking to the execution plan that produced it |
+| P002 | traceability | 🔴 blocking | review-pr, check-code | Execution plans must be committed to the `plans/` directory before a PR is opened |
+| P003 | traceability | 🟡 suggestion | review-pr, check-code | The plan reference must appear as a structured `Plan: <path-or-url>` field at the top of the PR body |
+| P004 | traceability | 🟡 suggestion | review-pr | PRs that deviate from their source plan must include a `Deviations:` section explaining each delta |
+| P005 | traceability | 🔴 blocking | review-pr | A PR must not be merged if its `Plan:` reference resolves to a plan with `status: draft` |
+| P006 | ci | 🔴 blocking | review-pr, check-code | The CI pipeline must include a principles compliance gate step that exits non-zero on any blocking violation |
+| P007 | testing | 🔴 blocking | review-pr, check-code | Every test must follow Arrange-Act-Assert (AAA) structure with a blank line separating each phase |
+| P008 | testing | 🔴 blocking | review-pr, check-code | Test function names must follow the pattern `test_<unit>_<scenario>_<expected_outcome>` |
+| P009 | testing | 🟡 suggestion | review-pr, check-code | Fixtures must be scoped as narrowly as possible; shared stateful fixtures must reset between tests |
+| P010 | testing | 🔴 blocking | review-pr, check-code | Mocks must only be applied at the boundary of the unit under test — never at internal helpers |
+| P011 | style | 🔴 blocking | review-pr, check-code | No magic numbers — every domain-meaningful numeric literal must be extracted to a named constant |
+| P012 | style | 🔴 blocking | review-pr, check-code | No hardcoded strings — config/domain string literals must use constants or environment variables |
+| P013 | style | 🟡 suggestion | review-pr, check-code | Imports must follow the four-group isort order with exactly one blank line between each group |
+| P014 | naming | 🔴 blocking | review-pr, check-code | All Python functions and methods must use `snake_case`; private helpers must be prefixed with `_` |
+| P015 | naming | 🔴 blocking | review-pr, check-code | Variables and parameters must use descriptive `snake_case`; single-letter names are forbidden outside loop counters |
+| P016 | naming | 🔴 blocking | review-pr, check-code | Class names must use `PascalCase`; test classes must begin with `Test` |
+| P017 | naming | 🔴 blocking | review-pr, check-code | Source files must use `snake_case.py`; directories must use `snake_case/` |
+| P018 | naming | 🔴 blocking | review-pr, check-code | Module-level constants must use `UPPER_SNAKE_CASE`; private constants must be prefixed with `_` |
+| P019 | naming | 🔴 blocking | review-pr, check-code | All `Enum` and `StrEnum` members must use `UPPER_SNAKE_CASE` |
+| P020 | naming | 🔴 blocking | review-pr, check-code | All Pydantic model fields and ORM column names must use `snake_case` |
+| P021 | error-handling | 🔴 blocking | review-pr, check-code | All errors must be structured exception classes inheriting from a common base; never bare `Exception` |
+| P022 | error-handling | 🔴 blocking | review-pr, check-code | Error codes must follow `DOMAIN_NOUN_VERB` format and be declared in an `ErrorCode` `StrEnum` |
+| P023 | error-handling | 🔴 blocking | review-pr, check-code | All log statements must use structured logging via `logging_config`; never `print()` or raw `getLogger()` |
+| P024 | concurrency | 🔴 blocking | review-pr, check-code | All I/O-bound operations must use `async`/`await`; no blocking calls inside coroutines |
+| P025 | concurrency | 🔴 blocking | review-pr, check-code | Shared mutable state between coroutines must be protected with an instance-level `asyncio.Lock` |
+| P026 | concurrency | 🔴 blocking | review-pr, check-code | Background async sweep loops must implement graceful shutdown via `asyncio.Event` |
+| P027 | concurrency | 🔴 blocking | review-pr, check-code | Inter-process coordination must use file-system locks; never `threading.Lock` across OS processes |
+| P028 | concurrency | 🔴 blocking | review-pr, check-code | Network I/O must use `httpx.AsyncClient` with an explicit timeout; `requests` is forbidden in async code |
+| P029 | concurrency | 🔴 blocking | review-pr, check-code | Agent SDK sessions must be driven via `anyio.run()`; never `asyncio.run()` |
+| P030 | concurrency | 🟡 suggestion | review-pr, check-code | Synchronous Playwright is permitted only in test files; production code must use async Playwright |
+| P031 | architecture | 🔴 blocking | review-pr, check-code | Data validation must occur exclusively at system boundaries — never inside domain services |
+| P032 | architecture | 🔴 blocking | review-pr, check-code | Always use shared canonical utilities before writing new ones; hand-rolled duplicates are forbidden |
+| P033 | naming | 🔴 blocking | review-pr, check-code | Class names must carry a semantic suffix reflecting their role (`*Config`, `*Gate`, `*Runner`, etc.) |
+| P034 | naming | 🟡 suggestion | review-pr, check-code | Accessors, predicates, and mutators must use conventional `get_`/`is_`/`has_`/`set_` prefixes |
+| P035 | naming | 🔴 blocking | review-pr, check-code | All ID and foreign-key fields must end with the `_id` suffix in all models and parameters |
+| MB001 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills` root: callers must import from sub-packages; never from the root `__init__` directly |
+| MB002 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/cli`: all external imports must go through the `cli` subpackage root |
+| MB003 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/gates`: no deep submodule imports; use the `gates` `__init__` surface only |
+| MB004 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/generators`: no deep submodule imports; use the `generators` `__init__` surface only |
+| MB005 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/models`: no deep submodule imports; use the `models` `__init__` surface only |
+| MB006 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/plugins`: no deep submodule imports; private symbols must not be imported externally |
+| MB007 | architecture | 🔴 blocking | review-pr, check-code | `harness_skills/utils`: no public symbols yet; do not import sub-modules from outside the package |
+| MB008 | architecture | 🔴 blocking | review-pr, check-code | `harness_dashboard`: all external imports must go through the package root |
+| MB009 | architecture | 🔴 blocking | review-pr, check-code | `dom_snapshot_utility`: all external imports must go through the package root |
+| MB010 | architecture | 🔴 blocking | review-pr, check-code | `log_format_linter`: all external imports must go through the package root |
+| MB011 | architecture | 🔴 blocking | review-pr, check-code | LOGGING PROVIDER: always use `get_logger()`; never `logging.getLogger()` in domain code |
+| MB012 | architecture | 🔴 blocking | review-pr, check-code | CONFIG PROVIDER: always use `HarnessConfigLoader`; never open `harness.config.yaml` directly |
+| MB013 | architecture | 🔴 blocking | review-pr, check-code | SECRETS PROVIDER: domain code must receive credentials as constructor/parameter arguments |
+| MB014 | architecture | 🔴 blocking | review-pr, check-code | PROVIDERS PATTERN: logging, config, and auth must always flow through their designated providers |
+
+*49 principles active.*
+
+---
 
 # PRINCIPLES.md
 > Mechanical rules for AI agents operating inside the claw-forge agent harness.
