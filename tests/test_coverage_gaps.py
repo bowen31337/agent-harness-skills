@@ -724,6 +724,7 @@ class TestConfigGeneratorMergeRegexEdge:
     """Cover lines 404, 415, 431: _merge_with_regex edge cases."""
 
     def test_merge_regex_no_profile_found(self, tmp_path: Path) -> None:
+        """Cover line 404: profiles section ends before target profile found."""
         from harness_skills.generators.config_generator import _merge_with_regex
 
         cfg_file = tmp_path / "harness.config.yaml"
@@ -734,6 +735,7 @@ class TestConfigGeneratorMergeRegexEdge:
                 gates:
                   regression:
                     enabled: true
+            some_other_key: value
         """), encoding="utf-8")
 
         _merge_with_regex(cfg_file, "standard", "    gates:\n      regression:\n        enabled: false\n")
@@ -741,6 +743,7 @@ class TestConfigGeneratorMergeRegexEdge:
         assert "gates:" in content
 
     def test_merge_regex_profile_exists_no_gates(self, tmp_path: Path) -> None:
+        """Cover line 431: profile exists but has no gates section."""
         from harness_skills.generators.config_generator import _merge_with_regex
 
         cfg_file = tmp_path / "harness.config.yaml"
@@ -750,6 +753,42 @@ class TestConfigGeneratorMergeRegexEdge:
               standard:
                 some_key: value
         """), encoding="utf-8")
+
+        _merge_with_regex(cfg_file, "standard", "    gates:\n      regression:\n        enabled: true\n")
+        content = cfg_file.read_text()
+        assert "gates:" in content
+
+    def test_merge_regex_profile_followed_by_another(self, tmp_path: Path) -> None:
+        """Cover line 415: break when another profile is found."""
+        from harness_skills.generators.config_generator import _merge_with_regex
+
+        cfg_file = tmp_path / "harness.config.yaml"
+        cfg_file.write_text(textwrap.dedent("""\
+            active_profile: standard
+            profiles:
+              standard:
+                some_key: value
+              advanced:
+                other_key: other
+        """), encoding="utf-8")
+
+        _merge_with_regex(cfg_file, "standard", "    gates:\n      regression:\n        enabled: true\n")
+        content = cfg_file.read_text()
+        assert "gates:" in content
+        assert "advanced:" in content
+
+    def test_merge_regex_profiles_interrupted_by_nonindented(self, tmp_path: Path) -> None:
+        """Cover line 404: in_profiles = False when non-indented line found."""
+        from harness_skills.generators.config_generator import _merge_with_regex
+
+        cfg_file = tmp_path / "harness.config.yaml"
+        cfg_file.write_text(
+            "profiles:\n"
+            "  other:\n"
+            "    gates: {}\n"
+            "top_level_key: value\n",
+            encoding="utf-8",
+        )
 
         _merge_with_regex(cfg_file, "standard", "    gates:\n      regression:\n        enabled: true\n")
         content = cfg_file.read_text()
