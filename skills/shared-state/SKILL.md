@@ -181,7 +181,7 @@ the following fields:
 
 ## Prerequisites
 
-- `PyYAML` must be installed (`pip install pyyaml`).
+- `PyYAML` must be installed (`uv add pyyaml`).
 - `docs/exec-plans/shared-state.yaml` must exist.  If it is missing, run
   the **coordinate** skill first to regenerate it.
 

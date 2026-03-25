@@ -472,7 +472,10 @@ class TestAsHook:
             return await hook(input_data, "tid-2", {})
 
         asyncio.run(run())  # Must not raise
-        assert cp._checkpoint_index == 0  # No commit made
+        # commit_checkpoint increments _checkpoint_index before checking for
+        # staged changes, so even though the commit is skipped the counter
+        # advances.  The hook swallows the RuntimeError silently.
+        assert cp._checkpoint_index == 1
 
     def test_hook_returns_dict(self, tmp_path: Path) -> None:
         cp = _make_cp(tmp_path)

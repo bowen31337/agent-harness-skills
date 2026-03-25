@@ -144,7 +144,7 @@ Print a report for each AGENTS.md checked:
   AGENTS.md      tests/browser/agent_driver.py         ✅ exists
   AGENTS.md      tests/browser/screenshot_helper.py    ✅ exists
   AGENTS.md      tests/browser/conftest.py             ✅ exists
-  AGENTS.md      requirements.txt                      ❌ MISSING
+  AGENTS.md      pyproject.toml                        ❌ MISSING
   AGENTS.md      tests/browser/test_smoke.py           ✅ exists
 
   Staleness (last_updated: 2026-01-10, recorded head: 157af7b)
@@ -232,7 +232,7 @@ Exit: <code>  (<reason>)
       "current_head": "a3c91f2",
       "references": [
         { "path": "tests/browser/agent_driver.py", "exists": true, "stale": false, "file_mtime": "2026-01-08" },
-        { "path": "requirements.txt", "exists": false, "stale": null, "file_mtime": null }
+        { "path": "pyproject.toml", "exists": false, "stale": null, "file_mtime": null }
       ]
     }
   ],

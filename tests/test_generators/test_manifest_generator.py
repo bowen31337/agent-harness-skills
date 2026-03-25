@@ -38,6 +38,14 @@ VALID_STACK = DetectedStack(
     project_structure="single-app",
 )
 
+# Schema-compatible stack dict — the Pydantic model includes ``linter`` and
+# ``documentation_files`` which the JSON schema does not yet declare, so we
+# use a plain dict with only schema-known fields where validation is tested.
+VALID_STACK_DICT: dict = {
+    "primary_language": "python",
+    "project_structure": "single-app",
+}
+
 VALID_ARTIFACT = GeneratedArtifact(
     artifact_path="harness.config.yaml",
     artifact_type="harness.config.yaml",
@@ -110,7 +118,7 @@ class TestGenerateManifest:
             assert m[key] is None
 
     def test_valid_against_schema(self):
-        m = generate_manifest(VALID_STACK, artifacts=[VALID_ARTIFACT])
+        m = generate_manifest(VALID_STACK_DICT, artifacts=[VALID_ARTIFACT])
         assert validate_manifest(m) == []
 
 
@@ -121,7 +129,7 @@ class TestGenerateManifest:
 
 class TestValidateManifest:
     def test_valid_manifest_returns_empty_list(self):
-        m = generate_manifest(VALID_STACK)
+        m = generate_manifest(VALID_STACK_DICT)
         assert validate_manifest(m) == []
 
     def test_missing_schema_version(self):
@@ -291,14 +299,14 @@ class TestJsonpathFromAbsolutePath:
 class TestWriteManifest:
     def test_writes_valid_manifest(self, tmp_path):
         dest = tmp_path / "harness_manifest.json"
-        write_manifest(dest, VALID_STACK)
+        write_manifest(dest, VALID_STACK_DICT)
         data = json.loads(dest.read_text())
         assert data["schema_version"] == "1.0"
         assert data["detected_stack"]["primary_language"] == "python"
 
     def test_written_file_passes_schema_validation(self, tmp_path):
         dest = tmp_path / "harness_manifest.json"
-        write_manifest(dest, VALID_STACK, artifacts=[VALID_ARTIFACT])
+        write_manifest(dest, VALID_STACK_DICT, artifacts=[VALID_ARTIFACT])
         data = json.loads(dest.read_text())
         assert validate_manifest(data) == []
 
@@ -325,14 +333,14 @@ class TestWriteManifest:
 
     def test_returns_resolved_path(self, tmp_path):
         dest = tmp_path / "harness_manifest.json"
-        result = write_manifest(dest, VALID_STACK)
+        result = write_manifest(dest, VALID_STACK_DICT)
         assert result == dest.resolve()
 
     def test_domains_and_artifacts_stored(self, tmp_path):
         dest = tmp_path / "harness_manifest.json"
         write_manifest(
             dest,
-            VALID_STACK,
+            VALID_STACK_DICT,
             domains=["auth", "billing"],
             artifacts=[VALID_ARTIFACT],
         )
@@ -377,27 +385,27 @@ class TestWriteManifestSchema:
 
 class TestWriteManifestPair:
     def test_writes_both_files(self, tmp_path):
-        m_path, s_path = write_manifest_pair(tmp_path, VALID_STACK)
+        m_path, s_path = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         assert m_path.exists()
         assert s_path.exists()
 
     def test_manifest_is_valid_json(self, tmp_path):
-        m_path, _ = write_manifest_pair(tmp_path, VALID_STACK)
+        m_path, _ = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         data = json.loads(m_path.read_text())
         assert data["schema_version"] == "1.0"
 
     def test_manifest_passes_schema_validation(self, tmp_path):
-        m_path, _ = write_manifest_pair(tmp_path, VALID_STACK)
+        m_path, _ = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         data = json.loads(m_path.read_text())
         assert validate_manifest(data) == []
 
     def test_schema_file_is_bundled_content(self, tmp_path):
-        _, s_path = write_manifest_pair(tmp_path, VALID_STACK)
+        _, s_path = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         schema = json.loads(s_path.read_text())
         assert schema.get("title") == "HarnessManifest"
 
     def test_manifest_records_own_paths(self, tmp_path):
-        m_path, s_path = write_manifest_pair(tmp_path, VALID_STACK)
+        m_path, s_path = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         data = json.loads(m_path.read_text())
         assert data["manifest_path"] == "harness_manifest.json"
         assert data["schema_path"] == "harness_manifest.schema.json"
@@ -405,7 +413,7 @@ class TestWriteManifestPair:
     def test_custom_filenames(self, tmp_path):
         m_path, s_path = write_manifest_pair(
             tmp_path,
-            VALID_STACK,
+            VALID_STACK_DICT,
             manifest_filename="my_manifest.json",
             schema_filename="my_schema.json",
         )
@@ -422,23 +430,23 @@ class TestWriteManifestPair:
     def test_raises_if_directory_missing(self, tmp_path):
         missing = tmp_path / "does_not_exist"
         with pytest.raises(FileNotFoundError):
-            write_manifest_pair(missing, VALID_STACK)
+            write_manifest_pair(missing, VALID_STACK_DICT)
 
     def test_raises_if_path_is_file(self, tmp_path):
         a_file = tmp_path / "not_a_dir.txt"
         a_file.write_text("hello")
         with pytest.raises(NotADirectoryError):
-            write_manifest_pair(a_file, VALID_STACK)
+            write_manifest_pair(a_file, VALID_STACK_DICT)
 
     def test_returns_tuple_of_paths(self, tmp_path):
-        result = write_manifest_pair(tmp_path, VALID_STACK)
+        result = write_manifest_pair(tmp_path, VALID_STACK_DICT)
         assert isinstance(result, tuple)
         assert len(result) == 2
 
     def test_domains_and_artifacts_in_manifest(self, tmp_path):
         m_path, _ = write_manifest_pair(
             tmp_path,
-            VALID_STACK,
+            VALID_STACK_DICT,
             domains=["payments"],
             artifacts=[VALID_ARTIFACT],
         )
@@ -471,7 +479,7 @@ class TestGenerateManifestPatternsConventions:
 
     def test_patterns_and_conventions_valid_against_schema(self):
         m = generate_manifest(
-            VALID_STACK,
+            VALID_STACK_DICT,
             patterns=["plugin-architecture"],
             conventions=["pep8"],
         )
@@ -493,7 +501,7 @@ class TestGenerateManifestPatternsConventions:
     def test_write_manifest_pair_with_patterns_and_conventions(self, tmp_path):
         m_path, _ = write_manifest_pair(
             tmp_path,
-            VALID_STACK,
+            VALID_STACK_DICT,
             patterns=["plugin-architecture"],
             conventions=["pep8", "type-annotations"],
         )
@@ -501,3 +509,56 @@ class TestGenerateManifestPatternsConventions:
         assert data["patterns"] == ["plugin-architecture"]
         assert data["conventions"] == ["pep8", "type-annotations"]
         assert validate_manifest(data) == []
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests
+# ---------------------------------------------------------------------------
+
+
+from unittest.mock import patch, MagicMock
+from harness_skills.generators.manifest_generator import _to_dict
+
+
+class TestToDict:
+    def test_none_passthrough(self) -> None:
+        assert _to_dict(None) is None
+
+    def test_dict_passthrough(self) -> None:
+        d = {"key": "value"}
+        assert _to_dict(d) is d
+
+    def test_pydantic_v2_model_dump(self) -> None:
+        obj = MagicMock()
+        obj.model_dump.return_value = {"a": 1}
+        del obj.dict  # Remove dict attr so model_dump path is taken
+        result = _to_dict(obj)
+        assert result == {"a": 1}
+
+    def test_pydantic_v1_dict(self) -> None:
+        obj = MagicMock(spec=[])
+        obj.dict = MagicMock(return_value={"b": 2})
+        # Ensure model_dump is not present
+        assert not hasattr(obj, "model_dump")
+        result = _to_dict(obj)
+        assert result == {"b": 2}
+
+    def test_plain_object_passthrough(self) -> None:
+        result = _to_dict(42)
+        assert result == 42
+
+
+class TestValidateManifestSchemaNotFound:
+    def test_schema_not_found_raises(self) -> None:
+        with patch("harness_skills.generators.manifest_generator._BUNDLED_SCHEMA",
+                   Path("/nonexistent/schema.json")):
+            with pytest.raises(FileNotFoundError):
+                validate_manifest({})
+
+
+class TestWriteManifestSchemaNotFound:
+    def test_schema_not_found_raises(self) -> None:
+        with patch("harness_skills.generators.manifest_generator._BUNDLED_SCHEMA",
+                   Path("/nonexistent/schema.json")):
+            with pytest.raises(FileNotFoundError):
+                write_manifest_schema("/tmp/out.json")

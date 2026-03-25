@@ -312,7 +312,7 @@ class HarnessConfigLoader:
         if not _YAML_AVAILABLE:
             raise ImportError(
                 "PyYAML is required to load harness.config.yaml. "
-                "Install it with: pip install pyyaml"
+                "Install it with: uv add pyyaml"
             )
         if not self._path.exists():
             # Return empty config — caller gets all defaults
@@ -451,7 +451,7 @@ def check_coverage(
         return [GateFailure(
             gate_id="coverage", severity="error",
             message="Coverage report not generated — pytest-cov may not be installed.",
-            suggestion="Install pytest-cov: `pip install pytest-cov`, then re-run.",
+            suggestion="Install pytest-cov: `uv add pytest-cov`, then re-run.",
         )]
 
     try:

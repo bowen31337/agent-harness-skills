@@ -402,7 +402,7 @@ def snapshot_from_html(
     """Parse *html* string and return a :class:`DOMSnapshot`."""
     if not _HAS_BS4:
         snap = DOMSnapshot()
-        snap.errors.append("beautifulsoup4 is not installed — pip install beautifulsoup4 lxml")
+        snap.errors.append("beautifulsoup4 is not installed — uv add beautifulsoup4 lxml")
         return snap
 
     try:
@@ -422,12 +422,12 @@ def snapshot_from_url(
     if not _HAS_REQUESTS:
         snap = DOMSnapshot()
         snap.meta = PageMeta(url=url)
-        snap.errors.append("requests is not installed — pip install requests")
+        snap.errors.append("requests is not installed — uv add requests")
         return snap
     if not _HAS_BS4:
         snap = DOMSnapshot()
         snap.meta = PageMeta(url=url)
-        snap.errors.append("beautifulsoup4 is not installed — pip install beautifulsoup4 lxml")
+        snap.errors.append("beautifulsoup4 is not installed — uv add beautifulsoup4 lxml")
         return snap
 
     try:

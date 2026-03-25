@@ -310,6 +310,10 @@ def detect_stack(root_dir: str | Path = ".") -> DetectedStack:
     ci_platform = _detect_ci_platform(root)
     database = _detect_database(root, primary_language)
     project_structure = _detect_project_structure(root)
+    linter = _detect_linter(root)
+
+    documentation_files = _detect_documentation_coverage(root)
+    api_style = _detect_api_style(root, primary_language)
 
     return DetectedStack(
         primary_language=primary_language,
@@ -319,7 +323,9 @@ def detect_stack(root_dir: str | Path = ".") -> DetectedStack:
         test_framework=test_framework,
         ci_platform=ci_platform,
         database=database,
-        api_style=None,
+        api_style=api_style,
+        linter=linter,
+        documentation_files=documentation_files,
     )
 
 
@@ -650,6 +656,139 @@ def _detect_database(root: Path, primary_language: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# API style detection
+# ---------------------------------------------------------------------------
+
+#: REST route decorator patterns found in Python source files.
+_REST_ROUTE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"@app\.(get|post|put|patch|delete)\b"),
+    re.compile(r"@router\.(get|post|put|patch|delete)\b"),
+]
+
+#: REST route patterns found in JavaScript/TypeScript source files.
+_JS_REST_ROUTE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"app\.(get|post|put|patch|delete)\s*\("),
+    re.compile(r"router\.(get|post|put|patch|delete)\s*\("),
+]
+
+#: Dependency substrings that indicate a REST API framework.
+_REST_DEPS: list[str] = [
+    "fastapi",
+    "flask",
+    "django-rest-framework",
+    "djangorestframework",
+    "express",
+    "fastify",
+    "koa",
+    "hapi",
+    "actix-web",
+    "axum",
+    "rocket",
+    "gin",
+    "echo",
+    "fiber",
+]
+
+#: Dependency substrings that indicate GraphQL usage.
+_GRAPHQL_DEPS: list[str] = [
+    "graphql",
+    "apollo",
+    "ariadne",
+    "strawberry",
+    "graphene",
+    "@nestjs/graphql",
+]
+
+#: Dependency substrings that indicate gRPC usage.
+_GRPC_DEPS: list[str] = [
+    "grpc",
+    "grpcio",
+    "protobuf",
+    "@grpc/grpc-js",
+    "tonic",
+    "google.golang.org/grpc",
+]
+
+
+def _detect_api_style(root: Path, primary_language: str) -> str | None:
+    """Return ``'rest'``, ``'graphql'``, ``'grpc'``, or ``None``.
+
+    Detection strategy (checked in order — first match wins):
+
+    1. **GraphQL**: ``schema.graphql`` / ``schema.gql`` files, or graphql-related
+       dependencies.
+    2. **gRPC**: ``.proto`` files, or grpc-related dependencies.
+    3. **REST**: Route decorator patterns in source files, or REST framework
+       dependencies.
+    """
+    # -- Collect all deps for the primary language --------------------------
+    deps = _get_deps_for_language(root, primary_language)
+
+    # -- GraphQL ------------------------------------------------------------
+    if list(root.glob("**/*.graphql")) or list(root.glob("**/*.gql")):
+        return "graphql"
+    if any(gql_dep in dep for dep in deps for gql_dep in _GRAPHQL_DEPS):
+        return "graphql"
+
+    # -- gRPC ---------------------------------------------------------------
+    if list(root.glob("**/*.proto")):
+        return "grpc"
+    if any(grpc_dep in dep for dep in deps for grpc_dep in _GRPC_DEPS):
+        return "grpc"
+
+    # -- REST ---------------------------------------------------------------
+    if _has_rest_routes(root, primary_language):
+        return "rest"
+    if any(rest_dep in dep for dep in deps for rest_dep in _REST_DEPS):
+        return "rest"
+
+    return None
+
+
+def _get_deps_for_language(root: Path, primary_language: str) -> list[str]:
+    """Return the flat dependency list for the given language."""
+    lang_key = primary_language
+    if lang_key == "typescript":
+        lang_key = "javascript"
+    if lang_key == "kotlin":
+        lang_key = "java"
+
+    if lang_key == "python":
+        return _get_python_deps(root)
+    if lang_key == "javascript":
+        return _get_js_deps(root)
+    if lang_key == "go":
+        return _get_go_deps(root)
+    if lang_key == "java":
+        return _get_java_deps(root)
+    if lang_key == "rust":
+        return _get_rust_deps(root)
+    return []
+
+
+def _has_rest_routes(root: Path, primary_language: str) -> bool:
+    """Return ``True`` when source files contain REST route decorators/calls."""
+    if primary_language == "python":
+        for py_file in root.glob("**/*.py"):
+            try:
+                text = py_file.read_text(encoding="utf-8")
+                if any(p.search(text) for p in _REST_ROUTE_PATTERNS):
+                    return True
+            except OSError:
+                continue
+    elif primary_language in ("javascript", "typescript"):
+        for ext in ("*.js", "*.ts", "*.mjs"):
+            for js_file in root.glob(f"**/{ext}"):
+                try:
+                    text = js_file.read_text(encoding="utf-8")
+                    if any(p.search(text) for p in _JS_REST_ROUTE_PATTERNS):
+                        return True
+                except OSError:
+                    continue
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Project structure detection
 # ---------------------------------------------------------------------------
 
@@ -686,6 +825,53 @@ def _detect_project_structure(root: Path) -> str:
             pass
 
     return "single-app"
+
+
+_DOCUMENTATION_FILES = [
+    "README.md",
+    "CONTRIBUTING.md",
+    "CHANGELOG.md",
+    "AGENTS.md",
+]
+
+
+def _detect_documentation_coverage(root: Path) -> list[str]:
+    """Return list of documentation filenames found in *root*."""
+    return [name for name in _DOCUMENTATION_FILES if (root / name).exists()]
+
+
+def _detect_linter(root: Path) -> str | None:
+    """Detect the primary linter/formatter from config files."""
+    linter_indicators: list[tuple[str, str]] = [
+        ("ruff.toml", "ruff"),
+        (".eslintrc.json", "eslint"),
+        (".eslintrc.js", "eslint"),
+        (".eslintrc.yml", "eslint"),
+        ("eslint.config.js", "eslint"),
+        (".prettierrc", "prettier"),
+        (".prettierrc.json", "prettier"),
+        ("rustfmt.toml", "rustfmt"),
+        (".golangci.yml", "golangci-lint"),
+        (".golangci.yaml", "golangci-lint"),
+        ("checkstyle.xml", "checkstyle"),
+        (".rubocop.yml", "rubocop"),
+    ]
+    for filename, linter_name in linter_indicators:
+        if (root / filename).exists():
+            return linter_name
+    pyproject = root / "pyproject.toml"
+    if pyproject.exists():
+        try:
+            text = pyproject.read_text(encoding="utf-8")
+            if "[tool.ruff]" in text:
+                return "ruff"
+            if "[tool.black]" in text:
+                return "black"
+            if "[tool.flake8]" in text:
+                return "flake8"
+        except OSError:
+            pass
+    return None
 
 
 # ---------------------------------------------------------------------------

@@ -180,7 +180,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[tuple[str, str]]:
     except ImportError as exc:
         raise ImportError(
             "The 'jsonschema' package is required for manifest validation. "
-            "Install it with: pip install 'jsonschema>=4.18'"
+            "Install it with: uv add 'jsonschema>=4.18'"
         ) from exc
 
     if not _BUNDLED_SCHEMA.exists():

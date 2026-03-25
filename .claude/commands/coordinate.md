@@ -113,5 +113,5 @@ conflict count dropped to zero.
 
 - **State service** (`claw-forge state`) for live agent/task data — or `--demo` mode
 - **Git** for branch-level file enumeration when state is unavailable
-- **Python ≥ 3.11** and `claude-agent-sdk` installed (`pip install claude-agent-sdk`)
+- **Python ≥ 3.11** and `claude-agent-sdk` installed (`uv add claude-agent-sdk`)
 - `ANTHROPIC_API_KEY` or `ANTHROPIC_OAUTH_TOKEN` in environment / `.env`

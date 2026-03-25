@@ -470,6 +470,8 @@ _EXPECTED_GATES: frozenset[str] = frozenset({
     "docs_freshness",
     "types",
     "lint",
+    "agents_md_token",
+    "file_size",
 })
 
 

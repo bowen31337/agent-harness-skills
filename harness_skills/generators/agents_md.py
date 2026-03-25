@@ -60,12 +60,16 @@ Usage::
 from __future__ import annotations
 
 import datetime
+import logging
 import re
 import subprocess
 from pathlib import Path
 from typing import Iterator
 
 from harness_skills.models.update import ArtifactDiff
+from harness_skills.utils.template_engine import render_template, template_exists
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -146,6 +150,72 @@ def build_front_matter(service: str, run_date: str, head_hash: str) -> str:
         f"service: {service}\n"
         f"{BLOCK_END}"
     )
+
+
+def _build_quick_reference(
+    *,
+    build_command: str = "pytest tests/ -v",
+    lint_command: str = "ruff check .",
+) -> str:
+    """Build a Quick Reference section (<200 tokens) for the top of AGENTS.md."""
+    return (
+        "## Quick Reference\n\n"
+        "```bash\n"
+        f"# Build & Test\n{build_command}\n\n"
+        f"# Lint\n{lint_command}\n\n"
+        "# Evaluate all gates\nharness evaluate --format json\n"
+        "```\n"
+    )
+
+
+def generate_root_agents_md(
+    *,
+    project_name: str,
+    domains: list[str] | None = None,
+    build_command: str = "pytest tests/ -v",
+    lint_command: str = "ruff check .",
+    timestamp: str = "",
+    git_head: str = "unknown",
+) -> str:
+    """Generate root AGENTS.md content using Jinja2 template if available."""
+    if template_exists("agents_md/root.md.j2"):
+        return render_template(
+            "agents_md/root.md.j2",
+            project_name=project_name,
+            domains=domains or [],
+            build_command=build_command,
+            lint_command=lint_command,
+            timestamp=timestamp or datetime.date.today().isoformat(),
+            git_head=git_head,
+        )
+    lines = [
+        f"# AGENTS.md — {project_name}\n",
+        _build_quick_reference(build_command=build_command, lint_command=lint_command),
+    ]
+    if domains:
+        lines.append("## Domains\n")
+        for d in domains:
+            lines.append(f"- **{d}/** — see `{d}/AGENTS.md`\n")
+    return "\n".join(lines)
+
+
+def generate_domain_agents_md(
+    *,
+    domain_name: str,
+    key_files: list[str] | None = None,
+    patterns: list[str] | None = None,
+    constraints: list[str] | None = None,
+) -> str:
+    """Generate a per-domain AGENTS.md using Jinja2 template if available."""
+    if template_exists("agents_md/domain.md.j2"):
+        return render_template(
+            "agents_md/domain.md.j2",
+            domain_name=domain_name,
+            key_files=key_files or [],
+            patterns=patterns or [],
+            constraints=constraints or [],
+        )
+    return f"# {domain_name}/ — AGENTS.md\n"
 
 
 def parse_agents_md(content: str) -> tuple[str | None, str]:

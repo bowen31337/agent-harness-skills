@@ -88,11 +88,11 @@ BASE_URL=https://staging.example.com pytest tests/browser/ -v
 ### Install (first time)
 
 ```bash
-pip install playwright pytest-playwright
+uv add playwright pytest-playwright
 playwright install chromium   # downloads the Chromium binary
 ```
 
-Both are already listed in `requirements.txt`.
+Both are already declared in `pyproject.toml`.
 
 ---
 

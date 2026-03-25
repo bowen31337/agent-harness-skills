@@ -129,7 +129,7 @@ const puppeteer = require('puppeteer');
 ```
 
 Try options in order A → B → C.  If all fail, emit an error with instructions
-for installing Playwright (`pip install playwright && playwright install chromium`)
+for installing Playwright (`uv add playwright && playwright install chromium`)
 and exit with code `2`.
 
 ---

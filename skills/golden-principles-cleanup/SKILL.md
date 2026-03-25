@@ -249,7 +249,7 @@ Each `CleanupTask` entry:
 
 ## Prerequisites
 
-- `PyYAML` must be installed: `pip install pyyaml`
-- Pydantic v2 must be installed: `pip install pydantic>=2.0`
+- `PyYAML` must be installed: `uv add pyyaml`
+- Pydantic v2 must be installed: `uv add 'pydantic>=2.0'`
 - `.claude/principles.yaml` must exist (run `/define-principles` to create it)
 - For the harness gate path: `uv` and `harness_skills` package must be available

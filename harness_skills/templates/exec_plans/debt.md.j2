@@ -1,0 +1,16 @@
+# Technical Debt Tracker
+
+> Last updated: {{ timestamp }}
+
+## Known Shortcuts
+
+{% for item in debt_items %}
+### {{ item.id }}: {{ item.title }}
+- **Severity:** {{ item.severity }}
+- **File:** {{ item.file_path | default('N/A') }}
+- **Remediation:** {{ item.remediation | default('TODO') }}
+
+{% endfor %}
+{% if not debt_items %}
+No known technical debt recorded.
+{% endif %}

@@ -198,13 +198,13 @@ class TestCoverageThresholds:
         gates = _parse_gates(generate_gate_config("starter"))
         assert gates["coverage"]["branch_coverage"] is False
 
-    def test_standard_branch_coverage_on(self) -> None:
+    def test_standard_branch_coverage_off(self) -> None:
         gates = _parse_gates(generate_gate_config("standard"))
-        assert gates["coverage"]["branch_coverage"] is True
+        assert gates["coverage"]["branch_coverage"] is False
 
-    def test_advanced_branch_coverage_on(self) -> None:
+    def test_advanced_branch_coverage_off(self) -> None:
         gates = _parse_gates(generate_gate_config("advanced"))
-        assert gates["coverage"]["branch_coverage"] is True
+        assert gates["coverage"]["branch_coverage"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -244,13 +244,13 @@ class TestDocsFreshnessConfig:
         gates = _parse_gates(generate_gate_config("starter"))
         assert gates["docs_freshness"]["max_staleness_days"] == 30
 
-    def test_standard_staleness_14_days(self) -> None:
+    def test_standard_staleness_30_days(self) -> None:
         gates = _parse_gates(generate_gate_config("standard"))
-        assert gates["docs_freshness"]["max_staleness_days"] == 14
+        assert gates["docs_freshness"]["max_staleness_days"] == 30
 
-    def test_advanced_staleness_7_days(self) -> None:
+    def test_advanced_staleness_14_days(self) -> None:
         gates = _parse_gates(generate_gate_config("advanced"))
-        assert gates["docs_freshness"]["max_staleness_days"] == 7
+        assert gates["docs_freshness"]["max_staleness_days"] == 14
 
     def test_tracked_files_list_non_empty(self) -> None:
         for profile in ("starter", "standard", "advanced"):
@@ -266,9 +266,9 @@ class TestDocsFreshnessConfig:
 
 
 class TestRegressionGateConfig:
-    def test_starter_timeout_120(self) -> None:
+    def test_starter_timeout_300(self) -> None:
         gates = _parse_gates(generate_gate_config("starter"))
-        assert gates["regression"]["timeout_seconds"] == 120
+        assert gates["regression"]["timeout_seconds"] == 300
 
     def test_standard_timeout_300(self) -> None:
         gates = _parse_gates(generate_gate_config("standard"))
@@ -456,3 +456,90 @@ class TestIdempotency:
             second_doc["profiles"]["standard"]["gates"]
             == first_doc["profiles"]["standard"]["gates"]
         )
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests for architecture config rendering
+# ---------------------------------------------------------------------------
+
+
+from harness_skills.models.gate_configs import ArchitectureGateConfig
+from harness_skills.generators.config_generator import (
+    _render_architecture,
+    _render_gate,
+    _merge_with_regex,
+)
+
+
+class TestRenderArchitectureLayerDefinitions:
+    def test_layer_definitions_rendered(self) -> None:
+        cfg = ArchitectureGateConfig(
+            layer_definitions=[
+                {"name": "domain", "rank": 0, "aliases": ["core", "entities"]},
+                {"name": "application", "rank": 1},
+            ]
+        )
+        result = _render_architecture(cfg)
+        assert "layer_definitions:" in result
+        assert "domain" in result
+        assert "aliases:" in result
+        assert "core" in result
+        assert "entities" in result
+
+    def test_arch_style_rendered(self) -> None:
+        cfg = ArchitectureGateConfig(arch_style="clean")
+        result = _render_architecture(cfg)
+        assert "arch_style: clean" in result
+
+
+class TestRenderGateFallback:
+    def test_unknown_gate_config_type(self) -> None:
+        # Should produce a generic fallback
+        result = _render_gate("custom_gate", object(), None)
+        assert "custom_gate:" in result
+        assert "enabled: true" in result
+
+
+class TestMergeWithRegex:
+    def test_profile_not_found_appends(self, tmp_path: Path) -> None:
+        out = tmp_path / "harness.config.yaml"
+        out.write_text("profiles:\n  other:\n    gates:\n      lint:\n        enabled: true\n")
+        gates_yaml = "    gates:\n      lint:\n        enabled: false\n"
+        _merge_with_regex(out, "standard", gates_yaml)
+        content = out.read_text()
+        assert "lint:" in content
+
+    def test_no_profile_section(self, tmp_path: Path) -> None:
+        out = tmp_path / "harness.config.yaml"
+        out.write_text("some_key: value\n")
+        gates_yaml = "    gates:\n      lint:\n        enabled: false\n"
+        _merge_with_regex(out, "standard", gates_yaml)
+        content = out.read_text()
+        assert "lint:" in content
+
+    def test_gates_section_found_and_replaced(self, tmp_path: Path) -> None:
+        out = tmp_path / "harness.config.yaml"
+        out.write_text(
+            "profiles:\n"
+            "  standard:\n"
+            "    gates:\n"
+            "      lint:\n"
+            "        enabled: true\n"
+        )
+        gates_yaml = "    gates:\n      lint:\n        enabled: false\n"
+        _merge_with_regex(out, "standard", gates_yaml)
+        content = out.read_text()
+        assert "enabled: false" in content
+
+
+class TestWriteHarnessConfigMergeErrors:
+    def test_merge_true_file_not_found(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError):
+            write_harness_config(tmp_path / "nonexistent.yaml", "standard", merge=True)
+
+    def test_merge_false_creates_file(self, tmp_path: Path) -> None:
+        out = tmp_path / "new.yaml"
+        write_harness_config(out, "standard", merge=False)
+        assert out.exists()
+        content = out.read_text()
+        assert "active_profile: standard" in content

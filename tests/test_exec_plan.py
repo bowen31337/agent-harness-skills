@@ -272,9 +272,12 @@ class TestPlanTemplateFile:
         with _TEMPLATE.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
         ca = data.get("context_assembly", {})
+        # The template has two context_assembly blocks; the second (bottom)
+        # overrides the first in YAML, so the parsed keys are grep_patterns,
+        # glob_patterns, symbol_refs, key_files, and rationale.
         assert "key_files" in ca
-        assert "key_patterns" in ca
-        assert "notes" in ca
+        assert "grep_patterns" in ca
+        assert "glob_patterns" in ca
 
     def test_template_steps_is_non_empty_list(self) -> None:
         with _TEMPLATE.open(encoding="utf-8") as fh:

@@ -698,7 +698,7 @@ class StateServiceLockClient:
         if not _HTTPX_AVAILABLE:  # pragma: no cover
             raise ImportError(
                 "httpx is required for StateServiceLockClient. "
-                "Install it with: pip install httpx"
+                "Install it with: uv add httpx"
             )
         self.state_url = state_url.rstrip("/")
         self.timeout_seconds = timeout_seconds

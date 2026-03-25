@@ -210,6 +210,47 @@ def create_cmd(
         ctx.exit(1)
         return
 
+    # ── CI pipeline generation ────────────────────────────────────────────────
+    ci_artifacts: list[GeneratedArtifact] = []
+    try:
+        from harness_skills.ci.github_actions import GitHubActionsGenerator  # noqa: PLC0415
+        from harness_skills.ci.gitlab_ci import GitLabCIGenerator  # noqa: PLC0415
+        from harness_skills.ci.shell_script import ShellScriptGenerator  # noqa: PLC0415
+
+        lang = _STACK_TO_LANGUAGE.get(stack or "", "python").lower()
+        for gen_cls in (GitHubActionsGenerator, GitLabCIGenerator, ShellScriptGenerator):
+            gen = gen_cls()
+            result = gen.generate(primary_language=lang)
+            ci_path = output.parent / result.file_path
+            ci_path.parent.mkdir(parents=True, exist_ok=True)
+            ci_path.write_text(result.content)
+            ci_artifacts.append(GeneratedArtifact(
+                artifact_path=str(ci_path),
+                artifact_type=result.artifact_type,
+                overwritten=False,
+            ))
+    except Exception:
+        pass  # CI generation is best-effort
+
+    # ── docs/generated/ directory scaffolding ────────────────────────────────
+    docs_generated_artifact: GeneratedArtifact | None = None
+    try:
+        project_root = output.parent
+        docs_subdirs = ["schemas", "api", "graphs"]
+        for subdir in docs_subdirs:
+            d = project_root / "docs" / "generated" / subdir
+            d.mkdir(parents=True, exist_ok=True)
+            gitkeep = d / ".gitkeep"
+            if not gitkeep.exists():
+                gitkeep.write_text("")
+        docs_generated_artifact = GeneratedArtifact(
+            artifact_path=str(project_root / "docs" / "generated"),
+            artifact_type="other",
+            overwritten=False,
+        )
+    except Exception:
+        pass  # docs/generated creation is best-effort
+
     # ── Emit output ──────────────────────────────────────────────────────────
     if output_format == "json":
         detected = DetectedStack(
@@ -222,13 +263,16 @@ def create_cmd(
             artifact_type="harness.config.yaml",
             overwritten=existed_before,
         )
+        all_artifacts = [artifact] + ci_artifacts
+        if docs_generated_artifact is not None:
+            all_artifacts.append(docs_generated_artifact)
         action = "updated" if existed_before else "created"
         response = CreateResponse(
             status=Status.PASSED,
             timestamp=_iso_now(),
-            message=f"harness.config.yaml {action} (profile: {profile})",
+            message=f"harness.config.yaml {action} (profile: {profile}), {len(ci_artifacts)} CI pipeline(s)",
             detected_stack=detected,
-            artifacts_generated=[artifact],
+            artifacts_generated=all_artifacts,
         )
         click.echo(response.model_dump_json(indent=2))
     else:

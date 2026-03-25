@@ -62,7 +62,7 @@ try:
     import yaml
 except ImportError:  # pragma: no cover
     print(
-        "[exec-plan] PyYAML not found — install it with: pip install pyyaml",
+        "[exec-plan] PyYAML not found — install it with: uv add pyyaml",
         file=sys.stderr,
     )
     sys.exit(1)

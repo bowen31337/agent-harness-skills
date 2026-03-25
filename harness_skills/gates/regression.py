@@ -399,7 +399,7 @@ class RegressionGate:
                 ),
                 suggestion=(
                     "Run `pytest --tb=short` locally to identify failing tests. "
-                    "Ensure pytest is installed: `pip install pytest`."
+                    "Ensure pytest is installed: `uv add pytest`."
                 ),
             ))
 

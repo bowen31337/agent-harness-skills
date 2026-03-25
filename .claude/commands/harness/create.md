@@ -52,7 +52,7 @@ language and any frameworks / test runners found.
 echo "=== Stack detection ==="
 
 # Languages
-[ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "requirements.txt" ] \
+[ -f "pyproject.toml" ] || [ -f "setup.py" ] \
   && echo "lang: python"
 [ -f "package.json" ] && echo "lang: node"
 [ -f "go.mod" ]        && echo "lang: go"
@@ -60,8 +60,8 @@ echo "=== Stack detection ==="
 
 # Frameworks
 [ -f "manage.py" ] && echo "framework: django"
-grep -q "fastapi"  requirements.txt 2>/dev/null && echo "framework: fastapi"
-grep -q "flask"    requirements.txt 2>/dev/null && echo "framework: flask"
+grep -q "fastapi"  pyproject.toml 2>/dev/null && echo "framework: fastapi"
+grep -q "flask"    pyproject.toml 2>/dev/null && echo "framework: flask"
 grep -q '"next"'   package.json     2>/dev/null && echo "framework: nextjs"
 grep -q '"react"'  package.json     2>/dev/null && echo "framework: react"
 

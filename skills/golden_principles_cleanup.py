@@ -56,7 +56,7 @@ try:
     import yaml
 except ImportError:  # pragma: no cover
     print(
-        "[golden-principles-cleanup] PyYAML not found — install it with: pip install pyyaml",
+        "[golden-principles-cleanup] PyYAML not found — install it with: uv add pyyaml",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -65,7 +65,7 @@ try:
     from pydantic import BaseModel, Field
 except ImportError:  # pragma: no cover
     print(
-        "[golden-principles-cleanup] Pydantic not found — install it with: pip install 'pydantic>=2.0'",
+        "[golden-principles-cleanup] Pydantic not found — install it with: uv add 'pydantic>=2.0'",
         file=sys.stderr,
     )
     sys.exit(1)

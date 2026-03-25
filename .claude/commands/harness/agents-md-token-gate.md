@@ -277,7 +277,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install harness-skills
+      - run: uv pip install harness-skills
       - run: |
           python -m harness_skills.gates.agents_md_token \
             --max-tokens ${{ vars.AGENTS_MD_MAX_TOKENS || '800' }}
@@ -289,7 +289,7 @@ jobs:
 agents-md-token-gate:
   stage: lint
   script:
-    - pip install harness-skills
+    - uv pip install harness-skills
     - python -m harness_skills.gates.agents_md_token --max-tokens 800
   only:
     - merge_requests

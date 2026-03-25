@@ -150,7 +150,7 @@ class TestParseMypyOutput:
 
     def test_ignore_codes_filter_matching_violations(self):
         violations = _parse_mypy_output(
-            self._SAMPLE, ignore_set={"attr-defined"}, fail_on_error=True
+            self._SAMPLE, ignore_codes={"attr-defined"}, fail_on_error=True
         )
         codes = {v.error_code for v in violations}
         assert "attr-defined" not in codes
@@ -204,7 +204,7 @@ class TestParseTscOutput:
 
     def test_ignore_codes_filters_ts_codes(self):
         violations = _parse_tsc_output(
-            self._SAMPLE, ignore_set={"TS2304"}, fail_on_error=True
+            self._SAMPLE, ignore_codes={"TS2304"}, fail_on_error=True
         )
         codes = {v.error_code for v in violations}
         assert "TS2304" not in codes
@@ -250,7 +250,7 @@ class TestParsePyrightOutput:
     def test_ignore_codes_suppresses_rule(self):
         violations = _parse_pyright_output(
             self._SAMPLE,
-            ignore_set={"reportGeneralTypeIssues"},
+            ignore_codes={"reportGeneralTypeIssues"},
             fail_on_error=True,
         )
         codes = {v.error_code for v in violations}

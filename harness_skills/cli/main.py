@@ -15,12 +15,22 @@ from typing import Any
 
 import click
 
+from harness_skills.cli.audit import audit_cmd
 from harness_skills.cli.boot import boot_cmd
+from harness_skills.cli.completion_report import completion_report_cmd
+from harness_skills.cli.context import context_cmd
+from harness_skills.cli.coordinate import coordinate_cmd
 from harness_skills.cli.create import create_cmd
 from harness_skills.cli.evaluate import evaluate_cmd
+from harness_skills.cli.lint import lint_cmd
 from harness_skills.cli.manifest import manifest_cmd
 from harness_skills.cli.observe import observe_cmd
+from harness_skills.cli.plan import plan_cmd
+from harness_skills.cli.resume_cmd import resume_cmd
+from harness_skills.cli.screenshot import screenshot_cmd
+from harness_skills.cli.search import search_cmd
 from harness_skills.cli.status import status_cmd
+from harness_skills.cli.update import update_cmd
 from harness_skills.telemetry_reporter import telemetry_cmd
 
 
@@ -141,10 +151,20 @@ def cli() -> None:
     """
 
 
+cli.add_command(audit_cmd)
 cli.add_command(boot_cmd)
+cli.add_command(completion_report_cmd)
+cli.add_command(context_cmd)
+cli.add_command(coordinate_cmd)
 cli.add_command(create_cmd)
 cli.add_command(evaluate_cmd)
+cli.add_command(lint_cmd)
 cli.add_command(manifest_cmd)
 cli.add_command(observe_cmd)
+cli.add_command(plan_cmd)
+cli.add_command(resume_cmd)
+cli.add_command(screenshot_cmd)
+cli.add_command(search_cmd)
 cli.add_command(status_cmd)
+cli.add_command(update_cmd)
 cli.add_command(telemetry_cmd)

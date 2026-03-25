@@ -13,7 +13,7 @@ Design principles
 -----------------
 * **No running server required** — pure static analysis via ``grep`` / ``ast`` / file I/O.
 * **No third-party tool dependencies** — only the stdlib and packages already in
-  ``requirements.txt`` (``pydantic``, ``requests``).
+  ``pyproject.toml`` (``pydantic``, ``requests``).
 * **Idempotent** — the same commit always produces identical output.
 * **Incremental** — callers may request a single category via ``only``.
 """
@@ -40,6 +40,7 @@ from harness_skills.models.docs import (
     SchemaEntity,
 )
 from harness_skills.models.base import Status
+from harness_skills.utils.import_graph import ImportEdge, ImportGraph
 
 
 # ---------------------------------------------------------------------------
@@ -574,6 +575,24 @@ def _extract_imports(py_file: Path) -> list[str]:
             if node.module and node.level == 0:
                 targets.append(node.module)
     return targets
+
+
+def build_import_graph(root: Path, *, include_tests: bool = False) -> ImportGraph:
+    """Build an ImportGraph from Python files under *root*.
+
+    Bridges the docs_generator AST extraction with the reusable ImportGraph
+    utility for domain detection and architecture analysis.
+    """
+    py_files = _python_files(root, include_tests=include_tests)
+    edges: list[ImportEdge] = []
+    first_party = _first_party_packages(root)
+    for py_file in py_files:
+        src_mod = _module_name(py_file, root)
+        for target in _extract_imports(py_file):
+            top_pkg = target.split(".")[0]
+            if top_pkg in first_party:
+                edges.append(ImportEdge(source=src_mod, target=target, import_type="from"))
+    return ImportGraph(edges=edges)
 
 
 def _render_mermaid(edges: list[DependencyEdge]) -> str:

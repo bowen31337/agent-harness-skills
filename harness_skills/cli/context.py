@@ -130,6 +130,13 @@ _CHARS_PER_TOKEN = 4  # conservative estimate
     metavar="GLOB",
     help="Add an extra exclusion pattern on top of the built-in skip list.",
 )
+@click.option(
+    "--depth-map",
+    "depth_map",
+    is_flag=True,
+    default=False,
+    help="Include L0/L1/L2 tier assignments based on token budgets.",
+)
 @click.pass_context
 def context_cmd(
     ctx: click.Context,
@@ -141,6 +148,7 @@ def context_cmd(
     no_git: bool,
     include_glob: Optional[str],
     exclude_glob: Optional[str],
+    depth_map: bool,
 ) -> None:
     """Return a minimal ContextManifest for PLAN_ID_OR_DOMAIN.
 
@@ -179,6 +187,23 @@ def context_cmd(
         click.echo(f"[harness context] internal error: {exc}", err=True)
         ctx.exit(2)
         return
+
+    if depth_map:
+        try:
+            from harness_skills.context_depth import build_depth_map  # noqa: PLC0415
+            from harness_skills.utils.token_counter import estimate_tokens  # noqa: PLC0415
+
+            file_tokens = [
+                (str(getattr(f, "path", getattr(f, "file_path", str(f)))), estimate_tokens(str(f)))
+                for f in manifest.files
+            ]
+            dm = build_depth_map(file_tokens, l0_budget=budget or 500)
+            if output_format != "json":
+                click.echo("\n--- Context Depth Map ---")
+                for tf in dm.files:
+                    click.echo(f"  [{tf.tier.value}] {tf.file_path}")
+        except ImportError:
+            pass
 
     if output_format == "json":
         click.echo(manifest.model_dump_json(indent=2))

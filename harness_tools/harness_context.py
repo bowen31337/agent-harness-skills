@@ -233,7 +233,7 @@ def main() -> None:
     except CLINotFoundError:
         print(
             "ERROR: Claude Code CLI not found.\n"
-            "Install it with:  pip install claude-agent-sdk",
+            "Install it with:  uv add claude-agent-sdk",
             file=sys.stderr,
         )
         sys.exit(1)

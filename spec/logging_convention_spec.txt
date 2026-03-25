@@ -40,8 +40,8 @@
     - Python 3.11+ with pip
     - Node 18+ (optional, for JSON Schema tooling)
     - Docker (for Loki / OTLP integration tests)
-    - pre-commit (`pip install pre-commit`)
-    - Run `pip install -e ".[dev]"` to install library + dev dependencies
+    - pre-commit (`uv pip install pre-commit`)
+    - Run `uv sync` to install library + dev dependencies
     - Run `pre-commit install` to activate lint hooks
   </prerequisites>
 
@@ -293,7 +293,7 @@
     </interaction>
     <interaction number="4" name="Adopt the convention in a new service">
       Developer reads SPEC.md and copies the JSON Schema URL into their service's validation layer.
-      Developer installs the Python library: pip install logging-convention[otlp]
+      Developer installs the Python library: uv add logging-convention[otlp]
       Developer calls configure([OTLPTransport("http://otel-collector:4317")]) at service startup.
       Developer replaces logging.getLogger calls with get_logger calls.
       All log entries now include the five required fields and flow into their observability stack.
@@ -360,7 +360,7 @@
       JSON Schema validates correctly in Python (jsonschema), TypeScript (ajv), and Go (gojsonschema) cross-language tests
     </functionality>
     <ux>
-      `pip install logging-convention` and 5 lines of code is enough to emit compliant structured logs
+      `uv add logging-convention` and 5 lines of code is enough to emit compliant structured logs
       `log-lint validate service.log` runs in under 1 second per 10,000 lines on commodity hardware
       SPEC.md is self-contained: a developer can adopt the convention without reading any code
       CLI error messages identify the exact field and line number of every violation

@@ -126,7 +126,7 @@ class TestPrinciplesGateEmptyProject:
 
     def test_missing_principles_file_still_passes_cleanly(self, tmp_path):
         """No crash when principles file is absent."""
-        gate = PrinciplesGate(GateConfig(principles_file="nonexistent.yaml"))
+        gate = PrinciplesGate(GateConfig(principles_file="nonexistent.yaml", auto_rules=[]))
         result = gate.run(tmp_path)
         assert result.principles_loaded == 0
 
@@ -677,6 +677,7 @@ class TestGateConfigClasses:
     _EXPECTED_GATES = {
         "regression", "coverage", "security", "performance",
         "architecture", "principles", "docs_freshness", "types", "lint",
+        "agents_md_token", "file_size",
     }
 
     def test_all_expected_gates_registered(self):

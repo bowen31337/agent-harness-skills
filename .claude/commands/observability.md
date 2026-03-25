@@ -52,7 +52,7 @@ Announce chosen framework to the user before proceeding.
 
 ```bash
 # pyproject.toml project — add via uv/pip
-uv add structlog python-json-logger 2>/dev/null || pip install structlog python-json-logger
+uv add structlog python-json-logger
 ```
 
 Write `src/logging_config.py` (or `<package>/logging_config.py` — use the detected source root):

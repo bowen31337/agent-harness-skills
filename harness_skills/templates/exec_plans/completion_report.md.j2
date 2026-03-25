@@ -1,0 +1,28 @@
+# Plan Completion Report
+
+> Plan: {{ plan_id }}
+> Completed: {{ timestamp }}
+
+## Summary
+{{ summary | default('Plan completed.') }}
+
+## Tasks Completed
+{% for task in completed_tasks %}
+- [x] {{ task }}
+{% endfor %}
+
+## Technical Debt Incurred
+{% for debt in debt_items %}
+- {{ debt.severity }}: {{ debt.title }} ({{ debt.file_path | default('N/A') }})
+{% endfor %}
+{% if not debt_items %}
+No new technical debt.
+{% endif %}
+
+## Follow-up Items
+{% for item in followup %}
+- [ ] {{ item }}
+{% endfor %}
+{% if not followup %}
+None.
+{% endif %}

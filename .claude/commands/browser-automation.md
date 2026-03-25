@@ -15,7 +15,7 @@ cat package.json 2>/dev/null | python3 -m json.tool 2>/dev/null || true
 ```
 
 Determine:
-- **Runtime**: Node.js (package.json present) or Python (pyproject.toml / requirements.txt)
+- **Runtime**: Node.js (package.json present) or Python (pyproject.toml)
 - **Existing framework**: React, Next.js, Vite, Express, FastAPI, Django, etc.
 - **Already installed**: is `playwright`, `@playwright/test`, or `puppeteer` already a dep?
 
@@ -175,7 +175,7 @@ export class AgentDriver {
 If Python project:
 
 ```bash
-pip install playwright pytest-playwright
+uv add playwright pytest-playwright
 playwright install chromium
 ```
 

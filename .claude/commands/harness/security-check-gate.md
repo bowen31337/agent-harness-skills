@@ -253,7 +253,7 @@ blocked."*
    ```bash
    pip-audit --fix
    ```
-2. **Pin to a safe version** manually in `requirements.txt` or `pyproject.toml`.
+2. **Pin to a safe version** manually in `pyproject.toml`.
 3. **Ignore a known false positive** (document the justification):
    ```yaml
    # harness.config.yaml
@@ -356,7 +356,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install pip-audit harness-skills
+      - run: uv pip install pip-audit harness-skills
       - run: pip-audit --format json -o pip-audit-report.json || true
       - run: |
           python -m harness_skills.gates.security \
@@ -370,7 +370,7 @@ jobs:
 security-gate:
   stage: test
   script:
-    - pip install pip-audit harness-skills
+    - uv pip install pip-audit harness-skills
     - pip-audit --format json -o pip-audit-report.json || true
     - python -m harness_skills.gates.security --severity HIGH --scan-secrets
   only:

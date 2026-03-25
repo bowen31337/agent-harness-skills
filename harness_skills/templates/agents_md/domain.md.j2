@@ -1,0 +1,37 @@
+# {{ domain_name }}/ — AGENTS.md
+
+## Purpose
+{{ purpose | default('Domain-specific agent guidance for ' + domain_name + '.') }}
+
+## Key Files
+{% for file in key_files %}
+- `{{ file }}`
+{% endfor %}
+
+## Internal Patterns
+{% if patterns %}
+{% for pattern in patterns %}
+- {{ pattern }}
+{% endfor %}
+{% else %}
+No specific patterns detected. Follow project-wide PRINCIPLES.md.
+{% endif %}
+
+## Domain Constraints
+{% if constraints %}
+{% for constraint in constraints %}
+- {{ constraint }}
+{% endfor %}
+{% else %}
+- Follow the dependency direction rules in ARCHITECTURE.md
+- Use structured logging with domain="{{ domain_name }}"
+{% endif %}
+
+## Related Documentation
+
+- [AGENTS.md](../AGENTS.md) — project-wide agent guidance
+- [ARCHITECTURE.md](../ARCHITECTURE.md) — domain map, dependency flow, and layer rules
+- [PRINCIPLES.md](../PRINCIPLES.md) — golden rules for code quality and consistency
+
+<!-- CUSTOM-START -->
+<!-- CUSTOM-END -->

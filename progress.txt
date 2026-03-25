@@ -1,0 +1,55 @@
+# Progress Log — Final 3 PARTIAL Gaps (129/129 target)
+
+## Context
+Project: agent-harness-skills
+Current state: 126 EXISTS, 3 PARTIAL, 0 MISSING out of 129 spec features.
+Previous rounds closed 9+9 gaps. These are the last 3.
+
+## 3 Remaining PARTIAL gaps (US-010, US-011, US-012)
+1. Feature 160: API style detection — _detect_api_style() missing, api_style always None
+2. Feature 198: docs/generated/ not auto-created by harness create
+3. Feature 294: No POSIX shell init script (only Python version exists)
+
+## How to Run Tests
+PYTHONPATH=. .venv/bin/python -m pytest tests/ -o "addopts=" -q --ignore=tests/browser --ignore=tests/gates/test_agents_md_token.py
+
+## Key Files to Modify
+- harness_skills/generators/codebase_analyzer.py — add _detect_api_style(), wire into detect_stack()
+- harness_skills/cli/create.py — add docs/generated/ directory creation after CI generation
+- scripts/ — create harness-init.sh POSIX shell script
+
+## Codebase Patterns
+- Detection helpers: _detect_X(root: Path) -> str | None, called from detect_stack()
+- See _detect_database() for pattern reference (checks deps + files)
+- CLI create.py: after CI pipeline generation block, before emit output block
+- Tests: tmp_path fixtures, CliRunner for CLI
+
+## Completed (all previous stories)
+- US-001 through US-009: All 9 previous gap-closure stories DONE (389 tests)
+- US-010: API style detection — DONE
+  - Added _detect_api_style(root, primary_language) to codebase_analyzer.py
+  - Detects REST (route decorators in .py/.js files + framework deps like fastapi/flask/express)
+  - Detects GraphQL (schema.graphql/.gql files + graphql/apollo/ariadne deps)
+  - Detects gRPC (.proto files + grpc/grpcio deps)
+  - Wired into detect_stack() so api_style is populated instead of always None
+  - Added helper functions: _get_deps_for_language(), _has_rest_routes()
+  - Added 11 new tests in TestApiStyleDetection class (138 total in test_codebase_analyzer.py)
+  - All acceptance criteria met, all new tests pass (11 new tests)
+- US-011: Auto-create docs/generated/ directory in harness create — DONE
+  - Added docs/generated/ scaffolding block in create.py after CI pipeline generation
+  - Creates docs/generated/schemas/, docs/generated/api/, docs/generated/graphs/ directories
+  - Each subdir gets a .gitkeep file (only created if not already present)
+  - docs_generated_artifact added as GeneratedArtifact(artifact_type="other") in CreateResponse
+  - Uses output.parent as project_root for correct path resolution
+  - Best-effort: wrapped in try/except so failures don't block harness create
+  - Added 3 new tests in TestCreateCmdDocsGenerated class
+  - All acceptance criteria met, all new tests pass
+- US-012: Generate standalone harness-init shell script (POSIX) — DONE
+  - Rewrote scripts/harness-init.sh as a POSIX /bin/sh script (no bashisms)
+  - Detects Python (pyproject.toml/setup.py), Node (package.json), Go (go.mod), Rust (Cargo.toml)
+  - Creates harness.config.yaml with starter profile defaults (configurable via --profile)
+  - Prints summary of what was detected and created
+  - --help flag exits 0 with usage info
+  - Script is executable (chmod +x)
+  - Added 8 new tests in TestHarnessInitShell class
+  - All acceptance criteria met, all 13 harness_init tests pass

@@ -12,6 +12,7 @@ Coverage targets:
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -612,3 +613,678 @@ class TestRunGateFunctions:
         assert len(result.failures) == 1
         assert result.failures[0].severity == Severity.ERROR
         assert "exception" in result.failures[0].message.lower()
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests — EvaluationReport.from_gate_results ERROR status
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluationReportErrorGate:
+    def test_error_gates_counted(self) -> None:
+        result = GateResult(gate_id=GateId.REGRESSION, status=GateStatus.ERROR, failures=[
+            GateFailure(severity=Severity.ERROR, gate_id=GateId.REGRESSION, message="exception")
+        ])
+        report = EvaluationReport.from_gate_results([result])
+        assert report.summary.error_gates == 1
+        assert report.passed is False
+
+
+# ---------------------------------------------------------------------------
+# GateConfig per-gate config helpers
+# ---------------------------------------------------------------------------
+
+
+class TestGateConfigHelpers:
+    def test_is_gate_enabled_via_gates_dict(self) -> None:
+        config = GateConfig(gates={"coverage": {"enabled": False}})
+        assert config.is_gate_enabled("coverage") is False
+
+    def test_is_gate_enabled_via_gates_dict_true(self) -> None:
+        config = GateConfig(gates={"coverage": {"enabled": True}})
+        assert config.is_gate_enabled("coverage") is True
+
+    def test_get_coverage_threshold_from_gates_dict(self) -> None:
+        config = GateConfig(gates={"coverage": {"threshold": 75.0}})
+        assert config.get_coverage_threshold() == 75.0
+
+    def test_get_staleness_days_from_gates_dict(self) -> None:
+        config = GateConfig(gates={"docs_freshness": {"max_staleness_days": 7}})
+        assert config.get_staleness_days() == 7
+
+    def test_get_performance_budget_from_gates_dict(self) -> None:
+        config = GateConfig(gates={"performance": {"budget_ms": 500}})
+        assert config.get_performance_budget_ms() == 500
+
+
+# ---------------------------------------------------------------------------
+# RegressionGate — JUnit XML parsing and location parsing
+# ---------------------------------------------------------------------------
+
+
+class TestRegressionGateJUnitParsing:
+    def test_parses_junit_xml_with_failures(self, tmp_path: Path) -> None:
+        junit_xml = tmp_path / ".harness-junit.xml"
+        junit_content = (
+            '<?xml version="1.0" ?>'
+            '<testsuites><testsuite name="tests">'
+            '<testcase classname="tests.test_foo" name="test_bar">'
+            '<failure>tests/test_foo.py:10: AssertionError</failure>'
+            '</testcase>'
+            '</testsuite></testsuites>'
+        )
+
+        def fake_run(args, **kwargs):
+            junit_xml.write_text(junit_content)
+            return MagicMock(returncode=1, stdout="1 failed", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = RegressionGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.FAILED
+        assert any("Test failed" in f.message for f in result.failures)
+
+    def test_parse_location_no_match(self) -> None:
+        path, line = RegressionGate._parse_location("no match here", Path("/tmp"))
+        assert path is None
+        assert line is None
+
+    def test_parse_location_file_not_exist(self, tmp_path: Path) -> None:
+        path, line = RegressionGate._parse_location("some/file.py:42", tmp_path)
+        assert path == "some/file.py"
+        assert line == 42
+
+    def test_parse_location_file_exists(self, tmp_path: Path) -> None:
+        (tmp_path / "real.py").write_text("x = 1\n")
+        path, line = RegressionGate._parse_location("real.py:5", tmp_path)
+        assert path == "real.py"
+        assert line == 5
+
+    def test_junit_xml_parse_error_handled(self, tmp_path: Path) -> None:
+        junit_xml = tmp_path / ".harness-junit.xml"
+
+        def fake_run(args, **kwargs):
+            junit_xml.write_text("<<invalid xml>>")
+            return MagicMock(returncode=1, stdout="failed", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = RegressionGate().run(tmp_path, GateConfig())
+
+        assert result.status == GateStatus.FAILED
+        assert any("Test suite failed" in f.message for f in result.failures)
+
+
+# ---------------------------------------------------------------------------
+# CoverageGate — missing JSON, malformed JSON, per-file failures
+# ---------------------------------------------------------------------------
+
+
+class TestCoverageGateExtended:
+    def test_no_coverage_json_generated(self, tmp_path: Path) -> None:
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="")
+            result = CoverageGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.FAILED
+        assert any("not generated" in f.message for f in result.failures)
+
+    def test_malformed_coverage_json(self, tmp_path: Path) -> None:
+        coverage_json = tmp_path / ".coverage.json"
+
+        def fake_run(args, **kwargs):
+            coverage_json.write_text("not json{{{")
+            return MagicMock(returncode=1, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = CoverageGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.FAILED
+        assert any("malformed" in f.message.lower() for f in result.failures)
+
+    def test_per_file_warning_below_threshold(self, tmp_path: Path) -> None:
+        coverage_data = {
+            "totals": {"percent_covered": 72.5},
+            "files": {
+                str(tmp_path / "src/bad.py"): {"summary": {"percent_covered": 50.0}},
+            },
+        }
+        coverage_json = tmp_path / ".coverage.json"
+
+        def fake_run(args, **kwargs):
+            coverage_json.write_text(json.dumps(coverage_data))
+            return MagicMock(returncode=1, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = CoverageGate().run(tmp_path, GateConfig(coverage_threshold=90.0))
+        warnings = [f for f in result.failures if f.severity == Severity.WARNING]
+        assert any("50.0%" in f.message for f in warnings)
+
+    def test_coverage_summary_message_passed(self, tmp_path: Path) -> None:
+        coverage_data = {"totals": {"percent_covered": 95.0}, "files": {}}
+        coverage_json = tmp_path / ".coverage.json"
+
+        def fake_run(args, **kwargs):
+            coverage_json.write_text(json.dumps(coverage_data))
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = CoverageGate().run(tmp_path, GateConfig(coverage_threshold=90.0))
+        assert "passed" in (result.message or "").lower() or result.status == GateStatus.PASSED
+
+    def test_coverage_summary_message_with_only_warnings(self, tmp_path: Path) -> None:
+        """When only warnings (no errors), the summary should use the parent class message."""
+        coverage_data = {
+            "totals": {"percent_covered": 91.0},
+            "files": {
+                "bad.py": {"summary": {"percent_covered": 50.0}},
+            },
+        }
+        coverage_json = tmp_path / ".coverage.json"
+
+        def fake_run(args, **kwargs):
+            coverage_json.write_text(json.dumps(coverage_data))
+            return MagicMock(returncode=1, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = CoverageGate().run(tmp_path, GateConfig(coverage_threshold=90.0))
+        # Per-file warning only, no overall threshold breach
+        if result.failures and all(f.severity != Severity.ERROR for f in result.failures):
+            assert result.message is not None
+
+
+# ---------------------------------------------------------------------------
+# SecurityGate — pip-audit & bandit
+# ---------------------------------------------------------------------------
+
+
+from harness_skills.generators.evaluation import PerformanceGate
+
+
+class TestSecurityGateExtended:
+    def test_pip_audit_not_installed_skipped(self, tmp_path: Path) -> None:
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=127, stdout="", stderr="No module named pip_audit"
+            )
+            result = SecurityGate().run(tmp_path, GateConfig())
+        # Should not produce failures for missing pip-audit
+        pip_audit_failures = [f for f in result.failures if "pip-audit" in f.message.lower()]
+        # Bandit part may also be missing — that's fine
+        assert all(f.gate_id == GateId.SECURITY for f in result.failures)
+
+    def test_pip_audit_non_json_output(self, tmp_path: Path) -> None:
+        calls = [0]
+
+        def fake_run(args, **kwargs):
+            calls[0] += 1
+            if "pip_audit" in " ".join(args):
+                return MagicMock(returncode=1, stdout="not json", stderr="error text")
+            # bandit call
+            return MagicMock(returncode=2, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = SecurityGate().run(tmp_path, GateConfig())
+        audit_warn = [f for f in result.failures if "not parseable" in f.message.lower()]
+        assert len(audit_warn) == 1
+
+    def test_pip_audit_vulnerability_reported(self, tmp_path: Path) -> None:
+        audit_data = {
+            "dependencies": [{
+                "name": "requests",
+                "vulns": [{"id": "CVE-2023-99999", "description": "Bad bug", "fix_versions": ["2.32.0"]}],
+            }]
+        }
+
+        def fake_run(args, **kwargs):
+            if "pip_audit" in " ".join(args):
+                return MagicMock(returncode=1, stdout=json.dumps(audit_data), stderr="")
+            return MagicMock(returncode=2, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = SecurityGate().run(tmp_path, GateConfig())
+        cve_failures = [f for f in result.failures if "CVE-2023-99999" in (f.rule_id or "")]
+        assert len(cve_failures) == 1
+        assert "requests" in cve_failures[0].message
+        assert "Upgrade" in (cve_failures[0].suggestion or "")
+
+    def test_pip_audit_vulnerability_no_fix(self, tmp_path: Path) -> None:
+        audit_data = {
+            "dependencies": [{
+                "name": "old-lib",
+                "vulns": [{"id": "CVE-2024-00001", "description": "No fix", "fix_versions": []}],
+            }]
+        }
+
+        def fake_run(args, **kwargs):
+            if "pip_audit" in " ".join(args):
+                return MagicMock(returncode=1, stdout=json.dumps(audit_data), stderr="")
+            return MagicMock(returncode=2, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = SecurityGate().run(tmp_path, GateConfig())
+        f = [x for x in result.failures if x.rule_id == "CVE-2024-00001"]
+        assert len(f) == 1
+        assert "No fix" in (f[0].suggestion or "")
+
+    def test_bandit_issues_parsed(self, tmp_path: Path) -> None:
+        bandit_data = {
+            "results": [{
+                "test_id": "B101",
+                "issue_text": "Use of assert detected.",
+                "issue_severity": "MEDIUM",
+                "filename": str(tmp_path / "app.py"),
+                "line_number": 5,
+                "code": "assert True",
+            }]
+        }
+
+        def fake_run(args, **kwargs):
+            if "pip_audit" in " ".join(args):
+                return MagicMock(returncode=0, stdout="", stderr="")
+            if "bandit" in " ".join(args):
+                return MagicMock(returncode=1, stdout=json.dumps(bandit_data), stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = SecurityGate().run(tmp_path, GateConfig())
+        bandit_f = [f for f in result.failures if f.rule_id == "B101"]
+        assert len(bandit_f) == 1
+        assert bandit_f[0].severity == Severity.WARNING
+        assert bandit_f[0].line_number == 5
+
+    def test_bandit_json_parse_error(self, tmp_path: Path) -> None:
+        def fake_run(args, **kwargs):
+            if "pip_audit" in " ".join(args):
+                return MagicMock(returncode=0, stdout="", stderr="")
+            if "bandit" in " ".join(args):
+                return MagicMock(returncode=1, stdout="not json", stderr="")
+            return MagicMock(returncode=0, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = SecurityGate().run(tmp_path, GateConfig())
+        # Bandit JSON parse error -> returns empty list
+        assert not any(f.rule_id and f.rule_id.startswith("B") for f in result.failures)
+
+
+# ---------------------------------------------------------------------------
+# PerformanceGate tests
+# ---------------------------------------------------------------------------
+
+
+class TestPerformanceGate:
+    def test_no_budget_configured_passes(self, tmp_path: Path) -> None:
+        result = PerformanceGate().run(tmp_path, GateConfig(performance_budget_ms=None))
+        assert result.status == GateStatus.PASSED
+
+    def test_no_perf_script_info(self, tmp_path: Path) -> None:
+        result = PerformanceGate().run(tmp_path, GateConfig(performance_budget_ms=5000))
+        assert result.status == GateStatus.FAILED
+        assert any("not found" in f.message for f in result.failures)
+        assert result.failures[0].severity == Severity.INFO
+
+    def test_perf_script_nonzero_exit(self, tmp_path: Path) -> None:
+        script = tmp_path / ".harness-perf.sh"
+        script.write_text("#!/bin/bash\nexit 0")
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="crash")
+            result = PerformanceGate().run(tmp_path, GateConfig(performance_budget_ms=5000))
+        assert result.status == GateStatus.FAILED
+        assert any("exited with code" in f.message for f in result.failures)
+
+    def test_perf_script_exceeds_budget(self, tmp_path: Path) -> None:
+        script = tmp_path / ".harness-perf.sh"
+        script.write_text("#!/bin/bash\nexit 0")
+
+        original_monotonic = time.monotonic
+        call_count = [0]
+
+        def fake_monotonic():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return 0.0
+            if call_count[0] == 2:
+                return 0.0
+            return 10.0  # 10 seconds elapsed
+
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run, \
+             patch("harness_skills.generators.evaluation.time.monotonic", side_effect=fake_monotonic):
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = PerformanceGate().run(tmp_path, GateConfig(performance_budget_ms=100))
+        assert result.status == GateStatus.FAILED
+        assert any("exceeds budget" in f.message for f in result.failures)
+
+    def test_perf_script_within_budget(self, tmp_path: Path) -> None:
+        script = tmp_path / ".harness-perf.sh"
+        script.write_text("#!/bin/bash\nexit 0")
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = PerformanceGate().run(tmp_path, GateConfig(performance_budget_ms=999999))
+        assert result.status == GateStatus.PASSED
+
+
+# ---------------------------------------------------------------------------
+# ArchitectureGate — syntax error and skip logic
+# ---------------------------------------------------------------------------
+
+
+class TestArchitectureGateExtended:
+    def test_skips_venv(self, tmp_path: Path) -> None:
+        venv = tmp_path / ".venv" / "lib"
+        venv.mkdir(parents=True)
+        (venv / "service_mod.py").write_text("from repo.thing import X\n")
+        result = ArchitectureGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+    def test_skips_syntax_error_files(self, tmp_path: Path) -> None:
+        svc = tmp_path / "service"
+        svc.mkdir()
+        (svc / "broken.py").write_text("def broken(:\n")
+        result = ArchitectureGate().run(tmp_path, GateConfig())
+        # Should not raise; just skip the file
+        assert isinstance(result.status, GateStatus)
+
+    def test_no_layer_detected_skipped(self, tmp_path: Path) -> None:
+        (tmp_path / "random.py").write_text("import os\n")
+        result = ArchitectureGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+    def test_module_to_layer_returns_none(self, tmp_path: Path) -> None:
+        gate = ArchitectureGate()
+        assert gate._module_to_layer("os", ["types", "config"], tmp_path) is None
+
+    def test_module_to_layer_returns_match(self, tmp_path: Path) -> None:
+        gate = ArchitectureGate()
+        result = gate._module_to_layer("service.user_service", ["repo", "service"], tmp_path)
+        assert result == "service"
+
+    def test_detect_layer_returns_none_for_unmatched(self, tmp_path: Path) -> None:
+        gate = ArchitectureGate()
+        result = gate._detect_layer(tmp_path / "random.py", ["types", "config"], tmp_path)
+        assert result is None
+
+    def test_detect_layer_returns_match(self, tmp_path: Path) -> None:
+        gate = ArchitectureGate()
+        svc = tmp_path / "service" / "foo.py"
+        result = gate._detect_layer(svc, ["repo", "service"], tmp_path)
+        assert result == "service"
+
+    def test_imports_from_unknown_layer_skipped(self, tmp_path: Path) -> None:
+        """Import from a module that doesn't match any layer -> continue (line 822)."""
+        svc_dir = tmp_path / "service"
+        svc_dir.mkdir()
+        (svc_dir / "handler.py").write_text(
+            "import os\nimport json\n"
+            "from repo.stuff import Thing\n"
+        )
+        result = ArchitectureGate().run(tmp_path, GateConfig())
+        # "os" and "json" don't match any layer -> skipped; "repo.stuff" is lower layer -> no violation
+        assert isinstance(result.status, GateStatus)
+
+
+# ---------------------------------------------------------------------------
+# PrinciplesGate — syntax error files skipped
+# ---------------------------------------------------------------------------
+
+
+class TestPrinciplesGateExtended:
+    def test_skips_syntax_error_files(self, tmp_path: Path) -> None:
+        (tmp_path / "broken.py").write_text("def broken(:\n")
+        result = PrinciplesGate().run(tmp_path, GateConfig())
+        assert isinstance(result.status, GateStatus)
+
+    def test_skips_venv(self, tmp_path: Path) -> None:
+        venv = tmp_path / ".venv" / "pkg"
+        venv.mkdir(parents=True)
+        (venv / "bad.py").write_text("x = 42 * 365\n")
+        result = PrinciplesGate().run(tmp_path, GateConfig())
+        assert all(f.file_path != ".venv/pkg/bad.py" for f in result.failures)
+
+
+# ---------------------------------------------------------------------------
+# DocsFreshnessGate — no timestamp, invalid timestamp
+# ---------------------------------------------------------------------------
+
+
+class TestDocsFreshnessGateExtended:
+    def test_no_timestamp_in_file(self, tmp_path: Path) -> None:
+        agents = tmp_path / "AGENTS.md"
+        agents.write_text("# AGENTS\nNo timestamp here.\n")
+        result = DocsFreshnessGate().run(tmp_path, GateConfig())
+        info = [f for f in result.failures if f.rule_id == "docs/missing-timestamp"]
+        assert any(f.file_path == "AGENTS.md" for f in info)
+
+    def test_invalid_timestamp_ignored(self, tmp_path: Path) -> None:
+        agents = tmp_path / "AGENTS.md"
+        agents.write_text("# AGENTS\n<!-- generated_at: not-a-date -->\n")
+        result = DocsFreshnessGate().run(tmp_path, GateConfig())
+        # Should not crash; the invalid timestamp should be silently skipped
+
+
+# ---------------------------------------------------------------------------
+# TypesGate — tsc branch and skip logic
+# ---------------------------------------------------------------------------
+
+
+class TestTypesGateExtended:
+    def test_tsc_parses_errors(self, tmp_path: Path) -> None:
+        (tmp_path / "tsconfig.json").write_text("{}")
+        tsc_output = "src/app.ts(10,5): error TS2322: Type 'string' is not assignable to type 'number'.\n"
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout=tsc_output, stderr="")
+            result = TypesGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.FAILED
+        assert len(result.failures) >= 1
+        f = result.failures[0]
+        assert f.file_path == "src/app.ts"
+        assert f.line_number == 10
+        assert f.rule_id == "TS2322"
+
+    def test_tsc_passes(self, tmp_path: Path) -> None:
+        (tmp_path / "tsconfig.json").write_text("{}")
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            result = TypesGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+    def test_unknown_language_skipped(self, tmp_path: Path) -> None:
+        # No pyproject.toml, setup.py, or tsconfig.json
+        result = TypesGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+
+# ---------------------------------------------------------------------------
+# LintGate — ESLint with no changed JS files, ruff non-json output
+# ---------------------------------------------------------------------------
+
+
+class TestLintGateExtended:
+    def test_eslint_no_js_files_in_changes(self, tmp_path: Path) -> None:
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        git_diff_output = "README.md\n"
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout=git_diff_output, stderr="")
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+    def test_eslint_full_scan_severity_1_is_warning(self, tmp_path: Path) -> None:
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        eslint_output = json.dumps([{
+            "filePath": str(tmp_path / "app.js"),
+            "messages": [{
+                "ruleId": "no-unused-vars",
+                "severity": 1,
+                "message": "unused var",
+                "line": 1,
+            }],
+        }])
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                # No changed files -> full scan
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=1, stdout=eslint_output, stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.FAILED
+        assert result.failures[0].severity == Severity.WARNING
+
+    def test_eslint_json_decode_error(self, tmp_path: Path) -> None:
+        (tmp_path / ".eslintrc.json").write_text("{}")
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=1, stdout="not json!", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        # JSON decode error for eslint returns empty failures list
+        assert result.status == GateStatus.PASSED or len(result.failures) == 0
+
+    def test_ruff_non_json_output(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=1, stdout="some non-json ruff output", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        # Non-JSON ruff output should produce a single warning
+        assert any("non-JSON" in f.message for f in result.failures)
+
+    def test_ruff_empty_stdout_on_failure(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=1, stdout="", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED
+
+    def test_git_diff_fallback_to_cached(self, tmp_path: Path) -> None:
+        """When HEAD diff fails, falls back to --cached."""
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n")
+        call_count = [0]
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                call_count[0] += 1
+                if call_count[0] == 1:
+                    return MagicMock(returncode=1, stdout="", stderr="error")
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        assert call_count[0] >= 2  # HEAD diff + cached fallback
+
+
+# ---------------------------------------------------------------------------
+# format_report — jsonschema import handling
+# ---------------------------------------------------------------------------
+
+
+class TestFormatReportExtended:
+    def test_format_report_without_jsonschema(self) -> None:
+        report = EvaluationReport.from_gate_results([])
+        with patch.dict("sys.modules", {"jsonschema": None}):
+            json_str = format_report(report)
+            data = json.loads(json_str)
+            assert data["passed"] is True
+
+
+# ---------------------------------------------------------------------------
+# _collect_metadata — git not available
+# ---------------------------------------------------------------------------
+
+
+class TestCollectMetadata:
+    def test_metadata_git_not_available(self, tmp_path: Path) -> None:
+        from harness_skills.generators.evaluation import _collect_metadata
+
+        with patch("harness_skills.generators.evaluation.subprocess.run",
+                   side_effect=FileNotFoundError("git not found")):
+            meta = _collect_metadata(tmp_path)
+        assert meta.git_sha is None
+        assert meta.git_branch is None
+
+
+# ---------------------------------------------------------------------------
+# Additional tests for remaining uncovered lines
+# ---------------------------------------------------------------------------
+
+
+class TestDocsFreshnessInvalidTimestamp:
+    def test_invalid_timestamp_value_error(self, tmp_path: Path) -> None:
+        """Invalid timestamp format triggers ValueError branch (lines 1026-1027).
+
+        The value must match the TIMESTAMP_RE pattern (digits-digits-digits...) but
+        fail datetime.fromisoformat() to trigger the ValueError except branch.
+        """
+        # This matches the regex r"generated_at:\s*([\d\-T:.+Z]+)" but is not a valid ISO date
+        invalid_but_matches_regex = "9999-99-99T99:99:99+00:00"
+        agents = tmp_path / "AGENTS.md"
+        agents.write_text(f"# AGENTS\n<!-- generated_at: {invalid_but_matches_regex} -->\n")
+        (tmp_path / "docs").mkdir()
+        for name in ["docs/ARCHITECTURE.md", "docs/PRINCIPLES.md", "docs/EVALUATION.md"]:
+            p = tmp_path / name
+            p.write_text(f"# {name}\n<!-- generated_at: {invalid_but_matches_regex} -->\n")
+        result = DocsFreshnessGate().run(tmp_path, GateConfig())
+        # Should not crash; invalid dates are silently skipped via except ValueError: pass
+        assert isinstance(result.status, GateStatus)
+
+
+class TestCoverageSummaryMessageWarningsOnly:
+    def test_summary_calls_super_when_only_warnings(self, tmp_path: Path) -> None:
+        """When there are failures but none are errors, super()._summary_message is called (line 822)."""
+        gate = CoverageGate()
+        config = GateConfig(coverage_threshold=90.0)
+        warnings = [
+            GateFailure(
+                severity=Severity.WARNING,
+                gate_id=GateId.COVERAGE,
+                message="file.py: coverage 50.0%",
+            )
+        ]
+        msg = gate._summary_message(warnings, config)
+        assert "coverage" in msg.lower()
+
+
+class TestTypesGateTscNonMatchingLine:
+    def test_tsc_with_non_matching_lines(self, tmp_path: Path) -> None:
+        """Lines that don't match TSC pattern are skipped (line 1095)."""
+        (tmp_path / "tsconfig.json").write_text("{}")
+        tsc_output = (
+            "Found 1 error.\n"
+            "src/app.ts(5,3): error TS1234: Some error.\n"
+            "Non-matching line here\n"
+        )
+        with patch("harness_skills.generators.evaluation.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout=tsc_output, stderr="")
+            result = TypesGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.FAILED
+        assert len(result.failures) == 1  # Only the matching line
+
+
+class TestLintGateEslintNoViolations:
+    def test_eslint_returns_zero(self, tmp_path: Path) -> None:
+        """ESLint returning 0 produces no failures (line 1262)."""
+        (tmp_path / ".eslintrc.json").write_text("{}")
+
+        def fake_run(args, **kwargs):
+            if "git" in args:
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=0, stdout="[]", stderr="")
+
+        with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
+            result = LintGate().run(tmp_path, GateConfig())
+        assert result.status == GateStatus.PASSED

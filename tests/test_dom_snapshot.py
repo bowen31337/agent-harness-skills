@@ -21,6 +21,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+# These are required runtime dependencies for the snapshot module.
+# Without them every snapshot call returns an empty DOMSnapshot with an error string,
+# which makes the tests fail with misleading assertion messages.
+pytest.importorskip("bs4", reason="beautifulsoup4 is required for DOM snapshot tests")
+pytest.importorskip("lxml", reason="lxml is required for DOM snapshot tests")
+
 from dom_snapshot_utility.snapshot import (
     DOMSnapshot,
     Form,

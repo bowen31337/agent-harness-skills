@@ -59,7 +59,7 @@ ignore:
   - conftest.py
   - pyproject.toml
   - uv.lock
-  - requirements.txt
+
 
   # ── CI / DevOps tooling ────────────────────────────────────────────────────
   - .gitlab-ci.yml

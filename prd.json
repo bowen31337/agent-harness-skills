@@ -1,0 +1,64 @@
+{
+  "project": "agent-harness-skills-gap-closure-final",
+  "branchName": "main",
+  "description": "Close the final 3 PARTIAL gaps to reach 129/129 spec features.",
+  "complexity": {
+    "score": 4,
+    "category": "simple",
+    "estimated_iterations": 6
+  },
+  "userStories": [
+    {
+      "id": "US-010",
+      "title": "Implement API style detection (REST/GraphQL/gRPC)",
+      "description": "Add a _detect_api_style() function to harness_skills/generators/codebase_analyzer.py that detects REST (FastAPI/Flask/Express route decorators), GraphQL (schema.graphql files, graphql dependencies), and gRPC (proto files, grpc dependencies). Wire it into detect_stack() so api_style is populated instead of always None. Write tests in tests/test_generators/test_codebase_analyzer.py.",
+      "acceptanceCriteria": [
+        "_detect_api_style() exists in codebase_analyzer.py and is called from detect_stack()",
+        "Detects REST from: @app.get/@app.post decorators in Python files, express route patterns in JS, or FastAPI/Flask/Django REST framework in dependencies",
+        "Detects GraphQL from: schema.graphql/schema.gql files or graphql/apollo/ariadne in dependencies",
+        "Detects gRPC from: .proto files or grpc/grpcio in dependencies",
+        "api_style field in DetectedStack is no longer always None",
+        "Test: tmp_path with FastAPI route file -> api_style='rest'",
+        "Test: tmp_path with schema.graphql -> api_style='graphql'",
+        "Test: tmp_path with .proto file -> api_style='grpc'",
+        "Test: tmp_path with no API indicators -> api_style=None",
+        "All existing tests still pass (run: PYTHONPATH=. .venv/bin/python -m pytest tests/test_generators/test_codebase_analyzer.py tests/test_cli/ tests/test_utils/ tests/test_analyzers/ tests/test_ci/ tests/test_arch_layers/ -o 'addopts=' -q)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Modify harness_skills/generators/codebase_analyzer.py. The detect_stack function currently passes api_style=None. Add detection logic and wire it in. Pattern: look at how _detect_database() works — same approach but for API style indicators."
+    },
+    {
+      "id": "US-011",
+      "title": "Auto-create docs/generated/ directory in harness create",
+      "description": "Modify harness_skills/cli/create.py to create the docs/generated/ directory structure (with subdirs schemas/, api/, graphs/) after generating harness.config.yaml. Add a .gitkeep file in each subdir. Add the directory creation as a GeneratedArtifact in the response. Write a test verifying the directories are created.",
+      "acceptanceCriteria": [
+        "harness create creates docs/generated/schemas/, docs/generated/api/, docs/generated/graphs/ directories",
+        "Each subdir contains a .gitkeep file",
+        "CreateResponse includes docs/generated/ as a generated artifact",
+        "Test: invoke create_cmd via CliRunner on tmp_path, verify dirs exist",
+        "All existing tests still pass"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Modify harness_skills/cli/create.py. Add directory creation after the CI pipeline generation block. Use output.parent as the project root to determine where docs/ should go."
+    },
+    {
+      "id": "US-012",
+      "title": "Generate standalone harness-init shell script (not just Python)",
+      "description": "Create scripts/harness-init.sh — a POSIX shell script that works without Python installed. It should: (1) detect if Python/Node/Go/Rust project by checking for package files, (2) create a minimal harness.config.yaml with the starter profile, (3) print what was detected and created. Also update the existing scripts/harness_init.py to generate this shell script via a --generate-shell flag. Write tests for the shell script.",
+      "acceptanceCriteria": [
+        "scripts/harness-init.sh exists and is executable",
+        "Shell script detects Python (pyproject.toml/setup.py), Node (package.json), Go (go.mod), Rust (Cargo.toml)",
+        "Shell script creates harness.config.yaml with starter profile defaults",
+        "Shell script works with /bin/sh (POSIX compatible, no bashisms beyond set -e)",
+        "Test: run the shell script in tmp_path with a pyproject.toml present, verify harness.config.yaml created",
+        "Test: run with --help flag, verify exit 0",
+        "All existing tests still pass"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Create scripts/harness-init.sh. The spec says 'harness init shell script for teams not using Claude Code'. This is the POSIX-shell version of scripts/harness_init.py for environments without Python."
+    }
+  ]
+}

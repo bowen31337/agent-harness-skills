@@ -178,7 +178,7 @@ List at most **10** errors in the output.  If there are more, append:
 🔴 BLOCKING — Type checker not found
 ────────────────────────────────────────────────────
   mypy is not installed.
-  Install with: pip install mypy
+  Install with: uv add mypy
   Then re-run the gate.
 ```
 
@@ -232,7 +232,7 @@ When the gate fails, suggest concrete actions based on the checker:
    ```
 4. **Add type stubs for missing packages**
    ```bash
-   pip install types-requests types-PyYAML
+   uv add types-requests types-PyYAML
    ```
 
 #### tsc failures

@@ -151,6 +151,13 @@ class TestParseAgentsMd:
         _, body = parse_agents_md(content)
         assert body.startswith("\nBody with extra blank.")
 
+    def test_single_newline_after_block(self):
+        """When only a single newline follows the block, it is stripped too."""
+        block = build_front_matter(SERVICE, RUN_DATE, HEAD_HASH)
+        content = block + "\nBody after single newline."
+        _, body = parse_agents_md(content)
+        assert body == "Body after single newline."
+
 
 # ---------------------------------------------------------------------------
 # parse_front_matter_meta
@@ -685,3 +692,159 @@ class TestRegenerateAll:
         (tmp_path / "AGENTS.md").write_text("<!-- TODO: fill in -->")
         diffs = regenerate_all(tmp_path, run_date=RUN_DATE, head_hash=HEAD_HASH)
         assert all(isinstance(d, ArtifactDiff) for d in diffs)
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests
+# ---------------------------------------------------------------------------
+
+
+from unittest.mock import patch, MagicMock
+
+from harness_skills.generators.agents_md import (
+    _build_quick_reference,
+    _current_head,
+    _get_git_base,
+    _split_sections,
+    generate_domain_agents_md,
+    generate_root_agents_md,
+)
+
+
+class TestGenerateRootAgentsMd:
+    def test_template_fallback(self) -> None:
+        with patch("harness_skills.generators.agents_md.template_exists", return_value=False):
+            result = generate_root_agents_md(project_name="myapp")
+        assert "# AGENTS.md" in result
+        assert "myapp" in result
+
+    def test_template_fallback_with_domains(self) -> None:
+        with patch("harness_skills.generators.agents_md.template_exists", return_value=False):
+            result = generate_root_agents_md(
+                project_name="myapp", domains=["auth", "billing"]
+            )
+        assert "**auth/**" in result
+        assert "**billing/**" in result
+        assert "Domains" in result
+
+    def test_template_exists_uses_jinja(self) -> None:
+        with patch("harness_skills.generators.agents_md.template_exists", return_value=True), \
+             patch("harness_skills.generators.agents_md.render_template", return_value="rendered"):
+            result = generate_root_agents_md(project_name="myapp")
+        assert result == "rendered"
+
+
+class TestGenerateDomainAgentsMd:
+    def test_template_fallback(self) -> None:
+        with patch("harness_skills.generators.agents_md.template_exists", return_value=False):
+            result = generate_domain_agents_md(domain_name="auth")
+        assert "# auth/" in result
+
+    def test_template_exists_uses_jinja(self) -> None:
+        with patch("harness_skills.generators.agents_md.template_exists", return_value=True), \
+             patch("harness_skills.generators.agents_md.render_template", return_value="domain rendered"):
+            result = generate_domain_agents_md(domain_name="auth")
+        assert result == "domain rendered"
+
+
+class TestSplitSections:
+    def test_no_headings(self) -> None:
+        body = "Just some text.\n"
+        sections = _split_sections(body)
+        assert len(sections) >= 1
+        assert sections[0][0] == ""
+
+    def test_multiple_headings(self) -> None:
+        body = "## Overview\nContent.\n## Details\nMore.\n"
+        sections = _split_sections(body)
+        headings = [s[0] for s in sections if s[0]]
+        assert len(headings) == 2
+
+    def test_preamble_before_first_heading(self) -> None:
+        body = "Preamble text.\n## Section\nContent.\n"
+        sections = _split_sections(body)
+        assert sections[0][0] == ""
+        assert "Preamble" in sections[0][1]
+
+
+class TestCurrentHead:
+    def test_returns_sha(self, tmp_path: Path) -> None:
+        with patch("harness_skills.generators.agents_md.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="abc1234\n")
+            result = _current_head(tmp_path)
+        assert result == "abc1234"
+
+    def test_returns_no_git_on_failure(self, tmp_path: Path) -> None:
+        with patch("harness_skills.generators.agents_md.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=128, stdout="")
+            result = _current_head(tmp_path)
+        assert result == "no-git"
+
+    def test_returns_no_git_on_exception(self, tmp_path: Path) -> None:
+        with patch("harness_skills.generators.agents_md.subprocess.run",
+                   side_effect=FileNotFoundError("git not found")):
+            result = _current_head(tmp_path)
+        assert result == "no-git"
+
+
+class TestGetGitBase:
+    def test_returns_content_on_success(self, tmp_path: Path) -> None:
+        agents_md = tmp_path / "AGENTS.md"
+        agents_md.write_text("content")
+        with patch("harness_skills.generators.agents_md.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="base content")
+            result = _get_git_base("abc123", agents_md, tmp_path)
+        assert result == "base content"
+
+    def test_returns_none_on_failure(self, tmp_path: Path) -> None:
+        agents_md = tmp_path / "AGENTS.md"
+        with patch("harness_skills.generators.agents_md.subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=128, stdout="")
+            result = _get_git_base("abc123", agents_md, tmp_path)
+        assert result is None
+
+    def test_returns_none_on_exception(self, tmp_path: Path) -> None:
+        agents_md = tmp_path / "AGENTS.md"
+        with patch("harness_skills.generators.agents_md.subprocess.run",
+                   side_effect=FileNotFoundError):
+            result = _get_git_base("abc123", agents_md, tmp_path)
+        assert result is None
+
+    def test_returns_none_on_value_error(self) -> None:
+        # Path not relative to root -> ValueError
+        result = _get_git_base("abc123", Path("/other/AGENTS.md"), Path("/root"))
+        assert result is None
+
+
+class TestServiceNameEdgeCases:
+    def test_path_outside_root(self) -> None:
+        result = _service_name(Path("/other/place/AGENTS.md"), Path("/root/repo"))
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+class TestRegenerateFrontMatterDefaultParams:
+    def test_default_run_date_and_head(self, tmp_path: Path) -> None:
+        target = tmp_path / "AGENTS.md"
+        with patch("harness_skills.generators.agents_md._current_head", return_value="def456"):
+            diff = regenerate_front_matter(target, root=tmp_path)
+        assert diff.change_type == "created"
+        content = target.read_text()
+        assert "head: def456" in content
+
+    def test_trailing_newline_preserved(self, tmp_path: Path) -> None:
+        target = tmp_path / "AGENTS.md"
+        service = tmp_path.name.lower().replace(" ", "-")
+        block = build_front_matter(service, "2026-01-01", "old0000")
+        target.write_text(block + "\n\nBody content.\n")
+        diff = regenerate_front_matter(target, run_date=RUN_DATE, head_hash=HEAD_HASH, root=tmp_path)
+        content = target.read_text()
+        assert content.endswith("\n")
+
+
+class TestRegenerateAllDefaultParams:
+    def test_default_run_date_and_head(self, tmp_path: Path) -> None:
+        (tmp_path / "AGENTS.md").write_text("<!-- TODO: fill in -->")
+        with patch("harness_skills.generators.agents_md._current_head", return_value="def456"):
+            diffs = regenerate_all(tmp_path)
+        assert len(diffs) == 1

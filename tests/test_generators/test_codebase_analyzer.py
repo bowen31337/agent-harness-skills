@@ -33,6 +33,7 @@ import pytest
 
 from harness_skills.generators.codebase_analyzer import (
     _as_dict,
+    _detect_api_style,
     _first_exact_match,
     _first_match,
     _get_go_deps,
@@ -802,3 +803,481 @@ class TestDetectStackOnRealProject:
         result = detect_stack(project_root)
         # At least one CI platform should be detected
         assert result.ci_platform is not None
+
+
+# ===========================================================================
+# detect_stack — documentation coverage detection
+# ===========================================================================
+
+
+class TestDocumentationCoverageDetection:
+    def test_readme_detected(self, tmp_path: Path):
+        (tmp_path / "README.md").write_text("# My Project\n")
+        result = detect_stack(tmp_path)
+        assert "README.md" in result.documentation_files
+
+    def test_multiple_docs_detected(self, tmp_path: Path):
+        (tmp_path / "README.md").write_text("# Readme\n")
+        (tmp_path / "CONTRIBUTING.md").write_text("# Contributing\n")
+        (tmp_path / "CHANGELOG.md").write_text("# Changelog\n")
+        (tmp_path / "AGENTS.md").write_text("# Agents\n")
+        result = detect_stack(tmp_path)
+        assert sorted(result.documentation_files) == [
+            "AGENTS.md",
+            "CHANGELOG.md",
+            "CONTRIBUTING.md",
+            "README.md",
+        ]
+
+    def test_missing_readme_detected_when_absent(self, tmp_path: Path):
+        result = detect_stack(tmp_path)
+        assert "README.md" not in result.documentation_files
+
+    def test_empty_dir_returns_empty_documentation_files(self, tmp_path: Path):
+        result = detect_stack(tmp_path)
+        assert result.documentation_files == []
+
+    def test_partial_docs_detected(self, tmp_path: Path):
+        (tmp_path / "README.md").write_text("# Readme\n")
+        (tmp_path / "AGENTS.md").write_text("# Agents\n")
+        result = detect_stack(tmp_path)
+        assert result.documentation_files == ["README.md", "AGENTS.md"]
+
+
+# ===========================================================================
+# API style detection
+# ===========================================================================
+
+
+class TestApiStyleDetection:
+    """Tests for _detect_api_style() and its integration with detect_stack()."""
+
+    def test_fastapi_route_file_detected_as_rest(self, tmp_path: Path):
+        """tmp_path with FastAPI route file -> api_style='rest'."""
+        write_pyproject(tmp_path / "pyproject.toml", deps=["fastapi", "uvicorn"])
+        app_dir = tmp_path / "app"
+        app_dir.mkdir()
+        (app_dir / "main.py").write_text(
+            'from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get("/health")\ndef health():\n    return {"ok": True}\n',
+            encoding="utf-8",
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style == "rest"
+
+    def test_schema_graphql_detected_as_graphql(self, tmp_path: Path):
+        """tmp_path with schema.graphql -> api_style='graphql'."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\ndependencies = []\n', encoding="utf-8"
+        )
+        (tmp_path / "schema.graphql").write_text(
+            "type Query {\n  hello: String\n}\n", encoding="utf-8"
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style == "graphql"
+
+    def test_proto_file_detected_as_grpc(self, tmp_path: Path):
+        """tmp_path with .proto file -> api_style='grpc'."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\ndependencies = []\n', encoding="utf-8"
+        )
+        proto_dir = tmp_path / "protos"
+        proto_dir.mkdir()
+        (proto_dir / "service.proto").write_text(
+            'syntax = "proto3";\nservice Greeter {}\n', encoding="utf-8"
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style == "grpc"
+
+    def test_no_api_indicators_returns_none(self, tmp_path: Path):
+        """tmp_path with no API indicators -> api_style=None."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\ndependencies = ["requests"]\n', encoding="utf-8"
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style is None
+
+    def test_detect_api_style_called_from_detect_stack(self, tmp_path: Path):
+        """api_style field in DetectedStack is no longer always None when indicators present."""
+        write_pyproject(tmp_path / "pyproject.toml", deps=["flask"])
+        (tmp_path / "app.py").write_text(
+            'from flask import Flask\napp = Flask(__name__)\n@app.get("/")\ndef index():\n    return "ok"\n',
+            encoding="utf-8",
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style is not None
+
+    def test_graphql_dep_detected(self, tmp_path: Path):
+        """GraphQL dependency in package.json triggers graphql detection."""
+        write_package_json(
+            tmp_path / "package.json",
+            deps={"apollo-server": "^3.0.0", "graphql": "^16.0.0"},
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style == "graphql"
+
+    def test_grpc_dep_detected(self, tmp_path: Path):
+        """gRPC dependency triggers grpc detection."""
+        write_pyproject(tmp_path / "pyproject.toml", deps=["grpcio", "protobuf"])
+        result = detect_stack(tmp_path)
+        assert result.api_style == "grpc"
+
+    def test_express_route_detected_as_rest(self, tmp_path: Path):
+        """Express-style route patterns in JS files trigger REST detection."""
+        write_package_json(
+            tmp_path / "package.json",
+            deps={"express": "^4.0.0"},
+        )
+        (tmp_path / "server.js").write_text(
+            'const app = require("express")();\napp.get("/api/users", (req, res) => res.json([]));\n',
+            encoding="utf-8",
+        )
+        result = detect_stack(tmp_path)
+        assert result.api_style == "rest"
+
+    def test_direct_detect_api_style_function_exists(self, tmp_path: Path):
+        """_detect_api_style() exists and is callable."""
+        result = _detect_api_style(tmp_path, "python")
+        assert result is None
+
+    def test_gql_extension_detected(self, tmp_path: Path):
+        """schema.gql extension also triggers graphql detection."""
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\nname = "myapp"\ndependencies = []\n', encoding="utf-8"
+        )
+        (tmp_path / "schema.gql").write_text("type Query { hello: String }\n", encoding="utf-8")
+        result = detect_stack(tmp_path)
+        assert result.api_style == "graphql"
+
+
+# ===========================================================================
+# Additional coverage tests
+# ===========================================================================
+
+
+from harness_skills.generators.codebase_analyzer import (
+    _detect_database,
+    _detect_documentation_coverage,
+    _detect_linter,
+    _detect_project_structure,
+    _get_deps_for_language,
+    _has_rest_routes,
+)
+
+
+class TestSetupCfgDeps:
+    def test_setup_cfg_install_requires(self, tmp_path: Path) -> None:
+        (tmp_path / "setup.cfg").write_text(
+            "[options]\ninstall_requires =\n    requests>=2.0\n    flask\n",
+            encoding="utf-8",
+        )
+        deps = _get_python_deps(tmp_path)
+        assert "requests" in deps
+        assert "flask" in deps
+
+
+class TestGoModDeps:
+    def test_go_mod_single_require(self, tmp_path: Path) -> None:
+        (tmp_path / "go.mod").write_text(
+            "module example.com/app\n\nrequire github.com/gin-gonic/gin v1.9.0\n",
+            encoding="utf-8",
+        )
+        deps = _get_go_deps(tmp_path)
+        assert "github.com/gin-gonic/gin" in deps
+
+    def test_go_mod_oserror(self, tmp_path: Path) -> None:
+        """When go.mod is not readable, return empty list."""
+        deps = _get_go_deps(tmp_path)
+        assert deps == []
+
+
+class TestJavaDeps:
+    def test_pom_xml_oserror(self, tmp_path: Path) -> None:
+        # pom.xml exists but test parse
+        (tmp_path / "pom.xml").write_text(
+            "<project><dependencies>"
+            "<dependency><groupId>org.spring</groupId><artifactId>spring-web</artifactId></dependency>"
+            "</dependencies></project>",
+            encoding="utf-8",
+        )
+        deps = _get_java_deps(tmp_path)
+        assert "spring-web" in deps
+        assert "org.spring" in deps
+
+    def test_build_gradle_deps(self, tmp_path: Path) -> None:
+        (tmp_path / "build.gradle").write_text(
+            "dependencies {\n    implementation 'com.google.guava:guava'\n}\n",
+            encoding="utf-8",
+        )
+        deps = _get_java_deps(tmp_path)
+        assert any("guava" in d for d in deps)
+
+    def test_build_gradle_kts_deps(self, tmp_path: Path) -> None:
+        (tmp_path / "build.gradle.kts").write_text(
+            'dependencies {\n    implementation("org.jetbrains.kotlin:kotlin-stdlib")\n}\n',
+            encoding="utf-8",
+        )
+        deps = _get_java_deps(tmp_path)
+        assert any("kotlin-stdlib" in d for d in deps)
+
+
+class TestRubyDeps:
+    def test_gemfile_deps(self, tmp_path: Path) -> None:
+        (tmp_path / "Gemfile").write_text("gem 'rails'\ngem 'pg'\n", encoding="utf-8")
+        deps = _get_ruby_deps(tmp_path)
+        assert "rails" in deps
+        assert "pg" in deps
+
+    def test_gemfile_not_exist(self, tmp_path: Path) -> None:
+        deps = _get_ruby_deps(tmp_path)
+        assert deps == []
+
+
+class TestRustDeps:
+    def test_cargo_deps(self, tmp_path: Path) -> None:
+        (tmp_path / "Cargo.toml").write_text(
+            "[dependencies]\nserde = \"1.0\"\ntokio = { version = \"1\" }\n",
+            encoding="utf-8",
+        )
+        deps = _get_rust_deps(tmp_path)
+        assert "serde" in deps
+        assert "tokio" in deps
+
+    def test_cargo_not_exist(self, tmp_path: Path) -> None:
+        deps = _get_rust_deps(tmp_path)
+        assert deps == []
+
+    def test_cargo_toml_fallback_regex(self, tmp_path: Path) -> None:
+        """When TOML parsing fails (invalid format), fallback regex is used."""
+        (tmp_path / "Cargo.toml").write_text(
+            "[dependencies\nserde = 1.0\n",  # Invalid TOML
+            encoding="utf-8",
+        )
+        deps = _get_rust_deps(tmp_path)
+        # Regex fallback should at least find 'serde'
+        assert "serde" in deps
+
+
+class TestDetectDatabase:
+    def test_python_database(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["sqlalchemy"]\n', encoding="utf-8"
+        )
+        result = _detect_database(tmp_path, "python")
+        assert result is not None
+
+    def test_unknown_language(self, tmp_path: Path) -> None:
+        result = _detect_database(tmp_path, "haskell")
+        assert result is None
+
+    def test_kotlin_maps_to_java(self, tmp_path: Path) -> None:
+        result = _detect_database(tmp_path, "kotlin")
+        # No deps -> None, but the code path for kotlin->java is exercised
+        assert result is None
+
+    def test_typescript_maps_to_javascript(self, tmp_path: Path) -> None:
+        result = _detect_database(tmp_path, "typescript")
+        assert result is None
+
+    def test_go_database(self, tmp_path: Path) -> None:
+        (tmp_path / "go.mod").write_text(
+            "module ex\n\ngo 1.21\n\nrequire (\n\tgorm.io/gorm v1.0\n)\n",
+            encoding="utf-8",
+        )
+        result = _detect_database(tmp_path, "go")
+        assert result is not None
+
+    def test_rust_database(self, tmp_path: Path) -> None:
+        (tmp_path / "Cargo.toml").write_text(
+            "[dependencies]\ndiesel = \"2.0\"\n", encoding="utf-8"
+        )
+        result = _detect_database(tmp_path, "rust")
+        assert result is not None
+
+    def test_unsupported_lang_in_database_deps(self, tmp_path: Path) -> None:
+        # "ruby" is not in _DATABASE_DEPS unless _DATABASE_DEPS includes it.
+        result = _detect_database(tmp_path, "ruby")
+        # Should return None gracefully
+
+
+class TestRestRoutes:
+    def test_js_rest_routes(self, tmp_path: Path) -> None:
+        (tmp_path / "server.js").write_text(
+            'const app = require("express")();\napp.get("/users", (req, res) => {});\n'
+        )
+        assert _has_rest_routes(tmp_path, "javascript") is True
+
+    def test_ts_rest_routes(self, tmp_path: Path) -> None:
+        (tmp_path / "server.ts").write_text(
+            'app.post("/api/items", handler);\n'
+        )
+        assert _has_rest_routes(tmp_path, "typescript") is True
+
+
+class TestProjectStructure:
+    def test_pnpm_workspace(self, tmp_path: Path) -> None:
+        (tmp_path / "pnpm-workspace.yaml").write_text("packages:\n  - 'packages/*'\n")
+        result = _detect_project_structure(tmp_path)
+        assert result == "monorepo"
+
+    def test_package_json_workspaces(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text('{"workspaces": ["packages/*"]}')
+        result = _detect_project_structure(tmp_path)
+        assert result == "monorepo"
+
+    def test_package_json_no_workspaces(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text('{"name": "app"}')
+        result = _detect_project_structure(tmp_path)
+        assert result == "single-app"
+
+    def test_pyproject_uv_workspace(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.uv.workspace]\nmembers = []\n")
+        result = _detect_project_structure(tmp_path)
+        assert result == "monorepo"
+
+    def test_package_json_malformed(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text("{not valid json")
+        result = _detect_project_structure(tmp_path)
+        # Should not crash
+
+
+class TestDocumentationCoverage:
+    def test_finds_existing_docs(self, tmp_path: Path) -> None:
+        (tmp_path / "README.md").write_text("# README\n")
+        (tmp_path / "CHANGELOG.md").write_text("# CHANGELOG\n")
+        docs = _detect_documentation_coverage(tmp_path)
+        assert "README.md" in docs
+        assert "CHANGELOG.md" in docs
+
+    def test_empty_dir_no_docs(self, tmp_path: Path) -> None:
+        docs = _detect_documentation_coverage(tmp_path)
+        assert docs == []
+
+
+class TestDetectLinter:
+    def test_ruff_toml(self, tmp_path: Path) -> None:
+        (tmp_path / "ruff.toml").write_text("[lint]\n")
+        assert _detect_linter(tmp_path) == "ruff"
+
+    def test_eslint_json(self, tmp_path: Path) -> None:
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        assert _detect_linter(tmp_path) == "eslint"
+
+    def test_pyproject_ruff_section(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.ruff]\nselect = ['E']\n")
+        assert _detect_linter(tmp_path) == "ruff"
+
+    def test_pyproject_black_section(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.black]\nline-length = 120\n")
+        assert _detect_linter(tmp_path) == "black"
+
+    def test_pyproject_flake8_section(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[tool.flake8]\nmax-line-length = 120\n")
+        assert _detect_linter(tmp_path) == "flake8"
+
+    def test_pyproject_oserror(self, tmp_path: Path) -> None:
+        # No linter config at all
+        assert _detect_linter(tmp_path) is None
+
+
+class TestGetDepsForLanguage:
+    def test_python(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            '[project]\ndependencies = ["flask"]\n', encoding="utf-8"
+        )
+        deps = _get_deps_for_language(tmp_path, "python")
+        assert "flask" in deps
+
+    def test_javascript(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text('{"dependencies": {"express": "4"}}')
+        deps = _get_deps_for_language(tmp_path, "javascript")
+        assert "express" in deps
+
+    def test_typescript_maps_to_js(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text('{"dependencies": {"next": "14"}}')
+        deps = _get_deps_for_language(tmp_path, "typescript")
+        assert "next" in deps
+
+    def test_go(self, tmp_path: Path) -> None:
+        (tmp_path / "go.mod").write_text("module ex\n\ngo 1.21\n\nrequire github.com/gin-gonic/gin v1\n")
+        deps = _get_deps_for_language(tmp_path, "go")
+        assert any("gin" in d for d in deps)
+
+    def test_java(self, tmp_path: Path) -> None:
+        (tmp_path / "pom.xml").write_text("<project><dependencies></dependencies></project>")
+        deps = _get_deps_for_language(tmp_path, "java")
+        assert isinstance(deps, list)
+
+    def test_kotlin_maps_to_java(self, tmp_path: Path) -> None:
+        deps = _get_deps_for_language(tmp_path, "kotlin")
+        assert isinstance(deps, list)
+
+    def test_rust(self, tmp_path: Path) -> None:
+        (tmp_path / "Cargo.toml").write_text("[dependencies]\ntokio = \"1\"\n")
+        deps = _get_deps_for_language(tmp_path, "rust")
+        assert "tokio" in deps
+
+    def test_unknown_language(self, tmp_path: Path) -> None:
+        deps = _get_deps_for_language(tmp_path, "haskell")
+        assert deps == []
+
+
+class TestRequirementsTxtDeps:
+    def test_requirements_txt_with_comments_and_flags(self, tmp_path: Path) -> None:
+        (tmp_path / "requirements.txt").write_text(
+            "# comment\n-r base.txt\nflask>=2.0\nrequests[security]>=2.28\n",
+            encoding="utf-8",
+        )
+        deps = _get_python_deps(tmp_path)
+        assert "flask" in deps
+        assert "requests" in deps
+
+    def test_requirements_dev_txt(self, tmp_path: Path) -> None:
+        (tmp_path / "requirements-dev.txt").write_text("pytest\nmypy\n")
+        deps = _get_python_deps(tmp_path)
+        assert "pytest" in deps
+
+
+class TestJsDeps:
+    def test_package_json_all_sections(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text(json.dumps({
+            "dependencies": {"react": "18"},
+            "devDependencies": {"jest": "29"},
+            "peerDependencies": {"react-dom": "18"},
+        }))
+        deps = _get_js_deps(tmp_path)
+        assert "react" in deps
+        assert "jest" in deps
+        assert "react-dom" in deps
+
+    def test_package_json_malformed(self, tmp_path: Path) -> None:
+        (tmp_path / "package.json").write_text("not valid json{{{")
+        deps = _get_js_deps(tmp_path)
+        assert deps == []
+
+    def test_package_json_not_exist(self, tmp_path: Path) -> None:
+        deps = _get_js_deps(tmp_path)
+        assert deps == []
+
+
+class TestPoetryDeps:
+    def test_poetry_deps(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text(
+            "[tool.poetry.dependencies]\npython = \"^3.12\"\nflask = \"^2.0\"\n\n"
+            "[tool.poetry.group.dev.dependencies]\npytest = \"^7.0\"\n",
+            encoding="utf-8",
+        )
+        deps = _get_python_deps(tmp_path)
+        assert "flask" in deps
+        assert "pytest" in deps
+
+
+class TestDatabaseDetectJava:
+    def test_java_database(self, tmp_path: Path) -> None:
+        (tmp_path / "pom.xml").write_text(
+            "<project><dependencies>"
+            "<dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId></dependency>"
+            "</dependencies></project>",
+            encoding="utf-8",
+        )
+        result = _detect_database(tmp_path, "java")
+        assert result is not None

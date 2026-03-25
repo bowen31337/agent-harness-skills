@@ -23,12 +23,9 @@ module-boundaries:
   stage: boundaries
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -107,12 +104,9 @@ principles-gate:
   stage: principles
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -195,13 +189,12 @@ coverage-gate:
   image: python:3.12-slim
 
   variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
     # Override this variable at the project or group level to change the bar.
     COVERAGE_THRESHOLD: "90"
 
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -279,12 +272,9 @@ harness-evaluate:
   stage: evaluate
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -321,12 +311,9 @@ type-gate:
   stage: type
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -386,12 +373,9 @@ perf-gate:
   stage: perf
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:
@@ -430,12 +414,9 @@ security-gate:
   stage: security
   image: python:3.12-slim
 
-  variables:
-    UV_VERSION: "0.5.0"
-    PIP_NO_CACHE_DIR: "1"
-
   before_script:
-    - pip install --quiet uv==$UV_VERSION
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
     - uv sync --frozen
 
   script:

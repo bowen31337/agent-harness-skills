@@ -180,7 +180,7 @@ If the script exits with a non-zero code, show the error and suggest:
 
 ```
 Possible causes:
-  • Missing dependency  → pip install psutil
+  • Missing dependency  → uv add psutil
   • tracemalloc not available in this Python build (rare)
   • ANTHROPIC_API_KEY not set (only Scenario 4 runs without it — that is expected)
 ```
@@ -247,7 +247,7 @@ Append a short **Insights** section:
 
   Tracking without psutil
     → If delta_rss_bytes == -1, install psutil for RSS tracking:
-        pip install psutil
+        uv add psutil
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```

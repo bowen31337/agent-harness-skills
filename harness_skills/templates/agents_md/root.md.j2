@@ -1,0 +1,91 @@
+<!-- harness:auto-generated -->
+<!-- last_updated: {{ timestamp }} -->
+<!-- git_head: {{ git_head | default('unknown') }} -->
+
+# AGENTS.md — {{ project_name }}
+
+## Quick Reference
+
+```bash
+# Build & Test
+{{ build_command | default('pytest tests/ -v') }}
+
+# Lint
+{{ lint_command | default('ruff check .') }}
+
+# Evaluate all gates
+harness evaluate --format json
+```
+
+## Architecture Overview
+
+{% if domains %}
+### Domains
+{% for domain in domains %}
+- **{{ domain }}/** — see `{{ domain }}/AGENTS.md` for domain-specific guidance
+{% endfor %}
+{% else %}
+No domain boundaries detected yet. Run `harness update` after adding subsystems.
+{% endif %}
+
+## Context Depth Map
+
+| Tier | Scope | Token Budget |
+|------|-------|-------------|
+| L0 | This file (root overview) | <{{ l0_budget | default(500) }} tokens |
+| L1 | Per-domain AGENTS.md files | <{{ l1_budget | default(1000) }} tokens each |
+| L2 | File-level comments and docstrings | On-demand via search |
+
+## Available Commands
+
+```
+harness create    — Generate harness config and artifacts
+harness update    — Re-scan and update artifacts (three-way merge)
+harness lint      — Run architecture and principles checks
+harness evaluate  — Run all quality gates
+harness plan      — Create execution plan from description
+harness status    — Show plan and gate dashboard
+harness search    — Look up symbols by name
+harness audit     — Check artifact freshness
+```
+
+## Security Protocols
+
+- **Secret handling**: Never commit secrets or credentials. Use environment variables or a secrets manager.
+{% if secret_scanning_enabled is defined and secret_scanning_enabled %}
+- Secret scanning is **enabled** for this repository.
+{% endif %}
+- **Input validation**: Validate and sanitize all external inputs at system boundaries.
+- **Dependency auditing**: Regularly audit dependencies for known vulnerabilities.
+{% if security_notes is defined and security_notes %}
+{% for note in security_notes %}
+- {{ note }}
+{% endfor %}
+{% endif %}
+
+## Git Workflow
+
+- **Branch naming**: `{{ branch_prefix | default('feature') }}/<ticket-id>-<short-description>`
+- **Commit format**: `{{ commit_format | default('<type>(<scope>): <description>') }}`
+  - Types: feat, fix, refactor, test, docs, chore
+- **PR process**:
+  1. Create a feature branch from `{{ default_branch | default('main') }}`
+  2. Make focused, atomic commits
+  3. Open a PR with a clear description and linked ticket
+  4. Obtain {{ required_approvals | default(1) }} approval(s) before merging
+  5. Squash-merge to keep history clean
+{% if git_workflow_notes is defined and git_workflow_notes %}
+{% for note in git_workflow_notes %}
+- {{ note }}
+{% endfor %}
+{% endif %}
+
+## Related Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — domain map, dependency flow, and layer rules
+- [PRINCIPLES.md](./PRINCIPLES.md) — golden rules for code quality and consistency
+- [EVALUATION.md](./EVALUATION.md) — completion criteria and quality gates
+
+<!-- CUSTOM-START -->
+<!-- Add project-specific guidance below this line -->
+<!-- CUSTOM-END -->

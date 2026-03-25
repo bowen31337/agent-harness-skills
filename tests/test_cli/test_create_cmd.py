@@ -10,10 +10,8 @@ Coverage goals:
     - --no-merge overwrites an existing file
     - Merge mode (default) patches gates into an existing file
     - --output PATH writes to the specified destination
-    - --output-format json emits a valid CreateConfigResponse JSON blob
-    - --output-format yaml emits YAML-serialised CreateConfigResponse
+    - --format json emits a valid CreateResponse JSON blob
     - Unknown --profile exits with a non-zero code
-    - action field is "created" for new files and "updated" for merges
     - Generator import failure triggers exit code 1
 """
 
@@ -192,7 +190,7 @@ class TestCreateCmdMerge:
 
 
 # ===========================================================================
-# --output-format json
+# --format json (uses CreateResponse model)
 # ===========================================================================
 
 
@@ -200,7 +198,7 @@ class TestCreateCmdJsonOutput:
     def test_json_output_is_valid_json(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         assert result.exit_code == 0, result.output
         data = json.loads(result.output)
@@ -209,7 +207,7 @@ class TestCreateCmdJsonOutput:
     def test_json_output_has_status(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
         assert "status" in data
@@ -217,28 +215,28 @@ class TestCreateCmdJsonOutput:
     def test_json_output_status_is_passed(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
         assert data["status"] == "passed"
 
-    def test_json_output_has_action(self, runner: CliRunner, tmp_path: Path):
+    def test_json_output_has_detected_stack(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
-        assert "action" in data
+        assert "detected_stack" in data
 
-    def test_json_action_is_created_for_new_file(self, runner: CliRunner, tmp_path: Path):
+    def test_json_message_mentions_created_for_new_file(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
-        assert data["action"] == "created"
+        assert "created" in data["message"].lower()
 
-    def test_json_action_is_updated_for_existing_file(
+    def test_json_message_mentions_updated_for_existing_file(
         self, runner: CliRunner, tmp_path: Path
     ):
         dest = tmp_path / "harness.config.yaml"
@@ -246,74 +244,51 @@ class TestCreateCmdJsonOutput:
             "active_profile: starter\nprofiles:\n  starter:\n    gates: {}\n"
         )
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
-        assert data["action"] == "updated"
+        assert "updated" in data["message"].lower()
 
-    def test_json_output_has_profile(self, runner: CliRunner, tmp_path: Path):
+    def test_json_output_has_artifacts_generated(self, runner: CliRunner, tmp_path: Path):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
             create_cmd,
-            ["--output", str(dest), "--output-format", "json", "--profile", "standard"],
+            ["--output", str(dest), "--format", "json", "--profile", "standard"],
         )
         data = json.loads(result.output)
-        assert data["profile"] == "standard"
+        assert "artifacts_generated" in data
 
-    def test_json_output_stack_null_when_not_provided(
+    def test_json_output_detected_stack_has_language(
         self, runner: CliRunner, tmp_path: Path
     ):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
-        assert data["stack"] is None
+        assert "primary_language" in data["detected_stack"]
 
-    def test_json_output_stack_set_when_provided(
+    def test_json_output_detected_stack_with_stack_flag(
         self, runner: CliRunner, tmp_path: Path
     ):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
             create_cmd,
-            ["--output", str(dest), "--output-format", "json", "--stack", "python"],
+            ["--output", str(dest), "--format", "json", "--stack", "python"],
         )
         data = json.loads(result.output)
-        assert data["stack"] == "python"
+        assert data["detected_stack"]["primary_language"] == "Python"
 
-    def test_json_output_path_matches_output_flag(
+    def test_json_output_has_artifacts_with_config_path(
         self, runner: CliRunner, tmp_path: Path
     ):
         dest = tmp_path / "harness.config.yaml"
         result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "json"]
+            create_cmd, ["--output", str(dest), "--format", "json"]
         )
         data = json.loads(result.output)
-        assert data["path"] == str(dest)
-
-
-# ===========================================================================
-# --output-format yaml
-# ===========================================================================
-
-
-class TestCreateCmdYamlOutput:
-    def test_yaml_output_is_parseable(self, runner: CliRunner, tmp_path: Path):
-        dest = tmp_path / "harness.config.yaml"
-        result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "yaml"]
-        )
-        assert result.exit_code == 0, result.output
-        data = yaml.safe_load(result.output)
-        assert isinstance(data, dict)
-
-    def test_yaml_output_has_status(self, runner: CliRunner, tmp_path: Path):
-        dest = tmp_path / "harness.config.yaml"
-        result = runner.invoke(
-            create_cmd, ["--output", str(dest), "--output-format", "yaml"]
-        )
-        data = yaml.safe_load(result.output)
-        assert "status" in data
+        artifact_paths = [a["artifact_path"] for a in data["artifacts_generated"]]
+        assert str(dest) in artifact_paths
 
 
 # ===========================================================================
@@ -335,3 +310,40 @@ class TestCreateCmdErrors:
             create_cmd, ["--output", str(dest), "--stack", "cobol"]
         )
         assert result.exit_code != 0
+
+
+# ===========================================================================
+# docs/generated/ directory creation
+# ===========================================================================
+
+
+class TestCreateCmdDocsGenerated:
+    """Verify that ``harness create`` scaffolds the docs/generated/ tree."""
+
+    def test_creates_docs_generated_subdirs(self, runner: CliRunner, tmp_path: Path):
+        dest = tmp_path / "harness.config.yaml"
+        result = runner.invoke(create_cmd, ["--output", str(dest)])
+        assert result.exit_code == 0, result.output
+        for subdir in ("schemas", "api", "graphs"):
+            d = tmp_path / "docs" / "generated" / subdir
+            assert d.is_dir(), f"expected {d} to exist"
+
+    def test_gitkeep_files_exist(self, runner: CliRunner, tmp_path: Path):
+        dest = tmp_path / "harness.config.yaml"
+        runner.invoke(create_cmd, ["--output", str(dest)])
+        for subdir in ("schemas", "api", "graphs"):
+            gitkeep = tmp_path / "docs" / "generated" / subdir / ".gitkeep"
+            assert gitkeep.exists(), f"expected {gitkeep} to exist"
+
+    def test_json_response_includes_docs_generated_artifact(
+        self, runner: CliRunner, tmp_path: Path
+    ):
+        dest = tmp_path / "harness.config.yaml"
+        result = runner.invoke(
+            create_cmd, ["--output", str(dest), "--format", "json"]
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output)
+        artifact_paths = [a["artifact_path"] for a in data["artifacts_generated"]]
+        docs_path = str(tmp_path / "docs" / "generated")
+        assert docs_path in artifact_paths

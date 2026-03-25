@@ -160,7 +160,6 @@ harness-evaluate:
     PIP_NO_CACHE_DIR: "1"
 
   before_script:
-    - pip install --quiet uv==$UV_VERSION
     - uv sync --frozen
 
   script:
@@ -231,7 +230,6 @@ harness-evaluate:
     PIP_NO_CACHE_DIR: "1"
 
   before_script:
-    - pip install --quiet uv==$UV_VERSION
     - uv sync --frozen
 
   script:

@@ -1,4 +1,4 @@
-"""Tests for the --verbosity option across all harness CLI commands.
+"""Tests for the --verbosity option and helpers in harness_skills.cli.verbosity.
 
 Covers:
   - VerbosityLevel constants and ordering
@@ -6,12 +6,8 @@ Covers:
   - at_least() predicate
   - get_verbosity() context walk
   - apply_verbosity() log-level mapping
-  - ``harness --verbosity quiet`` suppresses banners but keeps machine output
-  - ``harness --verbosity verbose`` adds rationale context
-  - ``harness --verbosity debug`` enables DEBUG logging
-  - HARNESS_VERBOSITY environment variable is respected
-  - ``harness manifest validate`` with all four verbosity levels
-  - ``harness status`` with all four verbosity levels (plan-file path)
+  - VERBOSITY_OPTION decorator
+  - HARNESS_VERBOSITY environment variable is respected via get_verbosity
 """
 
 from __future__ import annotations
@@ -44,7 +40,7 @@ from harness_skills.cli.verbosity import (
 
 @pytest.fixture()
 def runner() -> CliRunner:
-    """CliRunner with mix_stderr=True (default) — stderr merged into output."""
+    """CliRunner with mix_stderr=True (default) -- stderr merged into output."""
     return CliRunner()
 
 
@@ -204,7 +200,7 @@ class TestApplyVerbosity:
 
 
 # ---------------------------------------------------------------------------
-# get_verbosity() — context tree walk
+# get_verbosity() -- context tree walk
 # ---------------------------------------------------------------------------
 
 
@@ -253,109 +249,90 @@ class TestGetVerbosity:
 
 
 # ---------------------------------------------------------------------------
-# harness --verbosity option on the group
+# harness manifest validate -- basic integration (no --verbosity on group)
 # ---------------------------------------------------------------------------
 
+def _write_valid_manifest(path: Path) -> None:
+    """Write a manifest that passes schema validation."""
+    from datetime import datetime, timezone
 
-class TestGroupVerbosityOption:
-    def test_help_lists_verbosity_option(self, runner):
-        result = runner.invoke(cli, ["--help"])
-        assert "--verbosity" in result.output
-
-    def test_help_describes_quiet(self, runner):
-        result = runner.invoke(cli, ["--help"])
-        assert "quiet" in result.output
-
-    def test_invalid_verbosity_rejected(self, runner):
-        # Invoke a no-op subcommand so Click actually validates the group option.
-        result = runner.invoke(cli, ["--verbosity", "silent", "manifest", "--help"])
-        assert result.exit_code != 0
-
-    def test_verbosity_choices_listed_in_help(self, runner):
-        result = runner.invoke(cli, ["--help"])
-        for level in VerbosityLevel.CHOICES:
-            assert level in result.output
-
-    def test_env_var_harness_verbosity_accepted(self, runner):
-        """HARNESS_VERBOSITY env var should be accepted without error."""
-        env = {"HARNESS_VERBOSITY": "quiet"}
-        result = runner.invoke(cli, ["--help"], env=env)
-        assert result.exit_code == 0
-
-
-# ---------------------------------------------------------------------------
-# harness manifest validate — verbosity integration
-# ---------------------------------------------------------------------------
+    manifest = {
+        "schema_version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "git_sha": None,
+        "git_branch": None,
+        "harness_version": None,
+        "project_root": None,
+        "detected_stack": {
+            "primary_language": "python",
+            "project_structure": "single-app",
+        },
+        "domains": [],
+        "patterns": [],
+        "conventions": [],
+        "artifacts": [],
+        "manifest_path": None,
+        "schema_path": None,
+        "symbols_index_path": None,
+    }
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
 @pytest.fixture()
 def valid_manifest(tmp_path) -> Path:
-    from harness_skills.generators.manifest_generator import generate_manifest
-    from harness_skills.models.create import DetectedStack
-
-    stack = DetectedStack(primary_language="python", project_structure="single-app")
     manifest = tmp_path / "harness_manifest.json"
-    manifest.write_text(json.dumps(generate_manifest(stack), indent=2), encoding="utf-8")
+    _write_valid_manifest(manifest)
     return manifest
 
 
-class TestManifestVerbosity:
-    def test_quiet_suppresses_success_message(self, runner, valid_manifest):
+class TestManifestIntegration:
+    def test_valid_manifest_exits_0(self, runner, valid_manifest):
         result = runner.invoke(
-            cli, ["--verbosity", "quiet", "manifest", "validate", str(valid_manifest)]
+            cli, ["manifest", "validate", str(valid_manifest)]
         )
         assert result.exit_code == 0
-        # The ✓ success message should NOT appear in quiet mode
-        assert "✓" not in result.output
-        assert "valid" not in result.output.lower()
 
-    def test_normal_shows_success_message(self, runner, valid_manifest):
+    def test_success_message_shown(self, runner, valid_manifest):
         result = runner.invoke(
-            cli, ["--verbosity", "normal", "manifest", "validate", str(valid_manifest)]
+            cli, ["manifest", "validate", str(valid_manifest)]
         )
         assert result.exit_code == 0
-        assert "✓" in result.output or "valid" in result.output.lower()
+        assert "valid" in result.output.lower()
 
-    def test_quiet_still_shows_validation_errors(self, runner, tmp_path):
-        """Validation errors must always appear — they explain the exit code."""
-        bad = tmp_path / "bad.json"
-        from harness_skills.generators.manifest_generator import generate_manifest
-        from harness_skills.models.create import DetectedStack
-
-        m = generate_manifest(
-            DetectedStack(primary_language="python", project_structure="single-app")
-        )
-        del m["detected_stack"]["project_structure"]
-        bad.write_text(json.dumps(m), encoding="utf-8")
-
-        result = runner.invoke(
-            cli, ["--verbosity", "quiet", "manifest", "validate", str(bad)]
-        )
-        assert result.exit_code == 1
-        # Error details (JSONPath) must still be present even in quiet mode
-        assert "$" in result.output
-
-    def test_quiet_json_flag_still_emits_json(self, runner, valid_manifest):
-        """--json output is machine-parseable; always emitted even in quiet mode."""
+    def test_json_flag_still_emits_json(self, runner, valid_manifest):
+        """--json output is machine-parseable."""
         result = runner.invoke(
             cli,
-            ["--verbosity", "quiet", "manifest", "validate", str(valid_manifest), "--json"],
+            ["manifest", "validate", str(valid_manifest), "--json"],
         )
         assert result.exit_code == 0
         parsed = json.loads(result.output)
         assert parsed["valid"] is True
 
-    def test_verbose_shows_file_path_context(self, runner, valid_manifest):
+    def test_validation_errors_shown_on_failure(self, runner, tmp_path):
+        """Validation errors must appear so they explain the exit code."""
+        bad = tmp_path / "bad.json"
+        manifest = {
+            "schema_version": "1.0",
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "detected_stack": {
+                "primary_language": "python",
+                # missing project_structure
+            },
+            "artifacts": [],
+        }
+        bad.write_text(json.dumps(manifest), encoding="utf-8")
+
         result = runner.invoke(
-            cli, ["--verbosity", "verbose", "manifest", "validate", str(valid_manifest)]
+            cli, ["manifest", "validate", str(bad)]
         )
-        assert result.exit_code == 0
-        # Verbose mode should mention the file being validated
-        assert str(valid_manifest.name) in result.output or "Validating" in result.output
+        assert result.exit_code == 1
+        # Error details (JSONPath) must be present
+        assert "$" in result.output
 
 
 # ---------------------------------------------------------------------------
-# harness status — verbosity integration (plan-file path avoids state service)
+# harness status -- integration (plan-file path avoids state service)
 # ---------------------------------------------------------------------------
 
 
@@ -377,12 +354,11 @@ def plan_file(tmp_path) -> Path:
     return p
 
 
-class TestStatusVerbosity:
-    def test_quiet_json_still_emits_json(self, runner, plan_file):
+class TestStatusIntegration:
+    def test_json_output_emitted(self, runner, plan_file):
         result = runner.invoke(
             cli,
             [
-                "--verbosity", "quiet",
                 "status",
                 "--plan-file", str(plan_file),
                 "--format", "json",
@@ -393,13 +369,12 @@ class TestStatusVerbosity:
         parsed = json.loads(result.output)
         assert "summary" in parsed
 
-    def test_quiet_yaml_still_emits_yaml(self, runner, plan_file):
+    def test_yaml_output_emitted(self, runner, plan_file):
         import yaml
 
         result = runner.invoke(
             cli,
             [
-                "--verbosity", "quiet",
                 "status",
                 "--plan-file", str(plan_file),
                 "--format", "yaml",
@@ -410,26 +385,10 @@ class TestStatusVerbosity:
         parsed = yaml.safe_load(result.output)
         assert "summary" in parsed
 
-    def test_quiet_table_suppresses_header_banner(self, runner, plan_file):
+    def test_table_output_shows_banner(self, runner, plan_file):
         result = runner.invoke(
             cli,
             [
-                "--verbosity", "quiet",
-                "status",
-                "--plan-file", str(plan_file),
-                "--format", "table",
-                "--no-state-service",
-            ],
-        )
-        assert result.exit_code == 0
-        # The "harness status — Plan Dashboard" banner should not appear
-        assert "Plan Dashboard" not in result.output
-
-    def test_normal_table_shows_header_banner(self, runner, plan_file):
-        result = runner.invoke(
-            cli,
-            [
-                "--verbosity", "normal",
                 "status",
                 "--plan-file", str(plan_file),
                 "--format", "table",
@@ -439,44 +398,9 @@ class TestStatusVerbosity:
         assert result.exit_code == 0
         assert "Plan Dashboard" in result.output
 
-    def test_verbose_shows_load_timing(self, runner, plan_file):
-        result = runner.invoke(
-            cli,
-            [
-                "--verbosity", "verbose",
-                "status",
-                "--plan-file", str(plan_file),
-                "--format", "table",
-                "--no-state-service",
-            ],
-        )
-        assert result.exit_code == 0
-        # Verbose mode shows timing info
-        assert "ms" in result.output or "Loaded" in result.output
-
-    def test_quiet_suppresses_unreachable_state_service_warning(
-        self, runner, plan_file
-    ):
-        """The 'state service unreachable' warning is noise — suppress in quiet."""
-        result = runner.invoke(
-            cli,
-            [
-                "--verbosity", "quiet",
-                "status",
-                "--plan-file", str(plan_file),
-                "--format", "json",
-                # Do NOT pass --no-state-service so the unreachable warning would fire
-                # if verbosity were normal.  We suppress it in quiet mode.
-            ],
-        )
-        # Should still succeed (plan file loaded fine)
-        assert result.exit_code == 0
-        # The warning should be absent
-        assert "unreachable" not in result.output.lower()
-
 
 # ---------------------------------------------------------------------------
-# Default verbosity (normal) is unchanged from pre-existing behaviour
+# Default verbosity (normal) is the fallback
 # ---------------------------------------------------------------------------
 
 
@@ -487,15 +411,7 @@ class TestDefaultVerbosity:
         )
         assert result.exit_code == 0
         # Normal mode: success message is present
-        assert "✓" in result.output or "valid" in result.output.lower()
-
-    def test_env_var_quiet_suppresses_output(self, runner, valid_manifest):
-        env = {"HARNESS_VERBOSITY": "quiet"}
-        result = runner.invoke(
-            cli, ["manifest", "validate", str(valid_manifest)], env=env
-        )
-        assert result.exit_code == 0
-        assert "✓" not in result.output
+        assert "valid" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------

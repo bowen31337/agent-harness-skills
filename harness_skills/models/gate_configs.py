@@ -236,6 +236,7 @@ class RegressionGateConfig(BaseGateConfig):
     """
 
     timeout_seconds: int = 300
+    test_paths: list[str] = field(default_factory=list)
     extra_args: list[str] = field(default_factory=list)
 
 
@@ -271,6 +272,7 @@ class SecurityGateConfig(BaseGateConfig):
     severity_threshold: str = "HIGH"   # CRITICAL | HIGH | MEDIUM | LOW
     scan_dependencies: bool = True
     scan_secrets: bool = False
+    scan_input_validation: bool = True
     ignore_ids: list[str] = field(default_factory=list)
 
 
@@ -300,6 +302,10 @@ class PerformanceGateConfig(BaseGateConfig):
     enabled: bool = False
     budget_ms: int = 200
     regression_threshold_pct: float = 10.0
+    thresholds_file: str = ".harness/perf-thresholds.yml"
+    spans_file: str = "perf-spans.json"
+    baseline_file: str = ""
+    output_file: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +409,20 @@ class PrinciplesGateConfig(BaseGateConfig):
     fail_on_error: bool = False
     principles_file: str = ".claude/principles.yaml"
     rules: list[str] = field(default_factory=lambda: ["all"])
+    auto_rules: list[str] = field(default_factory=lambda: ["no_magic_numbers"])
+    custom_principles: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class CustomPrinciple:
+    """A user-defined principle with regex pattern matching."""
+
+    id: str = ""
+    name: str = ""
+    description: str = ""
+    severity: str = "warning"
+    pattern: str = ""
+    file_glob: str = "*.py"
 
 
 # ---------------------------------------------------------------------------
@@ -427,6 +447,8 @@ class TypesGateConfig(BaseGateConfig):
     """
 
     strict: bool = False
+    checker: str = "auto"
+    paths: list[str] = field(default_factory=lambda: ["."])
     ignore_errors: list[str] = field(default_factory=list)
 
 
@@ -459,21 +481,97 @@ class LintGateConfig(BaseGateConfig):
 
 
 # ---------------------------------------------------------------------------
+# FileSizeGate
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class FileSizeGateConfig(BaseGateConfig):
+    """Configuration for the file-size gate.
+
+    Attributes
+    ----------
+    max_lines:
+        Hard limit: files with more lines than this produce an error.
+        Defaults to 500.
+    warn_lines:
+        Soft limit: files with more lines than this produce a warning.
+        Defaults to 300.  Set to 0 to disable soft-limit warnings.
+    report_only:
+        When ``True``, all hard-limit violations are downgraded to
+        warnings and the gate never fails.  Defaults to ``False``.
+    include_patterns:
+        Glob patterns (relative to repo root) for files to scan.
+    exclude_patterns:
+        Glob patterns for paths to skip.
+
+    Inherited from :class:`BaseGateConfig`:
+        ``enabled``, ``fail_on_error``
+    """
+
+    max_lines: int = 500
+    warn_lines: int = 300
+    report_only: bool = False
+    include_patterns: list[str] = field(default_factory=lambda: [
+        "**/*.py", "**/*.js", "**/*.ts", "**/*.tsx", "**/*.jsx",
+        "**/*.java", "**/*.go", "**/*.rs", "**/*.rb", "**/*.cs",
+        "**/*.cpp", "**/*.c", "**/*.h", "**/*.hpp",
+    ])
+    exclude_patterns: list[str] = field(default_factory=lambda: [
+        "node_modules/*", ".venv/*", "venv/*", "__pycache__/*",
+        "*.min.js", "*.min.css", "*.generated.*",
+        "dist/*", "build/*", ".git/*",
+    ])
+
+
+# ---------------------------------------------------------------------------
+# AgentsMdTokenGate
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AgentsMdTokenGateConfig(BaseGateConfig):
+    """Configuration for the AGENTS.md token-budget gate.
+
+    Attributes
+    ----------
+    max_tokens:
+        Maximum allowed estimated tokens per AGENTS.md file.
+        Defaults to 800.
+    glob_pattern:
+        Glob pattern for discovering AGENTS.md files relative to the
+        repository root.  Defaults to ``"**/AGENTS.md"``.
+    chars_per_token:
+        Characters-per-token ratio used for token estimation.
+        Defaults to 4.0.
+
+    Inherited from :class:`BaseGateConfig`:
+        ``enabled``, ``fail_on_error``
+    """
+
+    max_tokens: int = 800
+    glob_pattern: str = "**/AGENTS.md"
+    chars_per_token: float = 4.0
+
+
+# ---------------------------------------------------------------------------
 # GATE_CONFIG_CLASSES
 # Registry of all built-in gate IDs → their configuration class.
 # The order here matches the default execution order in GateEvaluator.
 # ---------------------------------------------------------------------------
 
 GATE_CONFIG_CLASSES: dict[str, type[BaseGateConfig]] = {
-    "regression":     RegressionGateConfig,
-    "coverage":       CoverageGateConfig,
-    "security":       SecurityGateConfig,
-    "performance":    PerformanceGateConfig,
-    "architecture":   ArchitectureGateConfig,
-    "principles":     PrinciplesGateConfig,
-    "docs_freshness": DocsFreshnessGateConfig,
-    "types":          TypesGateConfig,
-    "lint":           LintGateConfig,
+    "regression":       RegressionGateConfig,
+    "coverage":         CoverageGateConfig,
+    "security":         SecurityGateConfig,
+    "performance":      PerformanceGateConfig,
+    "architecture":     ArchitectureGateConfig,
+    "principles":       PrinciplesGateConfig,
+    "docs_freshness":   DocsFreshnessGateConfig,
+    "types":            TypesGateConfig,
+    "lint":             LintGateConfig,
+    "file_size":        FileSizeGateConfig,
+    "agents_md_token":  AgentsMdTokenGateConfig,
 }
 
 
@@ -493,6 +591,8 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":          TypesGateConfig(enabled=False),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        "agents_md_token": AgentsMdTokenGateConfig(enabled=False),
+        "file_size":      FileSizeGateConfig(enabled=False),
     },
     "standard": {
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
@@ -504,6 +604,8 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=30),
         "types":          TypesGateConfig(enabled=True, fail_on_error=True),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True),
+        "agents_md_token": AgentsMdTokenGateConfig(enabled=False),
+        "file_size":      FileSizeGateConfig(enabled=True),
     },
     "advanced": {
         "regression":     RegressionGateConfig(enabled=True, fail_on_error=True),
@@ -526,5 +628,7 @@ PROFILE_GATE_DEFAULTS: dict[str, dict[str, object]] = {
         "docs_freshness": DocsFreshnessGateConfig(max_staleness_days=14),
         "types":          TypesGateConfig(enabled=True, fail_on_error=True, strict=True),
         "lint":           LintGateConfig(enabled=True, fail_on_error=True, autofix=False),
+        "agents_md_token": AgentsMdTokenGateConfig(enabled=True),
+        "file_size":      FileSizeGateConfig(enabled=True),
     },
 }

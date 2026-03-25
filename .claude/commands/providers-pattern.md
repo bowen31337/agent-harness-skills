@@ -416,9 +416,9 @@ Only generate adapters for libraries that are actually present in the project.
 Check for installed libraries before generating each adapter:
 
 ```bash
-# Python — check pyproject.toml / requirements.txt
+# Python — check pyproject.toml
 grep -E "structlog|loguru|logging|jwt|passlib|pydantic.settings|dynaconf" \
-  pyproject.toml requirements*.txt 2>/dev/null
+  pyproject.toml 2>/dev/null
 
 # JS/TS — check package.json
 grep -E '"winston"|"pino"|"jsonwebtoken"|"jose"|"bcrypt"|"dotenv"' package.json 2>/dev/null

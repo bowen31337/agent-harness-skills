@@ -262,14 +262,6 @@ scaffold_python() {
   "$PIP" install --quiet "claude-agent-sdk"
   success "claude-agent-sdk installed"
 
-  # ── requirements.txt ─────────────────────────────────────────────────────
-  if [[ ! -f requirements.txt ]]; then
-    cat > requirements.txt <<'REQUIREMENTS'
-claude-agent-sdk
-REQUIREMENTS
-    success "requirements.txt written"
-  fi
-
   # ── src/agent.py ──────────────────────────────────────────────────────────
   mkdir -p src
   if [[ ! -f src/agent.py ]]; then

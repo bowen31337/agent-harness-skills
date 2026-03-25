@@ -89,7 +89,7 @@ We will use **Playwright** (via `pytest-playwright`) as the primary browser auto
 
 ## Implementation Notes
 
-- Install: `pip install pytest-playwright && playwright install chromium`
+- Install: `uv add pytest-playwright && playwright install chromium`
 - CI: add `playwright install --with-deps chromium` as a `before_script` step in `.gitlab-ci.yml`.
 - Fixtures provided by `conftest.py` (`page`, `browser`, `context`).
 - Use `BASE_URL` env var to target different environments:

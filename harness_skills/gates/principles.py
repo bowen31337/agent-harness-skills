@@ -108,10 +108,13 @@ _SEVERITY_MAP: dict[str, str] = {
 _SCANNABLE_RULE_IDS: frozenset[str] = frozenset({
     "no_magic_numbers",
     "no_hardcoded_urls",
+    "no_hardcoded_strings",
     "function_naming",
     "variable_naming",
     "class_naming",
     "file_naming",
+    "prefer_shared_utilities",
+    "test_structure",
 })
 
 #: Map from principle id to built-in scanner name.
@@ -122,6 +125,9 @@ _PRINCIPLE_ID_TO_SCANNER: dict[str, str] = {
     "P015": "variable_naming",
     "P016": "class_naming",
     "P017": "file_naming",
+    "P018": "no_hardcoded_strings",
+    "P032": "prefer_shared_utilities",
+    "P007": "test_structure",
 }
 
 
@@ -156,6 +162,8 @@ class GateConfig:
     fail_on_error: bool = False
     principles_file: str = ".claude/principles.yaml"
     rules: list[str] = field(default_factory=lambda: ["all"])
+    auto_rules: list[str] = field(default_factory=lambda: ["no_magic_numbers"])
+    custom_principles: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -277,6 +285,26 @@ class PrinciplesGate:
         """
         root = Path(project_root).resolve()
         principles = self._load_principles(root)
+
+        # ── Inject auto_rules scanners not already in YAML ────────────────────
+        existing_ids = {e.get("id", "") for e in principles}
+        for auto_scanner in self._cfg.auto_rules:
+            for pid, sname in _PRINCIPLE_ID_TO_SCANNER.items():
+                if sname == auto_scanner and pid not in existing_ids:
+                    principles.append({"id": pid, "severity": "warning", "applies_to": ["check-code"]})
+                    existing_ids.add(pid)
+
+        # ── Inject custom_principles from config ──────────────────────────────
+        for cp in self._cfg.custom_principles:
+            cp_id = cp.get("id", f"CUSTOM-{len(principles)}")
+            if cp_id not in existing_ids:
+                principles.append({
+                    "id": cp_id, "severity": cp.get("severity", "warning"),
+                    "applies_to": ["check-code"], "pattern": cp.get("pattern"),
+                    "file_glob": cp.get("file_glob"),
+                })
+                existing_ids.add(cp_id)
+
         active_rules = self._resolve_active_rules()
 
         violations: list[Violation] = []
@@ -322,6 +350,33 @@ class PrinciplesGate:
                 severity="warning",  # default when no YAML entry found
             )
             violations.extend(new_violations)
+
+        # ── Custom regex-based principles ─────────────────────────────────────
+        for entry in principles:
+            pattern_str = entry.get("pattern")
+            if not pattern_str:
+                continue
+            cp_id = entry.get("id", "CUSTOM")
+            sev = _SEVERITY_MAP.get(entry.get("severity", "warning"), "warning")
+            file_glob = entry.get("file_glob", "*.py")
+            try:
+                pat = re.compile(pattern_str)
+            except re.error:
+                continue
+            for py_file in root.rglob(file_glob):
+                if any(d in py_file.parts for d in _SKIP_DIRS):
+                    continue
+                try:
+                    for i, line in enumerate(py_file.read_text(errors="ignore").splitlines(), 1):
+                        if pat.search(line):
+                            violations.append(Violation(
+                                principle_id=cp_id, severity=sev,
+                                message=f"Custom pattern match: {pattern_str}",
+                                file_path=str(py_file.relative_to(root)), line_number=i,
+                                rule_id=f"principles/{cp_id}",
+                            ))
+                except OSError:
+                    pass
 
         # ── Apply advisory mode ──────────────────────────────────────────────
         effective = _apply_advisory(violations, self._cfg)
@@ -441,12 +496,15 @@ def _run_scanner(
 ) -> list[Violation]:
     """Dispatch to the appropriate built-in scanner function."""
     _SCANNERS = {
-        "no_magic_numbers":  _scan_no_magic_numbers,
-        "no_hardcoded_urls": _scan_no_hardcoded_urls,
-        "function_naming":   _scan_function_naming,
-        "variable_naming":   _scan_variable_naming,
-        "class_naming":      _scan_class_naming,
-        "file_naming":       _scan_file_naming,
+        "no_magic_numbers":      _scan_no_magic_numbers,
+        "no_hardcoded_urls":     _scan_no_hardcoded_urls,
+        "no_hardcoded_strings":  _scan_no_hardcoded_strings,
+        "function_naming":       _scan_function_naming,
+        "variable_naming":       _scan_variable_naming,
+        "class_naming":          _scan_class_naming,
+        "file_naming":           _scan_file_naming,
+        "prefer_shared_utilities": _scan_prefer_shared_utilities,
+        "test_structure":           _scan_test_structure,
     }
     scanner_fn = _SCANNERS.get(scanner_name)
     if scanner_fn is None:
@@ -543,6 +601,107 @@ def _scan_no_hardcoded_urls(
                     ),
                     rule_id="principles/no-hardcoded-urls",
                 ))
+    return violations
+
+
+# ── no_hardcoded_strings ─────────────────────────────────────────────────────
+
+#: Patterns that identify config-like string literals.
+_CONFIG_STRING_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"^/(?:[a-zA-Z0-9_./-]+){2,}$"),           # Absolute file paths: /etc/foo/bar
+    re.compile(r"^[a-zA-Z]:\\(?:[^\\]+\\?)+$"),            # Windows paths: C:\Users\...
+    re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}$"),  # Emails
+]
+
+#: Regex for UPPER_SNAKE_CASE constant names.
+_UPPER_SNAKE_RE: re.Pattern[str] = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+def _scan_no_hardcoded_strings(
+    root: Path, principle_id: str, severity: str
+) -> list[Violation]:
+    """Detect hardcoded config-like string literals (paths, emails) outside constants."""
+    violations: list[Violation] = []
+    for py_file in _py_files(root):
+        tree = _parse_py(py_file)
+        if tree is None:
+            continue
+        rel = _repo_rel(py_file, root)
+
+        # Collect line numbers of docstrings so we can skip them.
+        docstring_lines: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)):
+                ds = ast.get_docstring(node, clean=False)
+                if ds and hasattr(node, "body") and node.body:
+                    first = node.body[0]
+                    if (
+                        isinstance(first, ast.Expr)
+                        and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)
+                    ):
+                        for ln in range(first.value.lineno, first.value.end_lineno + 1 if first.value.end_lineno else first.value.lineno + 1):
+                            docstring_lines.add(ln)
+
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            value = node.value
+            lineno = node.lineno
+
+            # Skip docstrings
+            if lineno in docstring_lines:
+                continue
+
+            # Skip short strings (unlikely to be config values)
+            if len(value) < 4:
+                continue
+
+            # Check if it matches any config-like pattern
+            matched = False
+            for pat in _CONFIG_STRING_PATTERNS:
+                if pat.search(value):
+                    matched = True
+                    break
+            if not matched:
+                continue
+
+            # Allow strings assigned to UPPER_SNAKE_CASE constants
+            is_constant_assignment = False
+            for parent_node in ast.walk(tree):
+                if isinstance(parent_node, ast.Assign):
+                    for target in parent_node.targets:
+                        if (
+                            isinstance(target, ast.Name)
+                            and _UPPER_SNAKE_RE.match(target.id)
+                            and parent_node.value is node
+                        ):
+                            is_constant_assignment = True
+                            break
+                elif isinstance(parent_node, ast.AnnAssign):
+                    if (
+                        isinstance(parent_node.target, ast.Name)
+                        and _UPPER_SNAKE_RE.match(parent_node.target.id)
+                        and parent_node.value is node
+                    ):
+                        is_constant_assignment = True
+                if is_constant_assignment:
+                    break
+            if is_constant_assignment:
+                continue
+
+            violations.append(Violation(
+                principle_id=principle_id,
+                severity=severity,
+                message=f"Hardcoded config-like string: {value[:60]!r}",
+                file_path=rel,
+                line_number=lineno,
+                suggestion=(
+                    "Move this value to a named constant (UPPER_SNAKE_CASE), "
+                    "configuration file, or environment variable."
+                ),
+                rule_id="principles/no-hardcoded-strings",
+            ))
     return violations
 
 
@@ -705,6 +864,140 @@ def _scan_file_naming(
                 rule_id="principles/file-naming",
             ))
     return violations
+
+
+# ── prefer_shared_utilities ──────────────────────────────────────────────────
+
+
+def _scan_prefer_shared_utilities(
+    root: Path, principle_id: str, severity: str
+) -> list[Violation]:
+    """Detect duplicate function names defined in 2+ non-test Python files."""
+    from collections import defaultdict
+
+    # Map function name -> list of (relative_path, line_number)
+    func_locations: dict[str, list[tuple[str, int]]] = defaultdict(list)
+
+    for py_file in _py_files(root):
+        # Skip test files — duplicates across tests are expected
+        if py_file.name.startswith("test_") or "/tests/" in str(py_file) or "\\tests\\" in str(py_file):
+            continue
+        tree = _parse_py(py_file)
+        if tree is None:
+            continue
+        rel = _repo_rel(py_file, root)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                # Skip private/dunder helpers — focus on public-ish functions
+                if node.name.startswith("__") and node.name.endswith("__"):
+                    continue
+                func_locations[node.name].append((rel, node.lineno))
+
+    violations: list[Violation] = []
+    for func_name, locations in sorted(func_locations.items()):
+        # Only flag when the same name appears in 2+ distinct files
+        distinct_files = {loc[0] for loc in locations}
+        if len(distinct_files) < 2:
+            continue
+        file_list = ", ".join(sorted(distinct_files))
+        for file_path, line_number in locations:
+            violations.append(Violation(
+                principle_id=principle_id,
+                severity=severity,
+                message=(
+                    f"Duplicate function {func_name!r} defined in {len(distinct_files)} files: {file_list}"
+                ),
+                file_path=file_path,
+                line_number=line_number,
+                suggestion=(
+                    f"Extract {func_name!r} into a shared utility module to avoid duplication."
+                ),
+                rule_id="principles/prefer-shared-utilities",
+            ))
+    return violations
+
+
+# ── test_structure ───────────────────────────────────────────────────────────
+
+#: Regex for test function names: test_ prefix followed by a verb-like word.
+_TEST_NAME_RE = re.compile(r"^test_[a-z]")
+
+
+def _scan_test_structure(
+    root: Path, principle_id: str, severity: str
+) -> list[Violation]:
+    """Check test files follow arrange-act-assert (at least one assert) and
+    use descriptive names (``test_`` prefix + verb)."""
+    violations: list[Violation] = []
+    for py_file in _py_files(root):
+        # Only scan test_*.py files
+        if not py_file.name.startswith("test_"):
+            continue
+        tree = _parse_py(py_file)
+        if tree is None:
+            continue
+        rel = _repo_rel(py_file, root)
+
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            name = node.name
+            if not name.startswith("test_"):
+                continue
+
+            # Check naming: test_ must be followed by a descriptive verb
+            if not _TEST_NAME_RE.match(name):
+                violations.append(Violation(
+                    principle_id=principle_id,
+                    severity=severity,
+                    message=(
+                        f"Test function {name!r} lacks a descriptive name after 'test_' prefix."
+                    ),
+                    file_path=rel,
+                    line_number=node.lineno,
+                    suggestion=(
+                        "Use a descriptive name like `test_returns_empty_when_no_input` "
+                        "that communicates the scenario being tested."
+                    ),
+                    rule_id="principles/test-structure",
+                ))
+
+            # Check for at least one assert statement in the function body
+            has_assert = _body_has_assert(node)
+            if not has_assert:
+                violations.append(Violation(
+                    principle_id=principle_id,
+                    severity=severity,
+                    message=(
+                        f"Test function {name!r} has no assert statement — "
+                        "tests must verify behaviour."
+                    ),
+                    file_path=rel,
+                    line_number=node.lineno,
+                    suggestion=(
+                        "Add at least one `assert` or use a pytest assertion helper "
+                        "(e.g. `pytest.raises`) to verify expected behaviour."
+                    ),
+                    rule_id="principles/test-structure",
+                ))
+    return violations
+
+
+def _body_has_assert(func_node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Return ``True`` if *func_node*'s body contains an assert statement or
+    a call to ``pytest.raises`` / similar assertion helpers."""
+    for node in ast.walk(func_node):
+        if isinstance(node, ast.Assert):
+            return True
+        # Detect pytest.raises used as context manager or call
+        if isinstance(node, ast.Attribute) and node.attr == "raises":
+            return True
+        # Detect bare `assert` in any form (e.g. assertEqual, assertTrue)
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Attribute) and func.attr.startswith("assert"):
+                return True
+    return False
 
 
 # ---------------------------------------------------------------------------

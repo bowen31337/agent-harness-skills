@@ -391,7 +391,7 @@ def generate_spec(version: str = CONVENTION_VERSION_DEFAULT) -> str:
     w(
         f"## CLI Reference (`log-lint`)",
         f"",
-        f"Install: `pip install logging-convention`",
+        f"Install: `uv add logging-convention`",
         f"",
         f"| Command | Description |",
         f"|---------|-------------|",

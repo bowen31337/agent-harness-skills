@@ -1,0 +1,40 @@
+name: Harness Evaluate
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      {% if language == "python" %}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "{{ python_version | default('3.12') }}"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+      {% elif language == "typescript" or language == "javascript" %}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "{{ node_version | default('20') }}"
+
+      - name: Install dependencies
+        run: npm ci
+      {% endif %}
+
+      - name: Run harness evaluate
+        run: harness evaluate --output-format json
+
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: harness-evaluation-report
+          path: evaluation-report.json
+          retention-days: 30

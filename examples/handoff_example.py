@@ -5,7 +5,7 @@ Demonstrates the full context handoff lifecycle:
   Session B — resuming agent reads search hints and rebuilds its own context.
 
 Run:
-    pip install claude-agent-sdk
+    uv add claude-agent-sdk
     python examples/handoff_example.py
 """
 

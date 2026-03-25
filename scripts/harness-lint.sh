@@ -94,7 +94,7 @@ _find_runner() {
   done
 
   _error "Cannot find 'harness' on PATH and 'uv' is not available."
-  _error "Install with:  pip install -e .   or   uv sync"
+  _error "Install with:  uv sync"
   return 2
 }
 

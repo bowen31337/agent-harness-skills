@@ -1,0 +1,23 @@
+# Structured Logging Configuration
+# Generated for: {{ framework | default('python-logging') }}
+
+{% if framework == "python-logging" or framework is not defined %}
+import logging
+import json
+import sys
+
+class StructuredFormatter(logging.Formatter):
+    def format(self, record):
+        return json.dumps({
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "domain": getattr(record, "domain", "default"),
+            "trace_id": getattr(record, "trace_id", ""),
+            "message": record.getMessage(),
+        })
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(StructuredFormatter())
+logging.root.addHandler(handler)
+logging.root.setLevel(logging.INFO)
+{% endif %}

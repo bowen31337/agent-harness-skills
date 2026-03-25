@@ -26,7 +26,7 @@ exposed through the `harness_skills.cli.cli` Click group.
 ## Installation & Entry Point
 
 ```bash
-pip install -e .            # installs the `harness` script via pyproject.toml
+uv sync                     # installs the `harness` script via pyproject.toml
 harness --help
 ```
 

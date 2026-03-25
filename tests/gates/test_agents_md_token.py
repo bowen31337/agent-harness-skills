@@ -588,3 +588,132 @@ class TestIntegration:
         assert len(result.violations) == 1
         assert result.violations[0].severity == "warning"
         assert result.errors() == []
+
+
+# ---------------------------------------------------------------------------
+# Read error handling
+# ---------------------------------------------------------------------------
+
+
+class TestReadError:
+    def test_unreadable_file_produces_read_error_violation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        p = write_agents_md(tmp_path / "AGENTS.md", "# content")
+        # Monkey-patch Path.read_text to simulate an OSError
+        original_read_text = Path.read_text
+
+        def failing_read_text(self_path, *args, **kwargs):
+            if self_path == p:
+                raise OSError("Permission denied")
+            return original_read_text(self_path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", failing_read_text)
+
+        cfg = AgentsMdTokenGateConfig(max_tokens=800, fail_on_error=True)
+        result = AgentsMdTokenGate(cfg).run(tmp_path)
+
+        assert result.passed is False
+        assert len(result.violations) == 1
+        v = result.violations[0]
+        assert v.kind == "read_error"
+        assert v.severity == "error"
+        assert "Permission denied" in v.message
+        assert v.agents_md_file == p
+
+    def test_read_error_stats_contain_error_key(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        p = write_agents_md(tmp_path / "AGENTS.md", "# content")
+        original_read_text = Path.read_text
+
+        def failing_read_text(self_path, *args, **kwargs):
+            if self_path == p:
+                raise OSError("disk error")
+            return original_read_text(self_path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", failing_read_text)
+
+        cfg = AgentsMdTokenGateConfig(max_tokens=800)
+        result = AgentsMdTokenGate(cfg).run(tmp_path)
+
+        file_stats = result.stats["file_stats"]
+        assert len(file_stats) == 1
+        assert file_stats[0]["chars"] is None
+        assert file_stats[0]["estimated_tokens"] is None
+        assert file_stats[0]["over_budget"] is None
+        assert "disk error" in file_stats[0]["error"]
+
+    def test_read_error_advisory_mode_produces_warning(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        p = write_agents_md(tmp_path / "AGENTS.md", "# content")
+        original_read_text = Path.read_text
+
+        def failing_read_text(self_path, *args, **kwargs):
+            if self_path == p:
+                raise OSError("nope")
+            return original_read_text(self_path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", failing_read_text)
+
+        cfg = AgentsMdTokenGateConfig(max_tokens=800, fail_on_error=False)
+        result = AgentsMdTokenGate(cfg).run(tmp_path)
+
+        assert result.passed is True
+        assert result.violations[0].severity == "warning"
+
+
+# ---------------------------------------------------------------------------
+# _build_parser — CLI parser tests
+# ---------------------------------------------------------------------------
+
+
+class TestBuildParser:
+    def test_parser_defaults(self) -> None:
+        from harness_skills.gates.agents_md_token import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args([])
+        assert args.root == "."
+        assert args.max_tokens == 800
+        assert args.glob_pattern == "**/AGENTS.md"
+        assert args.chars_per_token == 4.0
+        assert args.fail_on_error is True
+        assert args.quiet is False
+
+    def test_parser_custom_values(self) -> None:
+        from harness_skills.gates.agents_md_token import _build_parser
+
+        parser = _build_parser()
+        args = parser.parse_args([
+            "--root", "/tmp/repo",
+            "--max-tokens", "1500",
+            "--glob", "**/*AGENTS*.md",
+            "--chars-per-token", "3.5",
+            "--no-fail-on-error",
+            "--quiet",
+        ])
+        assert args.root == "/tmp/repo"
+        assert args.max_tokens == 1500
+        assert args.glob_pattern == "**/*AGENTS*.md"
+        assert args.chars_per_token == 3.5
+        assert args.fail_on_error is False
+        assert args.quiet is True
+
+
+# ---------------------------------------------------------------------------
+# Violation summary — no file path
+# ---------------------------------------------------------------------------
+
+
+class TestViolationSummaryNoFile:
+    def test_summary_without_file_path(self) -> None:
+        v = Violation(
+            kind="over_budget",
+            severity="warning",
+            message="no file given",
+        )
+        summary = v.summary()
+        assert "WARNING" in summary
+        assert "no file given" in summary

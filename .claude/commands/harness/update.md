@@ -87,7 +87,7 @@ Compare results against what is currently recorded in `harness.config.yaml`.
 echo "=== Stack detection ==="
 
 # Language indicators
-[ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ] \
+[ -f "pyproject.toml" ] || [ -f "setup.py" ] \
   && echo "lang: python"
 [ -f "package.json" ] && echo "lang: typescript/javascript"
 [ -f "go.mod" ]        && echo "lang: go"
@@ -96,8 +96,8 @@ echo "=== Stack detection ==="
 
 # Framework indicators
 [ -f "manage.py" ]              && echo "framework: django"
-grep -q '"fastapi"' requirements.txt 2>/dev/null && echo "framework: fastapi"
-grep -q '"flask"'   requirements.txt 2>/dev/null && echo "framework: flask"
+grep -q '"fastapi"' pyproject.toml 2>/dev/null && echo "framework: fastapi"
+grep -q '"flask"'   pyproject.toml 2>/dev/null && echo "framework: flask"
 grep -q '"next"'    package.json     2>/dev/null && echo "framework: nextjs"
 grep -q '"react"'   package.json     2>/dev/null && echo "framework: react"
 

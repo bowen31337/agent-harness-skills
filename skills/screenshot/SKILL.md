@@ -210,16 +210,16 @@ Install the recommended extras:
 
 ```bash
 # Browser capture:
-pip install playwright && playwright install chromium
+uv add playwright && playwright install chromium
 
 # Desktop capture (Linux/X11):
-pip install Pillow python-xlib
+uv add Pillow python-xlib
 
 # Desktop capture (macOS / Windows):
-pip install Pillow pygetwindow
+uv add Pillow pygetwindow
 
 # Terminal-to-image:
-pip install Pillow pyte
+uv add Pillow pyte
 ```
 
 ---

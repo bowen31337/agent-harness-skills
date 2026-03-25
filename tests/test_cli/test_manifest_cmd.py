@@ -14,13 +14,13 @@ Covers:
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 from harness_skills.cli.manifest import manifest_cmd
-from harness_skills.generators.manifest_generator import generate_manifest
 from harness_skills.models.create import DetectedStack, GeneratedArtifact
 
 # ---------------------------------------------------------------------------
@@ -44,22 +44,60 @@ def runner() -> CliRunner:
 
 
 def _write_valid(path: Path) -> None:
-    """Write a minimal valid ``harness_manifest.json`` to *path*."""
-    path.write_text(
-        json.dumps(generate_manifest(VALID_STACK), indent=2),
-        encoding="utf-8",
-    )
+    """Write a minimal valid ``harness_manifest.json`` to *path*.
+
+    Builds the manifest dict manually to avoid the DetectedStack model
+    serializing extra fields (linter, documentation_files) that the JSON
+    Schema does not allow (additionalProperties: false).
+    """
+    manifest = {
+        "schema_version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "git_sha": None,
+        "git_branch": None,
+        "harness_version": None,
+        "project_root": None,
+        "detected_stack": {
+            "primary_language": "python",
+            "project_structure": "single-app",
+        },
+        "domains": [],
+        "patterns": [],
+        "conventions": [],
+        "artifacts": [],
+        "manifest_path": None,
+        "schema_path": None,
+        "symbols_index_path": None,
+    }
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
 def _write_invalid_stack(path: Path) -> None:
     """Write a manifest with a missing required field to *path*."""
-    m = generate_manifest(VALID_STACK)
-    del m["detected_stack"]["project_structure"]
-    path.write_text(json.dumps(m, indent=2), encoding="utf-8")
+    manifest = {
+        "schema_version": "1.0",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "git_sha": None,
+        "git_branch": None,
+        "harness_version": None,
+        "project_root": None,
+        "detected_stack": {
+            "primary_language": "python",
+            # project_structure intentionally omitted
+        },
+        "domains": [],
+        "patterns": [],
+        "conventions": [],
+        "artifacts": [],
+        "manifest_path": None,
+        "schema_path": None,
+        "symbols_index_path": None,
+    }
+    path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
-# ``harness manifest validate`` — human-readable output
+# ``harness manifest validate`` -- human-readable output
 # ---------------------------------------------------------------------------
 
 
@@ -109,34 +147,71 @@ class TestValidateCmdHumanReadable:
 
     def test_wrong_schema_version_produces_error(self, runner, tmp_path):
         manifest = tmp_path / "harness_manifest.json"
-        m = generate_manifest(VALID_STACK)
-        m["schema_version"] = "99.0"
+        m = {
+            "schema_version": "99.0",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "detected_stack": {
+                "primary_language": "python",
+                "project_structure": "single-app",
+            },
+            "artifacts": [],
+        }
         manifest.write_text(json.dumps(m), encoding="utf-8")
         result = runner.invoke(manifest_cmd, ["validate", str(manifest)])
         assert result.exit_code == 1
 
     def test_invalid_artifact_type_reports_array_index(self, runner, tmp_path):
         manifest = tmp_path / "harness_manifest.json"
-        m = generate_manifest(
-            VALID_STACK,
-            artifacts=[
-                VALID_ARTIFACT.model_dump(),
+        m = {
+            "schema_version": "1.0",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "git_sha": None,
+            "git_branch": None,
+            "harness_version": None,
+            "project_root": None,
+            "detected_stack": {
+                "primary_language": "python",
+                "project_structure": "single-app",
+            },
+            "domains": [],
+            "patterns": [],
+            "conventions": [],
+            "artifacts": [
+                {"artifact_path": "harness.config.yaml", "artifact_type": "harness.config.yaml"},
                 {"artifact_path": "foo.md", "artifact_type": "NOT_VALID"},
             ],
-        )
+            "manifest_path": None,
+            "schema_path": None,
+            "symbols_index_path": None,
+        }
         manifest.write_text(json.dumps(m), encoding="utf-8")
         result = runner.invoke(manifest_cmd, ["validate", str(manifest)])
         assert result.exit_code == 1
-        # second artifact → index 1
+        # second artifact -> index 1
         assert "[1]" in result.output
 
     def test_multiple_violations_all_reported(self, runner, tmp_path):
         """More than one JSONPath error should all appear in the output."""
         manifest = tmp_path / "harness_manifest.json"
-        m = generate_manifest(VALID_STACK)
-        # Two violations: wrong schema_version AND bad project_structure
-        m["schema_version"] = "9.9"
-        m["detected_stack"]["project_structure"] = "flatland"
+        m = {
+            "schema_version": "9.9",
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "git_sha": None,
+            "git_branch": None,
+            "harness_version": None,
+            "project_root": None,
+            "detected_stack": {
+                "primary_language": "python",
+                "project_structure": "flatland",
+            },
+            "domains": [],
+            "patterns": [],
+            "conventions": [],
+            "artifacts": [],
+            "manifest_path": None,
+            "schema_path": None,
+            "symbols_index_path": None,
+        }
         manifest.write_text(json.dumps(m), encoding="utf-8")
         result = runner.invoke(manifest_cmd, ["validate", str(manifest)])
         assert result.exit_code == 1
@@ -233,8 +308,6 @@ class TestValidateCmdJsonOutput:
 
 class TestValidateCmdDefaultPath:
     def test_uses_default_path_when_no_argument(self, runner, tmp_path):
-        manifest = tmp_path / "harness_manifest.json"
-        _write_valid(manifest)
         # Run inside tmp_path so the default "harness_manifest.json" resolves
         with runner.isolated_filesystem(temp_dir=tmp_path) as td:
             _write_valid(Path(td) / "harness_manifest.json")

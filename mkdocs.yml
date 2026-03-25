@@ -1,0 +1,39 @@
+site_name: Harness Skills
+site_description: Agent harness engineering toolkit documentation
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - CLI Commands:
+    - Overview: cli/index.md
+    - harness create: cli/create.md
+    - harness update: cli/update.md
+    - harness lint: cli/lint.md
+    - harness evaluate: cli/evaluate.md
+    - harness boot: cli/boot.md
+    - harness plan: cli/plan.md
+    - harness status: cli/status.md
+    - harness resume: cli/resume.md
+    - harness audit: cli/audit.md
+    - harness search: cli/search.md
+    - harness coordinate: cli/coordinate.md
+    - harness screenshot: cli/screenshot.md
+    - harness observe: cli/observe.md
+    - harness telemetry: cli/telemetry.md
+  - Architecture:
+    - Layer Definitions: architecture/layers.md
+    - Domain Detection: architecture/domains.md
+  - Guides:
+    - Getting Started: guides/getting-started.md
+    - Multi-Agent Coordination: guides/multi-agent.md
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true

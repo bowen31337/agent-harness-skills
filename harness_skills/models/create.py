@@ -24,6 +24,8 @@ class DetectedStack(BaseModel):
     ci_platform: str | None = None
     database: str | None = None
     api_style: str | None = None
+    linter: str | None = None
+    documentation_files: list[str] = Field(default_factory=list)
 
 
 class GeneratedArtifact(BaseModel):

@@ -10,6 +10,9 @@ dependencies = [
     "claude-agent-sdk",
     "anyio",
     "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "anthropic>=0.52.0",
     "requests>=2.32.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.2.0",
@@ -23,11 +26,42 @@ dev = [
     "ruff>=0.4.0",
     "pytest>=8.0",
     "pre-commit>=3.7",
+    "pytest-cov>=4.0",
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.0",
 ]
+dashboard = [
+    "numpy>=1.24.0",
+    "scipy>=1.10.0",
+    "rich>=13.0.0",
+    "click>=8.1.0",
+]
+languages = [
+    "tree-sitter>=0.23.0",
+    "tree-sitter-python>=0.23.0",
+    "tree-sitter-typescript>=0.23.0",
+    "tree-sitter-go>=0.23.0",
+    "tree-sitter-rust>=0.23.0",
+    "tree-sitter-java>=0.23.0",
+]
+
+[project.entry-points."harness_skills.analyzers"]
+python = "harness_skills.analyzers.python_analyzer:PythonAnalyzer"
+typescript = "harness_skills.analyzers.typescript_analyzer:TypeScriptAnalyzer"
+go = "harness_skills.analyzers.go_analyzer:GoAnalyzer"
+rust = "harness_skills.analyzers.rust_analyzer:RustAnalyzer"
+java = "harness_skills.analyzers.java_analyzer:JavaAnalyzer"
+csharp = "harness_skills.analyzers.csharp_analyzer:CSharpAnalyzer"
+
+[project.entry-points."harness_skills.gates"]
+# Third-party gates register here
+
+[project.entry-points."harness_skills.generators"]
+# Third-party generators register here
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["harness_skills*", "harness_tools*"]
+include = ["harness_skills*", "harness_tools*", "harness_dashboard", "log_format_linter", "dom_snapshot_utility"]
 
 # ---------------------------------------------------------------------------
 # Ruff — linter + formatter

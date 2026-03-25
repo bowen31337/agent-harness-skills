@@ -313,7 +313,7 @@ logger.info("Charge succeeded",
 
 ## CLI Reference (`log-lint`)
 
-Install: `pip install logging-convention`
+Install: `uv add logging-convention`
 
 | Command | Description |
 |---------|-------------|

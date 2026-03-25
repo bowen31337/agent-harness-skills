@@ -454,7 +454,7 @@ class TypesGate:
                     severity="error" if cfg.fail_on_error else "warning",
                     message=(
                         "mypy is not installed or not on PATH.  "
-                        "Install it with: pip install mypy"
+                        "Install it with: uv add mypy"
                     ),
                 )],
                 checker="mypy",
@@ -515,7 +515,7 @@ class TypesGate:
                         severity="error" if cfg.fail_on_error else "warning",
                         message=(
                             "pyright is not installed.  "
-                            "Install it with: pip install pyright or npm install -g pyright"
+                            "Install it with: uv add pyright or npm install -g pyright"
                         ),
                     )],
                     checker="pyright",

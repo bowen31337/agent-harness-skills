@@ -7,9 +7,9 @@ artifact.  Runs without installing the full harness package by adding the
 project root to sys.path automatically.
 
 Backends (auto-selected, first available wins):
-  - playwright  →  browser / URL captures   (pip install playwright)
-  - pillow      →  desktop / window captures (pip install Pillow)
-  - terminal    →  terminal-to-image         (pip install Pillow pyte)
+  - playwright  →  browser / URL captures   (uv add playwright)
+  - pillow      →  desktop / window captures (uv add Pillow)
+  - terminal    →  terminal-to-image         (uv add Pillow pyte)
 
 Usage
 -----
@@ -267,9 +267,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _print_backends() -> None:
-    print(f"playwright : {'✓ available' if _has_playwright() else '✗ not installed  (pip install playwright && playwright install chromium)'}")
-    print(f"pillow     : {'✓ available' if _has_pillow()     else '✗ not installed  (pip install Pillow)'}")
-    print(f"pyte       : {'✓ available' if _has_pyte()       else '✗ not installed  (pip install pyte)'}")
+    print(f"playwright : {'✓ available' if _has_playwright() else '✗ not installed  (uv add playwright && playwright install chromium)'}")
+    print(f"pillow     : {'✓ available' if _has_pillow()     else '✗ not installed  (uv add Pillow)'}")
+    print(f"pyte       : {'✓ available' if _has_pyte()       else '✗ not installed  (uv add pyte)'}")
 
 
 def _list_artifacts(out_dir: Path) -> None:
@@ -314,7 +314,7 @@ def main(argv: list[str] | None = None) -> None:
         if not _has_playwright():
             print(
                 "[capture_screenshot] ERROR: 'playwright' is not installed.\n"
-                "  pip install playwright && playwright install chromium",
+                "  uv add playwright && playwright install chromium",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -334,7 +334,7 @@ def main(argv: list[str] | None = None) -> None:
         if not _has_pillow():
             print(
                 "[capture_screenshot] ERROR: 'Pillow' is not installed.\n"
-                "  pip install Pillow",
+                "  uv add Pillow",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -347,7 +347,7 @@ def main(argv: list[str] | None = None) -> None:
         if not _has_pillow():
             print(
                 "[capture_screenshot] ERROR: 'Pillow' is not installed.\n"
-                "  pip install Pillow",
+                "  uv add Pillow",
                 file=sys.stderr,
             )
             sys.exit(1)

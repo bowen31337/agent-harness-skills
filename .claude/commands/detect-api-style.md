@@ -158,7 +158,7 @@ Emit a structured report:
 
   GraphQL
     Schema    : No .graphql files found
-    Library   : graphene in requirements.txt (possible legacy dep)
+    Library   : graphene in pyproject.toml (possible legacy dep)
     Endpoint  : No /graphql route registration found
 
   gRPC

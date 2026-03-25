@@ -47,7 +47,7 @@ try:
     import yaml
 except ImportError:
     print(
-        "ERROR: PyYAML is required. Install it with: pip install pyyaml",
+        "ERROR: PyYAML is required. Install it with: uv add pyyaml",
         file=sys.stderr,
     )
     sys.exit(2)
