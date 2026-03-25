@@ -59,6 +59,13 @@ csharp = "harness_skills.analyzers.csharp_analyzer:CSharpAnalyzer"
 [project.entry-points."harness_skills.generators"]
 # Third-party generators register here
 
+[tool.uv]
+# Ensure the lock file resolves wheels for both macOS ARM (local dev) and Linux x86_64 (CI).
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["harness_skills*", "harness_tools*", "harness_dashboard", "log_format_linter", "dom_snapshot_utility"]
