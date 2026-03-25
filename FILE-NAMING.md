@@ -60,7 +60,7 @@ All Markdown documentation files use `kebab-case`.
 
 ```
 ✅  harness-changelog.md
-✅  health-check-endpoint-spec.md
+✅  agent-tool-design-guidelines.md
 ✅  plan-to-pr-convention.md
 ❌  harness_changelog.md
 ❌  harnessChangelog.md

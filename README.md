@@ -6,7 +6,7 @@ This repository contains practical guidelines for designing tools and skills tha
 
 ## Contents
 
-- **[Agent Tool Design Guidelines](docs/agent_tool_desig_guidelines.md)** — Principles for shaping tools to model abilities, progressive disclosure, tool lifecycle, subagent coordination, and validation.
+- **[Agent Tool Design Guidelines](docs/guides/agent-tool-design-guidelines.md)** — Principles for shaping tools to model abilities, progressive disclosure, tool lifecycle, subagent coordination, and validation.
 - **`spec/`** — Project XML/text specs (`app_spec.txt`, logging convention source, etc.).
 - **`examples/`** — Runnable agent SDK demos (handoff, task lock, performance hooks).
 - **`harness_tools/`** — Orchestration CLIs and SDK demos; repo root exposes thin `*.py` shims with the same names.
@@ -23,7 +23,7 @@ This repository contains practical guidelines for designing tools and skills tha
 
 1. Copy `.env.example` to `.env` and configure your keys.
 2. See `claw-forge.yaml` for model providers, skills, and state settings.
-3. Read the [design guidelines](docs/agent_tool_desig_guidelines.md) before adding or changing tools/skills.
+3. Read the [design guidelines](docs/guides/agent-tool-design-guidelines.md) before adding or changing tools/skills.
 
 ## License
 
