@@ -17,8 +17,6 @@ name: Module Boundary Gate
 on:
   pull_request:
     branches: ["**"]
-  push:
-    branches: [main, master]
 
 jobs:
   module-boundaries:

@@ -121,7 +121,7 @@ class ScanResult:
 # ── File discovery ────────────────────────────────────────────────────────────
 
 # Directories to skip entirely
-_SKIP_DIRS: set[str] = {".venv", "venv", "node_modules", "__pycache__", ".git", "dist", "build"}
+_SKIP_DIRS: set[str] = {".venv", "venv", "node_modules", "__pycache__", ".git", "dist", "build", "tests"}
 
 
 def _iter_python_files(root: Path) -> list[Path]:
