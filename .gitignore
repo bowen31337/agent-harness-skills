@@ -92,3 +92,4 @@ harness_symbols.json
 test_write.txt
 scratch/
 tmp/
+node_modules/
