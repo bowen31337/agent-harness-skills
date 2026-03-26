@@ -87,9 +87,13 @@ Desktop.ini
 # --- Generated artifacts ---
 harness_symbols.json
 
+# --- Superpowers ---
+.superpowers/
+
 # --- Misc local / scratch ---
 *.log
 test_write.txt
 scratch/
 tmp/
 node_modules/
+tutorial/tsconfig.tsbuildinfo
