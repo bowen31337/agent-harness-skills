@@ -20,7 +20,7 @@ export default function Layout() {
 			}}
 		>
 			<Navbar />
-			<main ref={mainRef} tabIndex={-1} className="pt-16 outline-none">
+			<main ref={mainRef} tabIndex={-1} className="pt-14 outline-none">
 				<Outlet />
 			</main>
 		</div>
