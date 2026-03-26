@@ -54,7 +54,7 @@ export default function DeepDiveLayout({ categoryId, children }: DeepDiveLayoutP
 					}
 				}
 			},
-			{ rootMargin: "-20% 0px -60% 0px", threshold: 0 },
+			{ rootMargin: "-80px 0px -60% 0px", threshold: 0 },
 		);
 
 		observerRef.current = observer;
@@ -70,7 +70,9 @@ export default function DeepDiveLayout({ categoryId, children }: DeepDiveLayoutP
 	const scrollToFeature = useCallback((id: string) => {
 		const el = document.getElementById(id);
 		if (el) {
-			el.scrollIntoView({ behavior: "smooth", block: "start" });
+			// Use offset scrolling to account for fixed navbar (5rem = 80px)
+			const top = el.getBoundingClientRect().top + window.scrollY - 80;
+			window.scrollTo({ top, behavior: "smooth" });
 		}
 	}, []);
 

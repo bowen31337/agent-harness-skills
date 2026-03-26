@@ -11,6 +11,13 @@
 
 html {
 	scroll-behavior: smooth;
+	/* Offset scroll targets by navbar height so anchors aren't hidden */
+	scroll-padding-top: 5rem;
+}
+
+/* Feature anchor targets: offset for fixed navbar */
+[id^="F"] {
+	scroll-margin-top: 5rem;
 }
 
 body {
