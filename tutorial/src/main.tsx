@@ -9,13 +9,13 @@ const basename = "/agent-harness-skills";
 const params = new URLSearchParams(window.location.search);
 const redirectPath = params.get("p");
 if (redirectPath) {
-  window.history.replaceState(null, "", `${basename}/${redirectPath}`);
+	window.history.replaceState(null, "", `${basename}/${redirectPath}`);
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter basename={basename}>
-      <App />
-    </BrowserRouter>
-  </StrictMode>,
+	<StrictMode>
+		<BrowserRouter basename={basename}>
+			<App />
+		</BrowserRouter>
+	</StrictMode>,
 );

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import DeepDiveLayout from "../components/DeepDiveLayout";
-import ScrollReveal from "../components/ScrollReveal";
 import CodeBlock from "../components/CodeBlock";
+import DeepDiveLayout from "../components/DeepDiveLayout";
 import FeatureItem from "../components/FeatureItem";
 import GlowBadge from "../components/GlowBadge";
+import ScrollReveal from "../components/ScrollReveal";
 import { features } from "../data/features";
 
 const principlesFeatures = features.filter((f) => f.category === "principles");
@@ -102,7 +102,7 @@ const violations: Violation[] = [
 	{ line: 8, scanner: "P011", message: "magic number 0.10 → TIER_1_DISCOUNT_RATE" },
 	{ line: 12, scanner: "P011", message: "magic number 0.08 → TAX_RATE" },
 	{ line: 15, scanner: "P011", message: "magic number 50000 → HIGH_VALUE_THRESHOLD" },
-	{ line: 16, scanner: "P018", message: 'hardcoded URL → settings.ALERT_WEBHOOK_URL' },
+	{ line: 16, scanner: "P018", message: "hardcoded URL → settings.ALERT_WEBHOOK_URL" },
 	{ line: 21, scanner: "P003", message: "bare except Exception → PaymentError with context" },
 	{ line: 22, scanner: "P003", message: "unstructured log → structured log with trace_id" },
 ];
@@ -140,9 +140,9 @@ export default function PrinciplesPage() {
 						Same code review comments, every PR
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Human reviewers spend their time catching the same mechanical issues
-						sprint after sprint — magic numbers, hardcoded strings, bare exceptions.
-						These are patterns machines should enforce, not people.
+						Human reviewers spend their time catching the same mechanical issues sprint after sprint
+						— magic numbers, hardcoded strings, bare exceptions. These are patterns machines should
+						enforce, not people.
 					</p>
 				</ScrollReveal>
 				<ScrollReveal delay={0.2}>
@@ -158,9 +158,9 @@ export default function PrinciplesPage() {
 						13 principles extracted, documented, and mechanically enforced
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Harness scans your codebase for recurring patterns, extracts them as golden
-						principles with frequency data, and generates lint rules that catch violations
-						before code review even begins.
+						Harness scans your codebase for recurring patterns, extracts them as golden principles
+						with frequency data, and generates lint rules that catch violations before code review
+						even begins.
 					</p>
 				</ScrollReveal>
 
@@ -175,7 +175,11 @@ export default function PrinciplesPage() {
 				<ScrollReveal delay={0.1}>
 					<div className="space-y-6">
 						<CodeBlock code={principlesMd} lang="yaml" filename="PRINCIPLES.md (generated)" />
-						<CodeBlock code={violationReport} lang="bash" filename="harness lint --check principles" />
+						<CodeBlock
+							code={violationReport}
+							lang="bash"
+							filename="harness lint --check principles"
+						/>
 					</div>
 				</ScrollReveal>
 			</section>
@@ -188,8 +192,8 @@ export default function PrinciplesPage() {
 						Toggle scanners to see violations in real code
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Enable each principle scanner below to highlight violations in the sample code.
-						This is what harness catches automatically before your code reaches review.
+						Enable each principle scanner below to highlight violations in the sample code. This is
+						what harness catches automatically before your code reaches review.
 					</p>
 				</ScrollReveal>
 

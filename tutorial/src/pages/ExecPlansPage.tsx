@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
-import DeepDiveLayout from "../components/DeepDiveLayout";
-import ScrollReveal from "../components/ScrollReveal";
 import CodeBlock from "../components/CodeBlock";
+import DeepDiveLayout from "../components/DeepDiveLayout";
 import FeatureItem from "../components/FeatureItem";
 import GlowBadge from "../components/GlowBadge";
+import ScrollReveal from "../components/ScrollReveal";
 import { features } from "../data/features";
 
 const execPlansFeatures = features.filter((f) => f.category === "exec-plans");
@@ -149,9 +149,9 @@ export default function ExecPlansPage() {
 						Context lost between sessions — every agent starts from scratch
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						When an agent's context window fills up or a session ends, all the work
-						context vanishes. The next agent spends its first 15 minutes rediscovering
-						what was already known, re-reading files, and reconstructing the plan.
+						When an agent's context window fills up or a session ends, all the work context
+						vanishes. The next agent spends its first 15 minutes rediscovering what was already
+						known, re-reading files, and reconstructing the plan.
 					</p>
 				</ScrollReveal>
 				<ScrollReveal delay={0.2}>
@@ -167,9 +167,9 @@ export default function ExecPlansPage() {
 						18 features for persistent plans, checkpoints, and context handoff
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Harness generates execution plans with task dependencies, progress logs,
-						context handoff protocols, and git-based checkpoints. Each agent session
-						picks up exactly where the last one left off.
+						Harness generates execution plans with task dependencies, progress logs, context handoff
+						protocols, and git-based checkpoints. Each agent session picks up exactly where the last
+						one left off.
 					</p>
 				</ScrollReveal>
 
@@ -197,8 +197,8 @@ export default function ExecPlansPage() {
 						Task dependency graph with live status
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Click "Step Forward" to simulate task progression. Watch how completing
-						a task automatically unblocks its dependents — just like{" "}
+						Click "Step Forward" to simulate task progression. Watch how completing a task
+						automatically unblocks its dependents — just like{" "}
 						<code className="text-brand-cyan">harness coordinate</code> manages it.
 					</p>
 				</ScrollReveal>

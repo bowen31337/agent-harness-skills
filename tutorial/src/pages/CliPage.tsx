@@ -1,9 +1,9 @@
-import DeepDiveLayout from "../components/DeepDiveLayout";
-import ScrollReveal from "../components/ScrollReveal";
 import CodeBlock from "../components/CodeBlock";
-import TerminalSim from "../components/TerminalSim";
+import DeepDiveLayout from "../components/DeepDiveLayout";
 import FeatureItem from "../components/FeatureItem";
 import GlowBadge from "../components/GlowBadge";
+import ScrollReveal from "../components/ScrollReveal";
+import TerminalSim from "../components/TerminalSim";
 import { features } from "../data/features";
 
 const cliFeatures = features.filter((f) => f.category === "cli");
@@ -77,7 +77,11 @@ const pipelineLines = [
 	{ text: "", delay: 300 },
 	{ text: "[1/3] harness create", color: "text-brand-cyan", delay: 400 },
 	{ text: "  Scanning project... Python 3.12 + FastAPI detected", delay: 200 },
-	{ text: "  \u2713 Generated 14 artifacts (harness_manifest.json written)", color: "text-brand-green", delay: 300 },
+	{
+		text: "  \u2713 Generated 14 artifacts (harness_manifest.json written)",
+		color: "text-brand-green",
+		delay: 300,
+	},
 	{ text: "", delay: 200 },
 	{ text: "[2/3] harness lint", color: "text-brand-cyan", delay: 400 },
 	{ text: "  Running architectural checks...", delay: 200 },
@@ -136,9 +140,9 @@ export default function CliPage() {
 						20 separate commands to remember
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Every project has its own collection of lint, test, check, and deploy commands
-						with different flags and scripts. Nobody remembers them all, and half the
-						team skips half of them.
+						Every project has its own collection of lint, test, check, and deploy commands with
+						different flags and scripts. Nobody remembers them all, and half the team skips half of
+						them.
 					</p>
 				</ScrollReveal>
 				<ScrollReveal delay={0.2}>
@@ -154,10 +158,9 @@ export default function CliPage() {
 						17 commands unified under one CLI with pipeline composition
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Harness provides a single CLI with consistent flags, structured output,
-						progressive profiles, and <code className="text-brand-cyan">--then</code>{" "}
-						chaining for single-invocation pipelines. One tool to remember, one config
-						to maintain.
+						Harness provides a single CLI with consistent flags, structured output, progressive
+						profiles, and <code className="text-brand-cyan">--then</code> chaining for
+						single-invocation pipelines. One tool to remember, one config to maintain.
 					</p>
 				</ScrollReveal>
 
@@ -202,9 +205,7 @@ export default function CliPage() {
 								key={cmd.name}
 								className="glass rounded-lg p-4 hover:bg-white/5 transition-colors"
 							>
-								<code className="text-brand-cyan text-sm font-mono">
-									harness {cmd.name}
-								</code>
+								<code className="text-brand-cyan text-sm font-mono">harness {cmd.name}</code>
 								<p className="text-xs text-gray-400 mt-1">{cmd.description}</p>
 							</div>
 						))}

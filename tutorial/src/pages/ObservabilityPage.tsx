@@ -1,9 +1,9 @@
 import { useState } from "react";
-import DeepDiveLayout from "../components/DeepDiveLayout";
-import ScrollReveal from "../components/ScrollReveal";
 import CodeBlock from "../components/CodeBlock";
+import DeepDiveLayout from "../components/DeepDiveLayout";
 import FeatureItem from "../components/FeatureItem";
 import GlowBadge from "../components/GlowBadge";
+import ScrollReveal from "../components/ScrollReveal";
 import { features } from "../data/features";
 
 const observabilityFeatures = features.filter((f) => f.category === "observability");
@@ -64,21 +64,111 @@ interface LogEntry {
 }
 
 const logEntries: LogEntry[] = [
-	{ timestamp: "14:23:01.234", level: "INFO", domain: "auth", traceId: "a1b2c3d4", message: "Login attempt started for user_id=u_892" },
-	{ timestamp: "14:23:01.412", level: "INFO", domain: "auth", traceId: "a1b2c3d4", message: "Credential validation passed" },
-	{ timestamp: "14:23:01.567", level: "INFO", domain: "auth", traceId: "a1b2c3d4", message: "Session created: ttl=86400s" },
-	{ timestamp: "14:23:02.100", level: "INFO", domain: "billing", traceId: "e5f6a7b8", message: "Invoice generated: invoice_id=inv_2847 amount=$149.00" },
-	{ timestamp: "14:23:02.340", level: "WARN", domain: "billing", traceId: "e5f6a7b8", message: "Payment retry scheduled: attempt 2/3 for inv_2847" },
-	{ timestamp: "14:23:03.001", level: "ERROR", domain: "billing", traceId: "e5f6a7b8", message: "Payment failed: gateway_timeout for inv_2847" },
-	{ timestamp: "14:23:03.210", level: "INFO", domain: "notifications", traceId: "c9d0e1f2", message: "Email queued: template=welcome recipient=user@example.com" },
-	{ timestamp: "14:23:03.890", level: "WARN", domain: "notifications", traceId: "c9d0e1f2", message: "Email delivery delayed: smtp_queue_depth=147" },
-	{ timestamp: "14:23:04.100", level: "INFO", domain: "auth", traceId: "f3a4b5c6", message: "OAuth callback received: provider=github" },
-	{ timestamp: "14:23:04.560", level: "ERROR", domain: "auth", traceId: "f3a4b5c6", message: "OAuth token exchange failed: invalid_grant" },
-	{ timestamp: "14:23:05.001", level: "INFO", domain: "billing", traceId: "d7e8f9a0", message: "Subscription renewed: plan=pro user_id=u_441" },
-	{ timestamp: "14:23:05.234", level: "WARN", domain: "auth", traceId: "b1c2d3e4", message: "Rate limit approaching: 4/5 attempts for ip=203.0.113.42" },
-	{ timestamp: "14:23:05.890", level: "INFO", domain: "notifications", traceId: "a5b6c7d8", message: "Push notification sent: device_id=d_9923 topic=order_update" },
-	{ timestamp: "14:23:06.120", level: "ERROR", domain: "notifications", traceId: "a5b6c7d8", message: "Push delivery failed: device_token_expired for d_9923" },
-	{ timestamp: "14:23:06.450", level: "INFO", domain: "billing", traceId: "e9f0a1b2", message: "Refund processed: amount=$29.00 reason=duplicate_charge" },
+	{
+		timestamp: "14:23:01.234",
+		level: "INFO",
+		domain: "auth",
+		traceId: "a1b2c3d4",
+		message: "Login attempt started for user_id=u_892",
+	},
+	{
+		timestamp: "14:23:01.412",
+		level: "INFO",
+		domain: "auth",
+		traceId: "a1b2c3d4",
+		message: "Credential validation passed",
+	},
+	{
+		timestamp: "14:23:01.567",
+		level: "INFO",
+		domain: "auth",
+		traceId: "a1b2c3d4",
+		message: "Session created: ttl=86400s",
+	},
+	{
+		timestamp: "14:23:02.100",
+		level: "INFO",
+		domain: "billing",
+		traceId: "e5f6a7b8",
+		message: "Invoice generated: invoice_id=inv_2847 amount=$149.00",
+	},
+	{
+		timestamp: "14:23:02.340",
+		level: "WARN",
+		domain: "billing",
+		traceId: "e5f6a7b8",
+		message: "Payment retry scheduled: attempt 2/3 for inv_2847",
+	},
+	{
+		timestamp: "14:23:03.001",
+		level: "ERROR",
+		domain: "billing",
+		traceId: "e5f6a7b8",
+		message: "Payment failed: gateway_timeout for inv_2847",
+	},
+	{
+		timestamp: "14:23:03.210",
+		level: "INFO",
+		domain: "notifications",
+		traceId: "c9d0e1f2",
+		message: "Email queued: template=welcome recipient=user@example.com",
+	},
+	{
+		timestamp: "14:23:03.890",
+		level: "WARN",
+		domain: "notifications",
+		traceId: "c9d0e1f2",
+		message: "Email delivery delayed: smtp_queue_depth=147",
+	},
+	{
+		timestamp: "14:23:04.100",
+		level: "INFO",
+		domain: "auth",
+		traceId: "f3a4b5c6",
+		message: "OAuth callback received: provider=github",
+	},
+	{
+		timestamp: "14:23:04.560",
+		level: "ERROR",
+		domain: "auth",
+		traceId: "f3a4b5c6",
+		message: "OAuth token exchange failed: invalid_grant",
+	},
+	{
+		timestamp: "14:23:05.001",
+		level: "INFO",
+		domain: "billing",
+		traceId: "d7e8f9a0",
+		message: "Subscription renewed: plan=pro user_id=u_441",
+	},
+	{
+		timestamp: "14:23:05.234",
+		level: "WARN",
+		domain: "auth",
+		traceId: "b1c2d3e4",
+		message: "Rate limit approaching: 4/5 attempts for ip=203.0.113.42",
+	},
+	{
+		timestamp: "14:23:05.890",
+		level: "INFO",
+		domain: "notifications",
+		traceId: "a5b6c7d8",
+		message: "Push notification sent: device_id=d_9923 topic=order_update",
+	},
+	{
+		timestamp: "14:23:06.120",
+		level: "ERROR",
+		domain: "notifications",
+		traceId: "a5b6c7d8",
+		message: "Push delivery failed: device_token_expired for d_9923",
+	},
+	{
+		timestamp: "14:23:06.450",
+		level: "INFO",
+		domain: "billing",
+		traceId: "e9f0a1b2",
+		message: "Refund processed: amount=$29.00 reason=duplicate_charge",
+	},
 ];
 
 const levelColors: Record<LogLevel, string> = {
@@ -95,7 +185,9 @@ const domainColors: Record<Domain, string> = {
 
 export default function ObservabilityPage() {
 	const [levelFilter, setLevelFilter] = useState<Set<LogLevel>>(new Set(["INFO", "WARN", "ERROR"]));
-	const [domainFilter, setDomainFilter] = useState<Set<Domain>>(new Set(["auth", "billing", "notifications"]));
+	const [domainFilter, setDomainFilter] = useState<Set<Domain>>(
+		new Set(["auth", "billing", "notifications"]),
+	);
 
 	const toggleLevel = (level: LogLevel) => {
 		setLevelFilter((prev) => {
@@ -135,9 +227,9 @@ export default function ObservabilityPage() {
 						printf debugging in production
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Without structured logging, production debugging means grepping through
-						inconsistent print statements with no timestamps, no trace IDs, and no way
-						to correlate events across services.
+						Without structured logging, production debugging means grepping through inconsistent
+						print statements with no timestamps, no trace IDs, and no way to correlate events across
+						services.
 					</p>
 				</ScrollReveal>
 				<ScrollReveal delay={0.2}>
@@ -153,9 +245,9 @@ export default function ObservabilityPage() {
 						17 observability features from structured logs to effectiveness scoring
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Harness generates structured logging config, log format linters, environment
-						isolation, health checks, browser automation, and telemetry hooks — everything
-						needed to make your application legible to both humans and agents.
+						Harness generates structured logging config, log format linters, environment isolation,
+						health checks, browser automation, and telemetry hooks — everything needed to make your
+						application legible to both humans and agents.
 					</p>
 				</ScrollReveal>
 
@@ -169,7 +261,11 @@ export default function ObservabilityPage() {
 
 				<ScrollReveal delay={0.1}>
 					<div className="space-y-6">
-						<CodeBlock code={structuredConfig} lang="python" filename="logging_config.py (generated)" />
+						<CodeBlock
+							code={structuredConfig}
+							lang="python"
+							filename="logging_config.py (generated)"
+						/>
 						<CodeBlock code={observeOutput} lang="json" filename="harness observe --domain auth" />
 					</div>
 				</ScrollReveal>
@@ -183,8 +279,8 @@ export default function ObservabilityPage() {
 						Interactive structured log stream
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Filter by log level and domain to see how structured logging makes it easy
-						to find exactly the signal you need in production.
+						Filter by log level and domain to see how structured logging makes it easy to find
+						exactly the signal you need in production.
 					</p>
 				</ScrollReveal>
 
@@ -194,7 +290,9 @@ export default function ObservabilityPage() {
 						<div className="flex flex-wrap gap-6 mb-6">
 							{/* Level filters */}
 							<div>
-								<span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Level</span>
+								<span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">
+									Level
+								</span>
 								<div className="flex gap-2">
 									{(["INFO", "WARN", "ERROR"] as LogLevel[]).map((level) => (
 										<button
@@ -217,7 +315,9 @@ export default function ObservabilityPage() {
 
 							{/* Domain filters */}
 							<div>
-								<span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">Domain</span>
+								<span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block">
+									Domain
+								</span>
 								<div className="flex gap-2">
 									{(["auth", "billing", "notifications"] as Domain[]).map((domain) => (
 										<button

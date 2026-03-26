@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from "react";
-import DeepDiveLayout from "../components/DeepDiveLayout";
-import ScrollReveal from "../components/ScrollReveal";
 import CodeBlock from "../components/CodeBlock";
+import DeepDiveLayout from "../components/DeepDiveLayout";
 import FeatureItem from "../components/FeatureItem";
 import GlowBadge from "../components/GlowBadge";
+import ScrollReveal from "../components/ScrollReveal";
 import { features } from "../data/features";
 
 const gatesFeatures = features.filter((f) => f.category === "gates");
@@ -108,9 +108,9 @@ export default function GatesPage() {
 						Ship and pray — no gates between code and production
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Without evaluation gates, broken code reaches production because nobody ran
-						the tests, checked coverage, or audited dependencies. Each missing gate is
-						a failure mode waiting to trigger at 2 AM.
+						Without evaluation gates, broken code reaches production because nobody ran the tests,
+						checked coverage, or audited dependencies. Each missing gate is a failure mode waiting
+						to trigger at 2 AM.
 					</p>
 				</ScrollReveal>
 				<ScrollReveal delay={0.2}>
@@ -126,9 +126,9 @@ export default function GatesPage() {
 						15 configurable gates that block bad code mechanically
 					</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Harness generates an evaluation pipeline with regression tests, coverage
-						thresholds, security scanning, architectural compliance, and more — all
-						runnable in one command with structured output for CI integration.
+						Harness generates an evaluation pipeline with regression tests, coverage thresholds,
+						security scanning, architectural compliance, and more — all runnable in one command with
+						structured output for CI integration.
 					</p>
 				</ScrollReveal>
 
@@ -143,7 +143,11 @@ export default function GatesPage() {
 				<ScrollReveal delay={0.1}>
 					<div className="space-y-6">
 						<CodeBlock code={evaluateMd} lang="markdown" filename="EVALUATION.md (generated)" />
-						<CodeBlock code={evaluateOutput} lang="bash" filename="harness evaluate --format table" />
+						<CodeBlock
+							code={evaluateOutput}
+							lang="bash"
+							filename="harness evaluate --format table"
+						/>
 					</div>
 				</ScrollReveal>
 			</section>
@@ -152,12 +156,10 @@ export default function GatesPage() {
 			<section className="mb-20">
 				<ScrollReveal>
 					<GlowBadge text="See It In Action" color="green" />
-					<h2 className="text-2xl font-bold text-white mt-4 mb-3">
-						Simulated gate evaluation run
-					</h2>
+					<h2 className="text-2xl font-bold text-white mt-4 mb-3">Simulated gate evaluation run</h2>
 					<p className="text-gray-400 mb-8 max-w-2xl">
-						Click "Run Evaluation" to watch each gate execute and report its result,
-						just like <code className="text-brand-cyan">harness evaluate</code> does.
+						Click "Run Evaluation" to watch each gate execute and report its result, just like{" "}
+						<code className="text-brand-cyan">harness evaluate</code> does.
 					</p>
 				</ScrollReveal>
 
@@ -225,9 +227,7 @@ export default function GatesPage() {
 						{/* Summary */}
 						{visibleCount >= gates.length && !running && (
 							<div className="mt-6 pt-4 border-t border-surface-border text-center">
-								<p className="text-brand-green font-semibold">
-									8/8 gates passed — ready to merge
-								</p>
+								<p className="text-brand-green font-semibold">8/8 gates passed — ready to merge</p>
 							</div>
 						)}
 
