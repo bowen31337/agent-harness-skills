@@ -71,7 +71,7 @@ export default function TerminalSim({ lines, title }: TerminalSimProps) {
 
       {/* Body */}
       <div
-        className="p-4 font-mono text-sm leading-relaxed"
+        className="p-4 font-mono text-xs sm:text-sm leading-relaxed overflow-x-auto"
         aria-live="polite"
       >
         {lines.map((line, i) => (

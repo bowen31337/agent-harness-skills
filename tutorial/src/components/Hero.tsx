@@ -121,7 +121,7 @@ export default function Hero() {
       <div className="relative z-10 flex flex-col items-center gap-6 px-4 text-center">
         <h1
           ref={titleRef}
-          className="gradient-text text-5xl md:text-7xl font-bold tracking-tight opacity-0"
+          className="gradient-text text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight opacity-0"
         >
           harness-skills
         </h1>
