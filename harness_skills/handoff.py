@@ -358,10 +358,71 @@ class HandoffProtocol:
     addendum (for ending agents) or reads a file and injects search hints
     (for resuming agents). All actual context-building is done by the agent
     with its own tools at runtime.
+
+    Context Reset vs Compaction
+    ---------------------------
+    Compaction summarises earlier conversation in place so the same agent can
+    keep going on a shortened history.  While it preserves continuity, it does
+    **not** give the agent a clean slate — so **context anxiety** can persist.
+    Context anxiety is the tendency for models to prematurely wrap up work as
+    the context window fills, because they believe they are running out of room.
+
+    A **context reset** clears the window entirely and starts a fresh agent,
+    combined with a structured handoff document that carries state and next
+    steps.  This eliminates context anxiety at the cost of orchestration
+    overhead.
+
+    The ``reset_threshold`` parameter (default: 80 tool calls) controls when
+    the harness should trigger a full context reset instead of relying on
+    compaction.  When the agent has made ≥ ``reset_threshold`` tool calls in
+    the current session, the harness should initiate a context reset — spawning
+    a new agent with a fresh context window and passing along the handoff
+    document.
+
+    Guideline: prefer compaction for short/medium tasks where context anxiety
+    is not observed; prefer resets for long-running tasks (80+ tool calls) or
+    when the model exhibits premature wrap-up behaviour.
+
+    See also: ``docs/guides/context-reset-vs-compaction.md``
     """
 
-    def __init__(self, handoff_path: Path = _DEFAULT_HANDOFF_PATH) -> None:
+    def __init__(
+        self,
+        handoff_path: Path = _DEFAULT_HANDOFF_PATH,
+        reset_threshold: int = 80,
+    ) -> None:
         self.handoff_path = handoff_path
+        self.reset_threshold = reset_threshold
+
+    # ------------------------------------------------------------------
+    # Context reset detection
+    # ------------------------------------------------------------------
+
+    def should_reset(self, tool_call_count: int) -> bool:
+        """Return ``True`` when the session should trigger a full context reset.
+
+        A context reset clears the context window entirely and hands off to a
+        fresh agent, eliminating context anxiety.  This method returns ``True``
+        when *tool_call_count* (the number of tool calls made in the current
+        session) meets or exceeds ``self.reset_threshold``.
+
+        Compaction (summarising in place) preserves continuity but does not
+        cure context anxiety — the model may still rush to finish because
+        it perceives the context as "almost full".  A reset gives the agent
+        a clean slate.
+
+        Parameters
+        ----------
+        tool_call_count:
+            Number of tool calls the current agent has made so far.
+
+        Returns
+        -------
+        bool
+            ``True`` → trigger a context reset (spawn new agent + handoff).
+            ``False`` → compaction is sufficient for now.
+        """
+        return tool_call_count >= self.reset_threshold
 
     # ------------------------------------------------------------------
     # Ending-session helpers

@@ -44,6 +44,8 @@ The #1 mistake in agent tool design is giving every model the same interface. To
 
 **Upgrade — Trace-Driven Iteration:** Quarterly audits are the floor, not the ceiling. The fastest improvement loop is: run agent on benchmark → collect traces → spawn parallel error-analysis agents → synthesise failure patterns → make targeted harness changes → re-run. LangChain improved their coding agent 13.7 points on Terminal Bench 2.0 this way *without changing the model*. Every agent failure is a training signal for the harness.
 
+> **⚠️ Compaction vs Reset:** As models improve, the harness should selectively use **full context resets** (not just compaction) for tasks that exhibit premature wrap-up. Compaction preserves continuity but does not cure *context anxiety* — the tendency for agents to rush through work as the context window fills. A context reset clears the window entirely and hands off to a fresh agent with a structured handoff document. Anthropic found that Claude Sonnet 4.5 exhibited context anxiety strongly enough that compaction alone was insufficient; context resets were essential. Newer models (Opus 4.5+) largely removed this behaviour, allowing compaction-only strategies. As models evolve, audit whether your tasks still need resets or whether compaction is now sufficient. See `docs/guides/context-reset-vs-compaction.md` for the full framework.
+
 ---
 
 ## Guideline 4: Let Agents Build Their Own Context
@@ -166,6 +168,40 @@ Triggers to track:
 
 ---
 
+## Guideline 11: Separate Generator and Evaluator Roles
+
+**Problem:** When asked to evaluate their own work, agents consistently praise it — even when, to a human observer, the quality is obviously mediocre. This is most visible on subjective tasks (design, writing, UX) but also affects verifiable tasks (code, tests). The core issue is that self-evaluation is fundamentally lenient: the same model that generated the output is inclined to be generous when judging it.
+
+**Solution:** Separate the agent doing the work (generator) from the agent judging it (evaluator). This creates a feedback loop where the generator has concrete, external criticism to iterate against.
+
+Key engineering insights from Anthropic's harness research:
+
+1. **Self-evaluation is fundamentally lenient — and this is not fixable by prompting alone.** Models confidently praise their own mediocre work. The separation between generator and evaluator doesn't immediately eliminate leniency, but tuning a standalone evaluator to be skeptical is **far more tractable** than making a generator self-critical.
+
+2. **Weighted grading dimensions turn subjective judgment into concrete scores.** Rather than asking "is this good?", define specific dimensions (e.g., Correctness ×3, Completeness ×3, Quality ×2, Originality ×1) that encode what "good" means. Weight them to prioritise must-haves over nice-to-haves. This gives both the generator and evaluator a shared vocabulary.
+
+3. **Few-shot calibration examples prevent score drift.** Provide the evaluator with detailed score breakdowns for known-good and known-bad outputs. This anchors judgment and ensures consistency across iterations.
+
+4. **Score trend detection enables strategic pivots.** Monitor evaluation scores across iterations. If scores are trending up → **refine** the current approach. If 2+ consecutive scores decline → **pivot** to an entirely different approach. Anthropic observed that some generations refined incrementally while others took sharp creative turns between iterations — the pivot decision should be data-driven, not left to intuition.
+
+**Architecture:**
+
+```
+Planner → Generator → Evaluator → [REFINE/PIVOT/APPROVE]
+              ↑                          |
+              └──── feedback loop ───────┘
+```
+
+The evaluator grades each iteration using the weighted dimensions + few-shot calibration. The PivotTracker monitors the score trend and decides the next action. On APPROVE, the work is done. On REFINE, the feedback goes back to the generator. On PIVOT, the generator scraps its approach and tries something fundamentally different.
+
+**Implementation:** See `harness_skills/evaluator.py` (AdversarialEvaluator), `harness_skills/pivot_tracker.py` (PivotTracker), and `skills/adversarial-evaluator/SKILL.md`.
+
+**Rule:** Never let an agent grade its own work. Separate generation from evaluation, calibrate the evaluator with examples, and use score trends to decide when to persist vs pivot.
+
+**Reference:** [Anthropic: Harness Design for Long-Running Application Development](https://www.anthropic.com/engineering/harness-design-long-running-apps)
+
+---
+
 ## Summary: The Agent Design Checklist
 
 Before shipping any tool or skill change:
@@ -181,6 +217,10 @@ Before shipping any tool or skill change:
 - [ ] Is environment context injected at boot, not discovered at runtime? (G9)
 - [ ] Is there a loop detector to break repeated-edit doom loops? (G10)
 - [ ] Are agent traces collected and feeding back into harness improvements? (G3 upgrade)
+- [ ] Is the evaluator separate from the generator? (G11)
+- [ ] Does the evaluator use weighted grading dimensions with few-shot calibration? (G11)
+- [ ] Is there a pivot tracker monitoring score trends across iterations? (G11)
+- [ ] Are context resets used for long-running tasks that exhibit premature wrap-up? (G3 callout)
 
 ---
 
