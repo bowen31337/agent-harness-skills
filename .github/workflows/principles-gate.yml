@@ -11,6 +11,12 @@ name: Principles Compliance Gate
 on:
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "spec/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   principles-gate:

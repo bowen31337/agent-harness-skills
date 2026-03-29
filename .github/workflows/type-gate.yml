@@ -8,6 +8,12 @@ name: Type Safety Gate
 on:
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "spec/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   type-gate:
