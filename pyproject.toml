@@ -20,6 +20,7 @@ dependencies = [
     "pytest-playwright",
     "jsonschema>=4.18",
     "click>=8.1.0",
+    "rich>=13.0.0",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,6 @@ dev = [
 dashboard = [
     "numpy>=1.24.0",
     "scipy>=1.10.0",
-    "rich>=13.0.0",
 ]
 languages = [
     "tree-sitter>=0.23.0",

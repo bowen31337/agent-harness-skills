@@ -24,12 +24,12 @@ dependencies = [
     { name = "pytest-playwright" },
     { name = "pyyaml" },
     { name = "requests" },
+    { name = "rich" },
 ]
 
 [package.optional-dependencies]
 dashboard = [
     { name = "numpy" },
-    { name = "rich" },
     { name = "scipy" },
 ]
 dev = [
@@ -70,7 +70,7 @@ requires-dist = [
     { name = "pytest-playwright" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "requests", specifier = ">=2.32.0" },
-    { name = "rich", marker = "extra == 'dashboard'", specifier = ">=13.0.0" },
+    { name = "rich", specifier = ">=13.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "scipy", marker = "extra == 'dashboard'", specifier = ">=1.10.0" },
     { name = "tree-sitter", marker = "extra == 'languages'", specifier = ">=0.23.0" },
