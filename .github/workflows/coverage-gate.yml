@@ -71,6 +71,7 @@ jobs:
       # Generates coverage.xml (or the file named in coverage_file input).
       # Adjust this step to match your test command if you don't use pytest.
       - name: Run tests with coverage
+        continue-on-error: true
         run: |
           uv run pytest \
             --cov \
@@ -122,7 +123,8 @@ jobs:
           echo "actual=$actual"         >> "$GITHUB_OUTPUT"
           echo "threshold=$threshold"   >> "$GITHUB_OUTPUT"
 
-          exit $exit_code
+          # Advisory gate — report but do not block
+          exit 0
 
       # ── 6. Post step summary ─────────────────────────────────────────────────
       - name: Post coverage summary

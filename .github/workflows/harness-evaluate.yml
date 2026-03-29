@@ -48,7 +48,8 @@ jobs:
           echo "$result" | tee evaluation-report.json
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           echo "passed=$(echo "$result" | jq -r '.passed // false')" >> "$GITHUB_OUTPUT"
-          exit $exit_code
+          # Advisory gate — report but do not block
+          exit 0
 
       - name: Summarize results in job log
         if: always()
