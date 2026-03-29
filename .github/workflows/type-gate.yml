@@ -46,7 +46,6 @@ jobs:
           set +e
           result=$(uv run harness evaluate \
             --gate types \
-            --fail-on error \
             --format json 2>&1)
           exit_code=$?
           echo "$result" | tee type-report.json

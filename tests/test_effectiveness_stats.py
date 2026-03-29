@@ -6,8 +6,9 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import patch
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy", reason="numpy required (install with: pip install -e '.[dashboard]')")
 
 from harness_skills.effectiveness_stats import (
     ArtifactStats,
