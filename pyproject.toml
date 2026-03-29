@@ -19,6 +19,7 @@ dependencies = [
     "playwright",
     "pytest-playwright",
     "jsonschema>=4.18",
+    "click>=8.1.0",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,6 @@ dashboard = [
     "numpy>=1.24.0",
     "scipy>=1.10.0",
     "rich>=13.0.0",
-    "click>=8.1.0",
 ]
 languages = [
     "tree-sitter>=0.23.0",
@@ -44,6 +44,9 @@ languages = [
     "tree-sitter-rust>=0.23.0",
     "tree-sitter-java>=0.23.0",
 ]
+
+[project.scripts]
+harness = "harness_skills.cli.main:cli"
 
 [project.entry-points."harness_skills.analyzers"]
 python = "harness_skills.analyzers.python_analyzer:PythonAnalyzer"

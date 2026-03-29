@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.12"
 required-markers = [
     "platform_machine == 'arm64' and sys_platform == 'darwin'",
@@ -15,6 +15,7 @@ dependencies = [
     { name = "anyio" },
     { name = "beautifulsoup4" },
     { name = "claude-agent-sdk" },
+    { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema" },
     { name = "lxml" },
@@ -27,7 +28,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dashboard = [
-    { name = "click" },
     { name = "numpy" },
     { name = "rich" },
     { name = "scipy" },
@@ -55,7 +55,7 @@ requires-dist = [
     { name = "anyio" },
     { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "claude-agent-sdk" },
-    { name = "click", marker = "extra == 'dashboard'", specifier = ">=8.1.0" },
+    { name = "click", specifier = ">=8.1.0" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "jsonschema", specifier = ">=4.18" },
     { name = "lxml", specifier = ">=5.2.0" },
