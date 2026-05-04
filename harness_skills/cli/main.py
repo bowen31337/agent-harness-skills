@@ -150,6 +150,8 @@ def cli() -> None:
     """
 
 
+# Register all 17 sub-commands. See docs/cli/index.md for the
+# command reference and per-command pages under docs/cli/<cmd>.md.
 cli.add_command(audit_cmd)
 cli.add_command(boot_cmd)
 cli.add_command(completion_report_cmd)
