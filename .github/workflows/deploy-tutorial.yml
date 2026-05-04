@@ -15,6 +15,11 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+# Opt JS-based actions into Node.js 24 ahead of GitHub's June-2026 forced
+# migration. Silences the "Node.js 20 actions are deprecated" warning.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
