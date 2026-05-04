@@ -66,28 +66,43 @@ This repository provides production-grade skills, tools, and coordination primit
 
 ## Install
 
+This project uses [`uv`](https://docs.astral.sh/uv/) as the canonical Python package manager. Install `uv` first:
+
 ```bash
-pip install agent-harness-skills
+curl -LsSf https://astral.sh/uv/install.sh | sh    # macOS / Linux
+# or: brew install uv
+```
+
+Then install the harness CLI as an isolated tool:
+
+```bash
+uv tool install agent-harness-skills
 harness --help
 ```
 
-Requires Python 3.12+. The package registers a `harness` CLI entry point — see [`docs/agents/cli-commands.md`](docs/agents/cli-commands.md) for the full command reference.
+Requires Python 3.12+ (uv will provision it automatically if missing). The package registers a `harness` CLI entry point — see [`docs/agents/cli-commands.md`](docs/agents/cli-commands.md) for the full command reference.
 
 ### Optional extras
 
 ```bash
-pip install "agent-harness-skills[dashboard]"   # numpy/scipy for harness dashboard
-pip install "agent-harness-skills[languages]"   # tree-sitter parsers (Py/TS/Go/Rust/Java)
+uv tool install "agent-harness-skills[dashboard]"   # numpy/scipy for harness dashboard
+uv tool install "agent-harness-skills[languages]"   # tree-sitter parsers (Py/TS/Go/Rust/Java)
+```
+
+To use the package as a library inside another uv-managed project, add it as a dependency instead:
+
+```bash
+uv add agent-harness-skills
 ```
 
 ### From source (development)
 
 ```bash
 git clone https://github.com/bowen31337/agent-harness-skills && cd agent-harness-skills
-uv sync --extra dev                # or: pip install -e ".[dev]"
+uv sync --extra dev                # creates .venv/ and installs all dev dependencies
 cp .env.example .env               # add your API keys
-pytest tests/ -v                   # runs the unit suite
-playwright install chromium        # only if you'll run tests/browser/
+uv run pytest tests/ -v            # runs the unit suite
+uv run playwright install chromium # only if you'll run tests/browser/
 ```
 
 ---
@@ -543,9 +558,9 @@ Runnable demos in `examples/`:
 | [`performance_hooks_example.py`](examples/performance_hooks_example.py) | Performance measurement across agent steps |
 
 ```bash
-# Run any example
-pip install agent-harness-skills        # or `uv pip install -e .` from a source checkout
-python examples/handoff_example.py
+# Run any example (from a source checkout)
+uv sync --extra dev
+uv run python examples/handoff_example.py
 ```
 
 ---

@@ -65,10 +65,10 @@ Test suite for the entire agent-harness-skills framework. Covers unit tests for 
 - **Browser tests in `tests/browser/` only** — Playwright imports must not appear outside this subdirectory.
 - **`screenshots/` and `videos/` are gitignored** — never commit files from these directories, even if a test produces them.
 - **Run browser tests headed locally only** — `pytest tests/browser/ --headed` is for local debugging; CI always runs headless.
-- **Test commands:**
+- **Test commands** (run via `uv` so the project virtualenv is always used):
   ```bash
-  pytest tests/ -v                        # all tests
-  pytest tests/browser/ -v               # browser e2e only
-  pytest tests/browser/ --headed         # headed (local debug)
-  BASE_URL=https://staging.example.com pytest tests/browser/ -v
+  uv run pytest tests/ -v                        # all tests
+  uv run pytest tests/browser/ -v                # browser e2e only
+  uv run pytest tests/browser/ --headed          # headed (local debug)
+  BASE_URL=https://staging.example.com uv run pytest tests/browser/ -v
   ```

@@ -4,12 +4,14 @@
 
 ## Install
 
+This project uses [`uv`](https://docs.astral.sh/uv/) as the canonical Python package manager. Install `uv` first (`curl -LsSf https://astral.sh/uv/install.sh | sh`, or `brew install uv`), then:
+
 ```bash
-pip install agent-harness-skills
+uv tool install agent-harness-skills
 harness --help
 ```
 
-Requires Python 3.12+.
+Requires Python 3.12+ (uv will provision it automatically if missing).
 
 ## Where to next
 

@@ -38,12 +38,14 @@ Most commands accept `--format json|yaml|table` and `--help`. Run `harness <comm
 
 ## Installation & Entry Point
 
+This project uses [`uv`](https://docs.astral.sh/uv/) as the canonical Python package manager. Install `uv` (`curl -LsSf https://astral.sh/uv/install.sh | sh`, or `brew install uv`), then:
+
 ```bash
-pip install agent-harness-skills    # registers the `harness` script
+uv tool install agent-harness-skills    # registers the `harness` script in an isolated env
 harness --help
 ```
 
-For a source checkout (development), `uv sync --extra dev` does the same and adds dev tooling.
+For a source checkout (development), `uv sync --extra dev` provisions `.venv/` and installs dev tooling.
 
 `pyproject.toml` declares `harness = "harness_skills.cli.main:cli"` as the entry point.
 

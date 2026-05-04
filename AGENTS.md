@@ -54,16 +54,16 @@ path = visit_and_capture(page, "/dashboard", "dashboard")
 
 ```bash
 # All browser tests
-pytest tests/browser/ -v
+uv run pytest tests/browser/ -v
 
 # Single test file
-pytest tests/browser/test_smoke.py -v
+uv run pytest tests/browser/test_smoke.py -v
 
 # Run headed (shows browser window — useful for local debugging)
-pytest tests/browser/ --headed
+uv run pytest tests/browser/ --headed
 
 # Target a different environment
-BASE_URL=https://staging.example.com pytest tests/browser/ -v
+BASE_URL=https://staging.example.com uv run pytest tests/browser/ -v
 ```
 
 ### Environment variables
@@ -75,7 +75,7 @@ BASE_URL=https://staging.example.com pytest tests/browser/ -v
 
 ### Capturing screenshots from an agent task
 
-1. Start the dev server (if needed): `python -m uvicorn app:app --reload` or equivalent
+1. Start the dev server (if needed): `uv run uvicorn app:app --reload` or equivalent
 2. Set `BASE_URL` if targeting staging/CI
 3. Call `driver.screenshot(page, '<meaningful-label>')`
 4. Find the PNG at `screenshots/<label>-<timestamp>.png`
@@ -85,7 +85,7 @@ BASE_URL=https://staging.example.com pytest tests/browser/ -v
 
 ```bash
 uv add playwright pytest-playwright
-playwright install chromium   # downloads the Chromium binary
+uv run playwright install chromium   # downloads the Chromium binary
 ```
 
 Both `playwright` and `pytest-playwright` are already declared in `pyproject.toml`.

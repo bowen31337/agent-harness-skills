@@ -4,7 +4,7 @@
 
 `screenshot` wraps Playwright headless-Chromium for harness-managed visual artefacts. Two modes: capture a fresh screenshot from a URL, or list / re-emit previously captured ones. Captured PNGs land in the configured output directory with deterministic filenames so they can be diffed across runs (visual regression style).
 
-Requires Playwright to be installed (`pip install agent-harness-skills` already declares it as a dependency, but the browser binary itself needs `playwright install chromium` once per environment).
+Requires Playwright to be installed (`uv tool install agent-harness-skills` already declares it as a dependency, but the browser binary itself needs `uv run playwright install chromium` once per environment — or `playwright install chromium` if Playwright is on your `PATH`).
 
 ## Synopsis
 
