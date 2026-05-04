@@ -10,25 +10,40 @@ exposed through the `harness_skills.cli.cli` Click group.
 
 ## Quick Reference
 
+All 17 sub-commands registered by `harness_skills/cli/main.py`:
+
 | Command | What it does |
 |---------|-------------|
+| `harness audit` | Verify generated artefacts (config, manifest, principles) are present and valid |
+| `harness boot` | Boot an agent instance with sandbox isolation and health checks |
+| `harness completion-report` | Aggregate plan-completion status into a JSON/YAML/table report |
+| `harness context` | Provision agent context for the current task |
+| `harness coordinate` | Cross-agent task conflict dashboard (locks + plan slots) |
 | `harness create` | Scaffold a new harness from a profile (minimal / standard / full) |
 | `harness evaluate` | Run all configured gates and emit an `EvaluateResponse` |
 | `harness lint` | Static analysis via ruff + mypy |
+| `harness manifest` | Generate / validate the project's `harness_manifest.json` |
 | `harness observe` | Tail / query structured logs |
+| `harness plan` | Manage and inspect execution plans |
+| `harness resume` | Resume a previously interrupted plan or task |
+| `harness screenshot` | Capture browser screenshots via Playwright |
+| `harness search` | Search across structured logs and harness state |
 | `harness status` | Print live harness status dashboard |
 | `harness telemetry` | Aggregate and report telemetry |
-| `harness context` | Provision agent context for the current task |
-| `harness boot` | Boot an agent instance with sandbox isolation |
+| `harness update` | Regenerate auto-managed artefacts after stack changes |
+
+Most commands accept `--format json|yaml|table` and `--help`. Run `harness <command> --help` for the authoritative flag list.
 
 ---
 
 ## Installation & Entry Point
 
 ```bash
-uv sync                     # installs the `harness` script via pyproject.toml
+pip install agent-harness-skills    # registers the `harness` script
 harness --help
 ```
+
+For a source checkout (development), `uv sync --extra dev` does the same and adds dev tooling.
 
 `pyproject.toml` declares `harness = "harness_skills.cli.main:cli"` as the entry point.
 

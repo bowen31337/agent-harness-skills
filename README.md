@@ -64,22 +64,30 @@ This repository provides production-grade skills, tools, and coordination primit
 
 ---
 
-## Quick Start
+## Install
 
 ```bash
-# 1. Clone and install
-git clone <repo-url> && cd agent-harness-skills
-pip install -e ".[dev]"            # or: uv pip install -e ".[dev]"
+pip install agent-harness-skills
+harness --help
+```
 
-# 2. Configure
+Requires Python 3.12+. The package registers a `harness` CLI entry point — see [`docs/agents/cli-commands.md`](docs/agents/cli-commands.md) for the full command reference.
+
+### Optional extras
+
+```bash
+pip install "agent-harness-skills[dashboard]"   # numpy/scipy for harness dashboard
+pip install "agent-harness-skills[languages]"   # tree-sitter parsers (Py/TS/Go/Rust/Java)
+```
+
+### From source (development)
+
+```bash
+git clone https://github.com/bowen31337/agent-harness-skills && cd agent-harness-skills
+uv sync --extra dev                # or: pip install -e ".[dev]"
 cp .env.example .env               # add your API keys
-# Edit claw-forge.yaml for model providers and skill settings
-
-# 3. Run tests
-pytest tests/ -v
-
-# 4. (Optional) Install Playwright for browser automation
-playwright install chromium
+pytest tests/ -v                   # runs the unit suite
+playwright install chromium        # only if you'll run tests/browser/
 ```
 
 ---
@@ -536,7 +544,7 @@ Runnable demos in `examples/`:
 
 ```bash
 # Run any example
-uv pip install -e .
+pip install agent-harness-skills        # or `uv pip install -e .` from a source checkout
 python examples/handoff_example.py
 ```
 
