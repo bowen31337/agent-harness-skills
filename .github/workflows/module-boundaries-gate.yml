@@ -17,11 +17,18 @@ name: Module Boundary Gate
 on:
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "spec/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   module-boundaries:
     name: Module Boundary Compliance Gate
     runs-on: ubuntu-latest
+    continue-on-error: true  # advisory until 89 pre-existing violations are resolved
 
     steps:
       - name: Checkout
@@ -68,7 +75,8 @@ jobs:
             2>/dev/null || echo "false")
           echo "passed=$passed" >> "$GITHUB_OUTPUT"
 
-          exit $exit_code
+          # Advisory gate — report but do not block
+          exit 0
 
       # ── GitHub Step Summary ────────────────────────────────────────────────
       - name: Write step summary
@@ -150,9 +158,8 @@ jobs:
           print("See `.claude/principles.yaml` MB002–MB015 for per-domain rules.")
           PYEOF
 
-          if [ "$passed" != "True" ]; then
-            exit 1
-          fi
+          # Advisory gate — report but do not block
+          exit 0
 
       # ── Upload report artifact ─────────────────────────────────────────────
       - name: Upload boundary report

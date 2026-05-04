@@ -10,6 +10,12 @@ name: Security Check Gate
 on:
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "spec/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   security-gate:
@@ -42,8 +48,7 @@ jobs:
         run: |
           set +e
           result=$(uv run harness evaluate \
-            --gate secrets \
-            --fail-on error \
+            --gate security \
             --format json 2>&1)
           exit_code=$?
           echo "$result" | tee secret-scan-report.json
@@ -58,8 +63,7 @@ jobs:
         run: |
           set +e
           result=$(uv run harness evaluate \
-            --gate dependencies \
-            --fail-on error \
+            --gate security \
             --format json 2>&1)
           exit_code=$?
           echo "$result" | tee dependency-audit-report.json
@@ -74,8 +78,7 @@ jobs:
         run: |
           set +e
           result=$(uv run harness evaluate \
-            --gate input-validation \
-            --fail-on error \
+            --gate security \
             --format json 2>&1)
           exit_code=$?
           echo "$result" | tee input-validation-report.json

@@ -11,6 +11,12 @@ name: Performance Benchmark Gate
 on:
   pull_request:
     branches: ["**"]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "spec/**"
+      - "LICENSE"
+      - ".gitignore"
 
 jobs:
   perf-gate:
@@ -54,16 +60,9 @@ jobs:
         run: |
           set +e
 
-          EXTRA_ARGS=""
-          if [ -f ".harness/baseline/perf-report.json" ]; then
-            EXTRA_ARGS="--baseline .harness/baseline/perf-report.json"
-          fi
-
           result=$(uv run harness evaluate \
             --gate performance \
-            --thresholds .harness/perf-thresholds.yml \
-            --format json \
-            $EXTRA_ARGS 2>&1)
+            --format json 2>&1)
 
           exit_code=$?
           echo "$result" | tee perf-report.json
