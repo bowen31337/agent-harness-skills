@@ -9,21 +9,19 @@ Usage:
     python harness_context.py "payment processing" --json
 """
 
-import anyio
 import argparse
 import json
 import sys
-from typing import List
 
+import anyio
 from claude_agent_sdk import (
     ClaudeAgentOptions,
-    ResultMessage,
-    CLINotFoundError,
     CLIConnectionError,
+    CLINotFoundError,
+    ResultMessage,
     query,
 )
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Output schema
@@ -32,16 +30,16 @@ from pydantic import BaseModel, Field
 class ContextManifest(BaseModel):
     """Minimal context manifest returned by the harness — paths + patterns only."""
 
-    file_paths: List[str] = Field(
+    file_paths: list[str] = Field(
         description="Specific file paths most relevant to the plan or domain, "
                     "ordered by relevance (most important first)."
     )
-    search_patterns: List[str] = Field(
+    search_patterns: list[str] = Field(
         description="Regex or glob patterns an assembler agent should search for "
                     "to gather additional context (e.g. symbol names, import paths, "
                     "config keys)."
     )
-    glob_patterns: List[str] = Field(
+    glob_patterns: list[str] = Field(
         description="Glob patterns that match files belonging to this plan/domain "
                     "(e.g. 'src/auth/**/*.py', 'tests/**/test_payment*.py')."
     )
@@ -182,7 +180,7 @@ def _render_human(manifest: ContextManifest, plan_or_domain: str) -> None:
     else:
         print("     (none found)")
 
-    print(f"\n  Rationale")
+    print("\n  Rationale")
     print(f"     {manifest.rationale}")
     print(f"\n{bar}\n")
 

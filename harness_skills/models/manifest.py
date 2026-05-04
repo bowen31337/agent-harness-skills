@@ -52,7 +52,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse, Status
 
-
 # ---------------------------------------------------------------------------
 # Supporting model — one error entry
 # ---------------------------------------------------------------------------
@@ -109,7 +108,7 @@ class ManifestValidateResponse(HarnessResponse):
     valid: bool = Field(
         description="True when the manifest passes all schema checks; False otherwise."
     )
-    path: Optional[str] = Field(
+    path: str | None = Field(
         default=None,
         description="Path to the ``harness_manifest.json`` file that was validated.",
     )

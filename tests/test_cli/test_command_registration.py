@@ -6,7 +6,6 @@ from click.testing import CliRunner
 
 from harness_skills.cli.main import cli
 
-
 EXPECTED_COMMANDS = {
     "audit",
     "boot",

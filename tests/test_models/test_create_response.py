@@ -14,12 +14,11 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.base import Status
 from harness_skills.models.create import CreateResponse, DetectedStack, GeneratedArtifact
-
 
 # ---------------------------------------------------------------------------
 # DetectedStack

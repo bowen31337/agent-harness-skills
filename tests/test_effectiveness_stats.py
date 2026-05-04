@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
-from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -27,7 +27,6 @@ from harness_skills.pr_effectiveness import (
     generate_sample_prs,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -48,7 +47,7 @@ def _make_pr(
         pr_id=pr_id,
         repo="test-repo",
         author="tester",
-        created_at=datetime(2025, 10, 1, tzinfo=timezone.utc),
+        created_at=datetime(2025, 10, 1, tzinfo=UTC),
         artifacts=arts,
         gate_pass_rate=gate_pass_rate,
         review_cycles=review_cycles,
@@ -320,7 +319,7 @@ class TestSerialisation:
         all_stats = compute_all_stats(prs)
         json_str = stats_to_json_summary(all_stats)
         parsed = json.loads(json_str)
-        for art_key, data in parsed.items():
+        for data in parsed.values():
             assert "n_with" in data
             assert "usage_rate" in data
             assert "gate_pass_delta" in data

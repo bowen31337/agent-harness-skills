@@ -28,10 +28,10 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
-import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
+import sys
 
 # ---------------------------------------------------------------------------
 # Patterns
@@ -149,13 +149,12 @@ def check_python_package(path: Path) -> list[Violation]:
     """Directories that are Python packages (contain __init__.py) must be snake_case."""
     violations: list[Violation] = []
     name = path.name
-    if (path / "__init__.py").exists():
-        if not _SNAKE_CASE.match(name):
-            violations.append(Violation(
-                path=path,
-                rule="PY003",
-                message=f"Python package directory '{name}' must be snake_case",
-            ))
+    if (path / "__init__.py").exists() and not _SNAKE_CASE.match(name):
+        violations.append(Violation(
+            path=path,
+            rule="PY003",
+            message=f"Python package directory '{name}' must be snake_case",
+        ))
     return violations
 
 
@@ -229,7 +228,6 @@ def lint(paths: list[Path], repo_root: Path) -> list[Violation]:
 
     for p in paths:
         suffix = p.suffix.lower()
-        name = p.name
 
         # ── Directories ──────────────────────────────────────────────────
         if p.is_dir():
@@ -255,7 +253,6 @@ def lint(paths: list[Path], repo_root: Path) -> list[Violation]:
             continue
 
         # ── CI/CD workflows ───────────────────────────────────────────────
-        wf_dirs = {".github/workflows", ".gitlab-ci.yml"}
         in_workflow = any(
             ".github/workflows" in str(p) or ".gitlab-ci" in str(p)
             for _ in [None]

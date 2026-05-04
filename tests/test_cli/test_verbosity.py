@@ -12,26 +12,26 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
 import logging
 import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli import VerbosityLevel, get_verbosity, vecho
 from harness_skills.cli.main import cli
 from harness_skills.cli.manifest import manifest_cmd
 from harness_skills.cli.verbosity import (
-    VERBOSITY_OPTION,
     _LOG_LEVEL_MAP,
     _RANK,
+    VERBOSITY_OPTION,
     apply_verbosity,
     at_least,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -258,7 +258,7 @@ def _write_valid_manifest(path: Path) -> None:
 
     manifest = {
         "schema_version": "1.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_sha": None,
         "git_branch": None,
         "harness_version": None,

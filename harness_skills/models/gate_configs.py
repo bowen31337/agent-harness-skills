@@ -43,7 +43,6 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # ---------------------------------------------------------------------------
 # ARCHITECTURE_STYLE_PRESETS
 # Built-in layer stacks for common architectural styles.  Engineers set
@@ -132,7 +131,7 @@ HarnessConfigLoader` can merge YAML overrides onto dataclass defaults
         return dataclasses.asdict(self)
 
     @classmethod
-    def model_validate(cls, data: dict[str, Any]) -> "BaseGateConfig":
+    def model_validate(cls, data: dict[str, Any]) -> BaseGateConfig:
         """Construct an instance from *data*, ignoring unknown keys.
 
         Unknown keys present in the YAML (e.g. keys added in a future

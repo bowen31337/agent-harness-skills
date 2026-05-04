@@ -10,19 +10,18 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.observe import (
-    _TailStats,
     _domain_matches,
     _emit,
     _format_pretty,
     _passes_filters,
     _tail_file,
+    _TailStats,
     observe_cmd,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -869,7 +868,7 @@ class TestTailFileFollow:
                 raise KeyboardInterrupt()
 
         with patch.object(obs_mod.time, "sleep", side_effect=patched_sleep):
-            stats = _tail_file(
+            _tail_file(
                 log,
                 follow=True,
                 lines=50,

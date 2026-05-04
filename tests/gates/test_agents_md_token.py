@@ -28,8 +28,8 @@ Test strategy
 from __future__ import annotations
 
 import math
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -40,7 +40,6 @@ from harness_skills.gates.agents_md_token import (
     _estimate_tokens,
 )
 from harness_skills.models.gate_configs import AgentsMdTokenGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers — file writers

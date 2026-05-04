@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import logging
 from importlib.metadata import entry_points
+import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)

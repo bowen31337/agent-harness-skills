@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.lock import (
     LockAcquireRequest,
@@ -14,7 +14,6 @@ from harness_skills.models.lock import (
     LockReleaseRequest,
     LockStateResponse,
 )
-
 
 # ── LockAcquireRequest ──────────────────────────────────────────────────────
 

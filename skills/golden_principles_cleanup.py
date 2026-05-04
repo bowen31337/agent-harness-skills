@@ -44,12 +44,12 @@ Programmatic use
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 try:
@@ -120,7 +120,7 @@ class CleanupTaskManifest(BaseModel):
 
 def _now_utc() -> str:
     """Return the current UTC timestamp in ISO-8601 format."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _slugify(text: str) -> str:
@@ -551,7 +551,7 @@ detecting {len(violations)} violation(s) across the following file(s):
             output_file.write_text(yaml_content, encoding="utf-8")
             if used_fallback:
                 print(
-                    f"[golden-principles-cleanup] Note: harness gate unavailable, used fallback text scan.",
+                    "[golden-principles-cleanup] Note: harness gate unavailable, used fallback text scan.",
                     file=sys.stderr,
                 )
             print(

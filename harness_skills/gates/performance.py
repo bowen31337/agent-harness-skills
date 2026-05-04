@@ -49,12 +49,12 @@ Programmatic usage::
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, field
 import json
+from pathlib import Path
 import statistics
 import sys
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 try:
     import yaml  # type: ignore[import]
@@ -63,7 +63,6 @@ except ImportError:
     _YAML_AVAILABLE = False
 
 from harness_skills.models.gate_configs import PerformanceGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Type aliases
@@ -105,7 +104,7 @@ class SpanRecord:
     name: str
     span_type: str
     duration_ms: float
-    attributes: Dict[str, Any] = field(default_factory=dict)
+    attributes: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -173,7 +172,7 @@ class PerformanceGateResult:
     """
 
     passed: bool
-    violations: List[ThresholdViolation] = field(default_factory=list)
+    violations: list[ThresholdViolation] = field(default_factory=list)
     rules_evaluated: int = 0
     spans_evaluated: int = 0
 
@@ -181,11 +180,11 @@ class PerformanceGateResult:
     # Accessors
     # ------------------------------------------------------------------
 
-    def errors(self) -> List[ThresholdViolation]:
+    def errors(self) -> list[ThresholdViolation]:
         """Return only error-severity violations."""
         return [v for v in self.violations if v.severity == "error"]
 
-    def warnings(self) -> List[ThresholdViolation]:
+    def warnings(self) -> list[ThresholdViolation]:
         """Return only warning-severity violations."""
         return [v for v in self.violations if v.severity == "warning"]
 
@@ -203,7 +202,7 @@ class PerformanceGateResult:
             if v.suggestion:
                 print(f"      \u2192 {v.suggestion.strip()}")
 
-    def to_report_dict(self) -> Dict[str, Any]:
+    def to_report_dict(self) -> dict[str, Any]:
         """Serialise to the ``perf-report.json`` schema consumed by
         ``.harness/perf_summary.py`` and CI pipelines."""
         return {
@@ -251,7 +250,7 @@ class PerformanceGateResult:
 # Helpers — percentile calculation
 # ---------------------------------------------------------------------------
 
-_PERCENTILE_MAP: Dict[str, float] = {
+_PERCENTILE_MAP: dict[str, float] = {
     "p50":    0.50,
     "p75":    0.75,
     "p90":    0.90,
@@ -265,7 +264,7 @@ _PERCENTILE_MAP: Dict[str, float] = {
 }
 
 
-def _compute_percentile(values: List[float], pct_key: str) -> float:
+def _compute_percentile(values: list[float], pct_key: str) -> float:
     """Compute *pct_key* percentile of *values* using linear interpolation.
 
     Recognised keys: ``p50``, ``p75``, ``p90``, ``p95``, ``p99``,
@@ -323,7 +322,7 @@ def _check_operator(measured: float, operator: str, threshold: float) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _load_thresholds(path: Path) -> Dict[str, Any]:
+def _load_thresholds(path: Path) -> dict[str, Any]:
     """Load the thresholds config dict from *path* (YAML preferred, JSON fallback).
 
     Returns a dict with ``version``, ``defaults``, ``rules``, and
@@ -360,7 +359,7 @@ def _load_thresholds(path: Path) -> Dict[str, Any]:
         ) from exc
 
 
-def _load_spans_file(path: Path) -> List[SpanRecord]:
+def _load_spans_file(path: Path) -> list[SpanRecord]:
     """Load span records from a JSON file.
 
     The file must be a JSON array where each element has at least::
@@ -393,7 +392,7 @@ def _load_spans_file(path: Path) -> List[SpanRecord]:
             f"got {type(raw).__name__}."
         )
 
-    spans: List[SpanRecord] = []
+    spans: list[SpanRecord] = []
     for item in raw:
         if not isinstance(item, dict):
             continue
@@ -415,11 +414,11 @@ def _load_spans_file(path: Path) -> List[SpanRecord]:
 
 def _check_baseline_regression(
     *,
-    current_spans: List[SpanRecord],
+    current_spans: list[SpanRecord],
     baseline_path: Path,
     regression_threshold_pct: float,
     severity: str,
-    violations: List[ThresholdViolation],
+    violations: list[ThresholdViolation],
 ) -> None:
     """Append regression violations comparing *current_spans* to *baseline_path*.
 
@@ -438,8 +437,8 @@ def _check_baseline_regression(
         return  # baseline not yet available — skip gracefully
 
     # Build mean per (span_type, name) key
-    def _group_means(spans: List[SpanRecord]) -> Dict[str, float]:
-        groups: Dict[str, List[float]] = {}
+    def _group_means(spans: list[SpanRecord]) -> dict[str, float]:
+        groups: dict[str, list[float]] = {}
         for s in spans:
             key = f"{s.span_type}:{s.name}"
             groups.setdefault(key, []).append(s.duration_ms)
@@ -511,7 +510,7 @@ class PerformanceGate:
         print(result)
     """
 
-    def __init__(self, config: Optional[PerformanceGateConfig] = None) -> None:
+    def __init__(self, config: PerformanceGateConfig | None = None) -> None:
         self.config: PerformanceGateConfig = config or PerformanceGateConfig()
 
     # ------------------------------------------------------------------
@@ -521,8 +520,8 @@ class PerformanceGate:
     def run(
         self,
         *,
-        spans: Optional[List[SpanRecord]] = None,
-        repo_root: Path = Path("."),
+        spans: list[SpanRecord] | None = None,
+        repo_root: Path = Path(),
     ) -> PerformanceGateResult:
         """Execute the gate and return a :class:`PerformanceGateResult`.
 
@@ -603,7 +602,7 @@ class PerformanceGate:
 
         # ── 4. Evaluate each rule ────────────────────────────────────────
         rules = thresholds.get("rules", []) or []
-        violations: List[ThresholdViolation] = []
+        violations: list[ThresholdViolation] = []
         rules_evaluated = 0
 
         for rule in rules:
@@ -620,10 +619,10 @@ class PerformanceGate:
             )
             suggestion: str = str(rule.get("suggestion", "")).strip()
 
-            selector: Dict[str, Any] = rule.get("selector", {}) or {}
+            selector: dict[str, Any] = rule.get("selector", {}) or {}
             selector_type: str = str(selector.get("type", "span"))
 
-            threshold_cfg: Dict[str, Any] = rule.get("threshold", {}) or {}
+            threshold_cfg: dict[str, Any] = rule.get("threshold", {}) or {}
             threshold_value: float = float(threshold_cfg.get("value", 0))
             operator: str = str(threshold_cfg.get("operator", "lte"))
             percentile_key: str = str(
@@ -637,7 +636,7 @@ class PerformanceGate:
                 continue
 
             # Group observations by span name, then evaluate each group
-            groups: Dict[str, List[float]] = {}
+            groups: dict[str, list[float]] = {}
             for s in matching:
                 groups.setdefault(s.name, []).append(s.duration_ms)
 
@@ -658,7 +657,7 @@ class PerformanceGate:
                     )
 
         # ── 5. Optional baseline regression check ───────────────────────
-        baseline_cfg: Dict[str, Any] = thresholds.get("baseline", {}) or {}
+        baseline_cfg: dict[str, Any] = thresholds.get("baseline", {}) or {}
         if baseline_cfg.get("enabled", False) and cfg.baseline_file:
             baseline_path = Path(cfg.baseline_file)
             if not baseline_path.is_absolute():
@@ -769,7 +768,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover
+def main(argv: list[str] | None = None) -> int:  # pragma: no cover
     """CLI entry-point; returns an exit code (0 = pass, 1 = fail)."""
     args = _build_parser().parse_args(argv)
 

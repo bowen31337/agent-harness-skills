@@ -22,8 +22,8 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.context import (
     _build_rationale,
@@ -43,7 +43,6 @@ from harness_skills.models.context import (
     SearchPattern,
     SkipEntry,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -488,7 +487,7 @@ class TestContextCmdExitCodes:
         fake_file.write_text("class AuthMiddleware: pass", encoding="utf-8")
 
         with runner.isolated_filesystem(temp_dir=tmp_path):
-            (Path(".") / "auth_middleware.py").write_text(
+            (Path("auth_middleware.py")).write_text(
                 "class AuthMiddleware: pass", encoding="utf-8"
             )
             with patch(

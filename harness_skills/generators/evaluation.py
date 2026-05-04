@@ -49,28 +49,27 @@ failures and iterate on specific issues without human intervention.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
+from datetime import UTC, datetime, timezone
+from enum import Enum, StrEnum
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
 import time
-import xml.etree.ElementTree as ET
-from abc import ABC, abstractmethod
-from datetime import datetime, timezone
-from enum import Enum
-from pathlib import Path
 from typing import Any, Optional
+import xml.etree.ElementTree as ET
 
 from pydantic import BaseModel, Field, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Enumerations
 # ---------------------------------------------------------------------------
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """How blocking a failure is.
 
     error   – blocks the PR; agent must fix before opening.
@@ -83,7 +82,7 @@ class Severity(str, Enum):
     INFO = "info"
 
 
-class GateId(str, Enum):
+class GateId(StrEnum):
     """Stable identifiers for every built-in evaluation gate."""
 
     REGRESSION = "regression"
@@ -97,7 +96,7 @@ class GateId(str, Enum):
     LINT = "lint"
 
 
-class GateStatus(str, Enum):
+class GateStatus(StrEnum):
     """Outcome of a single gate run."""
 
     PASSED = "passed"
@@ -128,27 +127,27 @@ class GateFailure(BaseModel):
     )
     gate_id: GateId = Field(..., description="Which gate produced this failure.")
     message: str = Field(..., description="Human- and agent-readable description of what failed.")
-    file_path: Optional[str] = Field(
+    file_path: str | None = Field(
         None,
         description="Repo-relative path to the offending file, or None when not file-specific.",
     )
-    line_number: Optional[int] = Field(
+    line_number: int | None = Field(
         None,
         ge=1,
         description="1-based line number in file_path, or None when not applicable.",
     )
-    suggestion: Optional[str] = Field(
+    suggestion: str | None = Field(
         None,
         description=(
             "Concrete, agent-actionable fix suggestion. "
             "Specific enough that an agent can act without human help in >90% of cases."
         ),
     )
-    rule_id: Optional[str] = Field(
+    rule_id: str | None = Field(
         None,
         description="Optional linter/checker rule ID (e.g. 'E501', 'no-unused-vars').",
     )
-    context: Optional[str] = Field(
+    context: str | None = Field(
         None,
         description="Optional short code snippet or diff excerpt for additional context.",
     )
@@ -163,13 +162,13 @@ class GateResult(BaseModel):
 
     gate_id: GateId
     status: GateStatus
-    duration_ms: Optional[int] = Field(None, ge=0)
+    duration_ms: int | None = Field(None, ge=0)
     failures: list[GateFailure] = Field(default_factory=list)
     failure_count: int = Field(0, ge=0)
-    message: Optional[str] = Field(None, description="Short human-readable gate summary.")
+    message: str | None = Field(None, description="Short human-readable gate summary.")
 
     @model_validator(mode="after")
-    def _sync_failure_count(self) -> "GateResult":
+    def _sync_failure_count(self) -> GateResult:
         self.failure_count = len(self.failures)
         return self
 
@@ -194,13 +193,13 @@ class ReportMetadata(BaseModel):
     """Provenance for staleness detection and telemetry (G3 — tool lifecycle)."""
 
     generated_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(UTC).isoformat()
     )
     schema_version: str = "1.0"
-    harness_version: Optional[str] = None
-    project_root: Optional[str] = None
-    git_sha: Optional[str] = None
-    git_branch: Optional[str] = None
+    harness_version: str | None = None
+    project_root: str | None = None
+    git_sha: str | None = None
+    git_branch: str | None = None
 
 
 class EvaluationReport(BaseModel):
@@ -221,14 +220,14 @@ class EvaluationReport(BaseModel):
         default_factory=list,
         description="Flat list of all GateFailures across every gate — agent convenience field.",
     )
-    metadata: Optional[ReportMetadata] = None
+    metadata: ReportMetadata | None = None
 
     @classmethod
     def from_gate_results(
         cls,
         gate_results: list[GateResult],
-        metadata: Optional[ReportMetadata] = None,
-    ) -> "EvaluationReport":
+        metadata: ReportMetadata | None = None,
+    ) -> EvaluationReport:
         """Build a complete EvaluationReport from a list of GateResults."""
         all_failures: list[GateFailure] = []
         passed_count = failed_count = skipped_count = error_count = 0
@@ -290,7 +289,7 @@ class GateConfig(BaseModel):
         ge=1,
         description="Artifact freshness threshold: files older than this are flagged stale.",
     )
-    performance_budget_ms: Optional[int] = Field(
+    performance_budget_ms: int | None = Field(
         None,
         description="Optional response-time budget in milliseconds for performance gate.",
     )
@@ -332,7 +331,7 @@ class GateConfig(BaseModel):
             self.gates.get("docs_freshness", {}).get("max_staleness_days", self.max_staleness_days)
         )
 
-    def get_performance_budget_ms(self) -> Optional[int]:
+    def get_performance_budget_ms(self) -> int | None:
         """Return performance budget in ms, preferring per-gate override."""
         return self.gates.get("performance", {}).get("budget_ms", self.performance_budget_ms)
 
@@ -507,7 +506,7 @@ class RegressionGate(GateRunner):
         return failures
 
     @staticmethod
-    def _parse_location(text: str, project_root: Path) -> tuple[Optional[str], Optional[int]]:
+    def _parse_location(text: str, project_root: Path) -> tuple[str | None, int | None]:
         match = re.search(r"([\w/\\.\-]+\.py):(\d+)", text)
         if not match:
             return None, None
@@ -837,9 +836,9 @@ class ArchitectureGate(GateRunner):
                                 f"or inject it from a higher layer. "
                                 f"Layer {file_layer!r} may only import from: "
                                 + ", ".join(
-                                    l for l in layer_order
-                                    if layer_rank[l] <= layer_rank[file_layer]
-                                    and l != file_layer
+                                    name for name in layer_order
+                                    if layer_rank[name] <= layer_rank[file_layer]
+                                    and name != file_layer
                                 )
                                 + "."
                             ),
@@ -851,7 +850,7 @@ class ArchitectureGate(GateRunner):
 
     def _detect_layer(
         self, py_file: Path, layers: list[str], project_root: Path
-    ) -> Optional[str]:
+    ) -> str | None:
         parts = py_file.relative_to(project_root).parts
         for part in parts:
             for layer in layers:
@@ -861,7 +860,7 @@ class ArchitectureGate(GateRunner):
 
     def _module_to_layer(
         self, module: str, layers: list[str], project_root: Path
-    ) -> Optional[str]:
+    ) -> str | None:
         # Map imported module name back to a layer by checking if any layer
         # keyword appears in the module path segments.
         for segment in module.split("."):
@@ -970,7 +969,7 @@ class DocsFreshnessGate(GateRunner):
 
     def _run(self, project_root: Path, config: GateConfig) -> list[GateFailure]:
         failures: list[GateFailure] = []
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for name in self.TRACKED_FILES:
             path = project_root / name
@@ -1319,7 +1318,7 @@ _GATE_RUNNERS: dict[GateId, GateRunner] = {
 def run_gate(
     gate_id: GateId,
     project_root: str | Path = ".",
-    config: Optional[GateConfig] = None,
+    config: GateConfig | None = None,
 ) -> GateResult:
     """Run a single gate and return its GateResult.
 
@@ -1340,9 +1339,9 @@ def run_gate(
 
 def run_all_gates(
     project_root: str | Path = ".",
-    config: Optional[GateConfig] = None,
+    config: GateConfig | None = None,
     *,
-    gates: Optional[list[GateId]] = None,
+    gates: list[GateId] | None = None,
 ) -> EvaluationReport:
     """Run all (or a subset of) gates and return a complete EvaluationReport.
 
@@ -1382,6 +1381,7 @@ def format_report(report: EvaluationReport, *, indent: int = 2) -> str:
     # Runtime schema validation (optional dependency)
     try:
         import importlib.resources
+
         import jsonschema  # type: ignore[import]
 
         schema_path = (

@@ -9,11 +9,11 @@ Exit codes:
 from __future__ import annotations
 
 import base64
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import traceback
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
 
@@ -23,7 +23,7 @@ from harness_skills.models.screenshot import ScreenshotResponse
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 @click.command("screenshot")
@@ -94,7 +94,7 @@ def screenshot_cmd(
 
         out_dir.mkdir(parents=True, exist_ok=True)
         tag = label or "screenshot"
-        ts = datetime.now(tz=timezone.utc).strftime("%Y%m%d-%H%M%S")
+        ts = datetime.now(tz=UTC).strftime("%Y%m%d-%H%M%S")
         filename = f"{tag}-{ts}.png"
         filepath = out_dir / filename
 

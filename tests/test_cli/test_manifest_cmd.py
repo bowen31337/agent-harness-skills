@@ -13,12 +13,12 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.manifest import manifest_cmd
 from harness_skills.models.create import DetectedStack, GeneratedArtifact
@@ -52,7 +52,7 @@ def _write_valid(path: Path) -> None:
     """
     manifest = {
         "schema_version": "1.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_sha": None,
         "git_branch": None,
         "harness_version": None,
@@ -76,7 +76,7 @@ def _write_invalid_stack(path: Path) -> None:
     """Write a manifest with a missing required field to *path*."""
     manifest = {
         "schema_version": "1.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_sha": None,
         "git_branch": None,
         "harness_version": None,
@@ -149,7 +149,7 @@ class TestValidateCmdHumanReadable:
         manifest = tmp_path / "harness_manifest.json"
         m = {
             "schema_version": "99.0",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "detected_stack": {
                 "primary_language": "python",
                 "project_structure": "single-app",
@@ -164,7 +164,7 @@ class TestValidateCmdHumanReadable:
         manifest = tmp_path / "harness_manifest.json"
         m = {
             "schema_version": "1.0",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "git_sha": None,
             "git_branch": None,
             "harness_version": None,
@@ -195,7 +195,7 @@ class TestValidateCmdHumanReadable:
         manifest = tmp_path / "harness_manifest.json"
         m = {
             "schema_version": "9.9",
-            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
             "git_sha": None,
             "git_branch": None,
             "harness_version": None,

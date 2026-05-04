@@ -30,8 +30,8 @@ regex+zerolog-chain   (zerolog)         — look for ``.Str("field", ...)`` chai
 from __future__ import annotations
 
 import fnmatch
-import re
 from pathlib import Path
+import re
 
 from .models import Language, LogFramework, LogLinterConfig, LogViolation
 
@@ -163,7 +163,7 @@ def _missing_from_zap_fields(block: str, fields: list[str]) -> list[str]:
     """zap: fields must appear as ``zap.String("field", ...)`` etc."""
     missing = []
     for f in fields:
-        pattern = rf"""zap\.(?:String|Int|Bool|Float64|Any|Field)\s*\(\s*['"{re.escape(f)}['"]"""
+        rf"""zap\.(?:String|Int|Bool|Float64|Any|Field)\s*\(\s*['"{re.escape(f)}['"]"""
         # Simplified: just look for the field name as a quoted string near zap.*
         if not re.search(rf"""['"]{re.escape(f)}['"]""", block):
             missing.append(f)

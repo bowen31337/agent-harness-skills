@@ -29,29 +29,28 @@ Test strategy
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
 from harness_skills.gates.security import (
+    _AUDIT_REPORT_NAMES,
+    _SECRET_PATTERNS,
+    _UNSAFE_INPUT_PATTERNS,
     GateResult,
     SecurityGate,
     Violation,
     _DependencyAuditor,
-    _InputValidationChecker,
-    _SecretScanner,
     _find_audit_report,
+    _InputValidationChecker,
     _meets_threshold,
     _parse_pip_audit_report,
     _scan_file_for_secrets,
     _scan_file_for_unsafe_input,
-    _AUDIT_REPORT_NAMES,
-    _SECRET_PATTERNS,
-    _UNSAFE_INPUT_PATTERNS,
+    _SecretScanner,
 )
 from harness_skills.models.gate_configs import SecurityGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers — file writers

@@ -17,9 +17,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-import pytest
 from playwright.sync_api import Page
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Session-scoped fixtures

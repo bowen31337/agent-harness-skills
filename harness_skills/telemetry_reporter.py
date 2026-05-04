@@ -24,11 +24,11 @@ CLI
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 import click
@@ -69,7 +69,7 @@ _MEDIUM_EFFECTIVENESS = 0.30
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(tz=UTC).isoformat(timespec="seconds")
 
 
 def _load_telemetry(path: Path) -> dict[str, Any]:
@@ -103,7 +103,7 @@ def _categorise_artifact(
     cumulative_hot_threshold: float,
     cumulative_warm_threshold: float,
     running_total_rate: float,
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, str | None]:
     """Return (category, recommendation) for an artifact."""
     if read_count == 0:
         return "unused", "Candidate for removal — never accessed"
@@ -115,7 +115,7 @@ def _categorise_artifact(
     return "cold", "Consider refactoring or consolidating — low utilization"
 
 
-def _gate_signal(score: float) -> tuple[str, Optional[str]]:
+def _gate_signal(score: float) -> tuple[str, str | None]:
     if score >= _HIGH_EFFECTIVENESS:
         return "high", None
     if score >= _MEDIUM_EFFECTIVENESS:
@@ -128,7 +128,7 @@ def _gate_signal(score: float) -> tuple[str, Optional[str]]:
 def build_report(
     telemetry_path: Path,
     min_reads: int = 0,
-    top_n: Optional[int] = None,
+    top_n: int | None = None,
 ) -> TelemetryReport:
     """Parse telemetry data and return a structured ``TelemetryReport``."""
 
@@ -422,7 +422,7 @@ def telemetry_cmd(
     telemetry_file: str,
     output_format: str,
     min_reads: int,
-    top_n: Optional[int],
+    top_n: int | None,
 ) -> None:
     """Report artifact utilization rates, command frequency, and gate effectiveness."""
 

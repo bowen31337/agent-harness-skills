@@ -10,21 +10,21 @@ Covers:
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
-import sys
 from pathlib import Path
+import sys
 from typing import Optional
 from unittest.mock import MagicMock, patch
 
+from click.testing import CliRunner, Result
 import pytest
 import yaml
-from click.testing import CliRunner
 
 from harness_skills.cli.fmt import resolve_output_format
 from harness_skills.cli.main import cli
 from harness_skills.cli.manifest import manifest_cmd
 from harness_skills.models.create import DetectedStack, GeneratedArtifact
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -49,7 +49,7 @@ def _write_valid_manifest(path: Path) -> None:
 
     manifest = {
         "schema_version": "1.0",
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "git_sha": None,
         "git_branch": None,
         "harness_version": None,
@@ -343,7 +343,7 @@ class TestEvaluateOutputFormat:
 
 
 class TestTelemetryOutputFormat:
-    def _run(self, runner, tmp_path, fmt: Optional[str] = None) -> "Result":  # type: ignore[name-defined]
+    def _run(self, runner, tmp_path, fmt: str | None = None) -> Result:
         args = ["telemetry", "--telemetry-file", str(tmp_path / "telemetry.json")]
         if fmt:
             args += ["--format", fmt]

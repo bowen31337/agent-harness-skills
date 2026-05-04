@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ContextTier(str, Enum):
+class ContextTier(StrEnum):
     """Tier levels for context assembly."""
 
     L0 = "L0"  # Always loaded (root overview)

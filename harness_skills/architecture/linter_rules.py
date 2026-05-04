@@ -18,8 +18,8 @@ def generate_ruff_rules(stack: LayerStack) -> dict[str, Any]:
         "banned_imports": [],
     }
 
-    for i, layer in enumerate(stack.layers):
-        higher_layers = [l.name for l in stack.layers if l.rank > layer.rank]
+    for layer in stack.layers:
+        higher_layers = [other.name for other in stack.layers if other.rank > layer.rank]
         if higher_layers:
             rules["banned_imports"].append({
                 "from_layer": layer.name,
@@ -45,7 +45,7 @@ def generate_eslint_rules(stack: LayerStack) -> dict[str, Any]:
     }
 
     for layer in stack.layers:
-        higher_layers = [l for l in stack.layers if l.rank > layer.rank]
+        higher_layers = [other for other in stack.layers if other.rank > layer.rank]
         for higher in higher_layers:
             rules["import/no-restricted-paths"]["zones"].append({
                 "target": f"./{layer.name}/**",

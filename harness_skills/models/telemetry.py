@@ -19,7 +19,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse
 
-
 # ── Artifact utilization ───────────────────────────────────────────────────────
 
 
@@ -43,7 +42,7 @@ class ArtifactMetric(BaseModel):
             "unused → never read (read_count == 0)."
         )
     )
-    recommendation: Optional[str] = Field(
+    recommendation: str | None = Field(
         default=None,
         description=(
             "Suggested action: None for hot/warm; "
@@ -100,7 +99,7 @@ class GateMetric(BaseModel):
             "silent → effectiveness_score == 0.0."
         )
     )
-    recommendation: Optional[str] = Field(
+    recommendation: str | None = Field(
         default=None,
         description=(
             "Suggested action: None for high/medium; "
@@ -132,10 +131,10 @@ class TelemetrySummary(BaseModel):
         ge=0, description="Gates that have never fired — redundancy candidates."
     )
     telemetry_path: str = Field(description="Absolute path to the telemetry JSON file consumed.")
-    schema_version: Optional[str] = Field(
+    schema_version: str | None = Field(
         default=None, description="Schema version from the telemetry file."
     )
-    last_updated: Optional[str] = Field(
+    last_updated: str | None = Field(
         default=None, description="ISO-8601 timestamp of the last telemetry write."
     )
 

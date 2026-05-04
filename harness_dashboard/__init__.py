@@ -16,8 +16,8 @@ Public API
 
 __version__ = "0.1.0"
 
-from harness_dashboard.data_generator import generate_dataset
 from harness_dashboard.dashboard import render_dashboard
+from harness_dashboard.data_generator import generate_dataset
 from harness_dashboard.models import ArtifactType, HarnessRecord, PRRecord
 from harness_dashboard.scorer import compute_scores
 

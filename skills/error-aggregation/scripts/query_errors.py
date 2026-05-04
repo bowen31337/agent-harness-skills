@@ -37,8 +37,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 # ---------------------------------------------------------------------------
 # Ensure project root is importable regardless of CWD.
@@ -57,13 +57,12 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Imports (deferred so path fix above takes effect first)
 # ---------------------------------------------------------------------------
 
-from harness_skills.error_aggregation import (   # noqa: E402
+from harness_skills.error_aggregation import (  # noqa: E402
     aggregate_errors,
     domain_summary,
     errors_to_json_summary,
     load_errors_from_log,
 )
-
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -184,6 +183,7 @@ def main(argv: list[str] | None = None) -> None:
     # ── Agent query (requires Claude SDK) ─────────────────────────────────
     try:
         import anyio
+
         from harness_skills.error_query_agent import run_error_query
     except ImportError as exc:
         print(

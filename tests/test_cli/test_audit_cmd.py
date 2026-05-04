@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
-from datetime import datetime, timezone
 
 from click.testing import CliRunner
 
@@ -27,7 +27,7 @@ class TestAuditCmd:
         assert data["total_artifacts"] == 0
 
     def test_fresh_artifact(self, tmp_path) -> None:
-        now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        now = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         agents_md = tmp_path / "AGENTS.md"
         agents_md.write_text(f"<!-- harness:auto-generated -->\nlast_updated: {now}\n# AGENTS\n")
         result = self.runner.invoke(

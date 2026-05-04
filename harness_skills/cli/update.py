@@ -11,11 +11,11 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import traceback
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
 
@@ -25,7 +25,7 @@ from harness_skills.models.update import ArtifactDiff, ChangelogEntry, UpdateRes
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 def _lazy_regenerate():
@@ -69,13 +69,13 @@ def update_cmd(
     """Re-scan codebase and update harness artifacts via three-way merge."""
     fmt = resolve_output_format(output_format)
     root = Path(project_root)
-    t0 = datetime.now(tz=timezone.utc)
+    t0 = datetime.now(tz=UTC)
 
     try:
         detect_stack = _lazy_detect_stack()
         regenerate_all = _lazy_regenerate()
 
-        stack = detect_stack(root)
+        detect_stack(root)
         results = regenerate_all(root, force=force)
 
         diffs: list[ArtifactDiff] = []
@@ -117,7 +117,7 @@ def update_cmd(
             changelog_path = str(cl_path)
 
         has_changes = any(d.change_type != "unchanged" for d in diffs)
-        elapsed = int((datetime.now(tz=timezone.utc) - t0).total_seconds() * 1000)
+        elapsed = int((datetime.now(tz=UTC) - t0).total_seconds() * 1000)
 
         resp = UpdateResponse(
             status=Status.PASSED if has_changes else Status.SKIPPED,

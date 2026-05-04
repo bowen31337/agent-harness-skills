@@ -5,15 +5,14 @@ from __future__ import annotations
 import pytest
 
 from harness_skills.evaluator import (
+    BAD_REVIEW_EXAMPLE,
     DIMENSIONS,
     GOOD_REVIEW_EXAMPLE,
-    BAD_REVIEW_EXAMPLE,
     AdversarialEvaluator,
     EvaluationResult,
     GradingDimension,
     Verdict,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

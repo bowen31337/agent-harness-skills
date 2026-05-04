@@ -44,9 +44,9 @@ python skills/write_handoff.py \\
 from __future__ import annotations
 
 import argparse
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
+import sys
 
 # ---------------------------------------------------------------------------
 # Ensure harness_skills is importable when called as a script
@@ -56,16 +56,15 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from harness_skills.handoff import (  # noqa: E402
+    _DEFAULT_HANDOFF_PATH,
+    _DEFAULT_JSONL_PATH,
     HandoffDocument,
     HandoffProtocol,
     SearchHints,
-    _DEFAULT_HANDOFF_PATH,
-    _DEFAULT_JSONL_PATH,
     _append_jsonl,
     _append_progress_log_entry,
     _slugify,
 )
-
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -191,7 +190,7 @@ def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     doc = HandoffDocument(
         session_id=args.session_id,

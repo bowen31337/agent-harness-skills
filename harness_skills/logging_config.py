@@ -38,18 +38,19 @@ Quick start
 
 from __future__ import annotations
 
+from collections.abc import Generator
+from contextlib import contextmanager
 import contextvars
+from datetime import UTC, datetime, timezone
 import json
 import logging
 import logging.handlers
 import os
+from pathlib import Path
 import re
 import secrets
 import sys
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Generator
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -158,7 +159,7 @@ class ConventionFormatter(logging.Formatter):
 
     @staticmethod
     def _iso_timestamp(record: logging.LogRecord) -> str:
-        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        dt = datetime.fromtimestamp(record.created, tz=UTC)
         # Format with millisecond precision and explicit Z suffix
         return dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
 
@@ -234,7 +235,7 @@ class PrettyConventionFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:  # noqa: A003
-        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        dt = datetime.fromtimestamp(record.created, tz=UTC)
         ts = dt.strftime("%Y-%m-%dT%H:%M:%S.") + f"{dt.microsecond // 1000:03d}Z"
         level_str = _LEVEL_MAP.get(record.levelno, record.levelname)
         colour = _LEVEL_COLOURS.get(level_str, "")
@@ -308,7 +309,7 @@ class DomainLogger:
     # Field binding
     # ------------------------------------------------------------------
 
-    def bind(self, **fields: Any) -> "DomainLogger":
+    def bind(self, **fields: Any) -> DomainLogger:
         """Return a child logger with *fields* pre-attached to every entry.
 
         Supports unlimited nesting — fields accumulate across :meth:`bind` calls::

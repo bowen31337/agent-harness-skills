@@ -59,12 +59,12 @@ Usage::
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import datetime
 import logging
+from pathlib import Path
 import re
 import subprocess
-from pathlib import Path
-from typing import Iterator
 
 from harness_skills.models.update import ArtifactDiff
 from harness_skills.utils.template_engine import render_template, template_exists

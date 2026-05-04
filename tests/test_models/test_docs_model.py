@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.base import Status
 from harness_skills.models.docs import (
@@ -16,7 +16,6 @@ from harness_skills.models.docs import (
     SchemaCategoryResult,
     SchemaEntity,
 )
-
 
 # ── SchemaEntity ─────────────────────────────────────────────────────────────
 

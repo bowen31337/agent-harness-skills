@@ -24,11 +24,12 @@ Usage::
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 from typing import Any
 
 from harness_skills.models.gate_configs import (
+    PROFILE_GATE_DEFAULTS,
     ArchitectureGateConfig,
     CoverageGateConfig,
     DocsFreshnessGateConfig,
@@ -38,7 +39,6 @@ from harness_skills.models.gate_configs import (
     RegressionGateConfig,
     SecurityGateConfig,
     TypesGateConfig,
-    PROFILE_GATE_DEFAULTS,
 )
 
 _VALID_PROFILES = frozenset({"starter", "standard", "advanced"})
@@ -364,8 +364,9 @@ def write_harness_config(
 
 def _merge_with_ruamel(path: Path, profile: str, gates_yaml: str) -> None:
     """Merge using ruamel.yaml (preserves all existing comments)."""
-    from ruamel.yaml import YAML  # type: ignore[import]
     import io as _io
+
+    from ruamel.yaml import YAML  # type: ignore[import]
     import yaml as pyyaml  # type: ignore[import]
 
     yaml = YAML()

@@ -39,14 +39,14 @@ Resuming session:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 import re
 import textwrap
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-import yaml
 from pydantic import BaseModel, Field
+import yaml
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -184,7 +184,7 @@ class HandoffDocument(BaseModel):
         return "\n".join(parts)
 
     @classmethod
-    def from_markdown(cls, text: str) -> "HandoffDocument":
+    def from_markdown(cls, text: str) -> HandoffDocument:
         """Parse a previously-written handoff Markdown file."""
         # Extract YAML frontmatter
         fm_match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
@@ -536,7 +536,7 @@ class HandoffProtocol:
         """Create a minimal HandoffDocument to start from."""
         return HandoffDocument(
             session_id=session_id,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             task=task,
         )
 
@@ -831,7 +831,7 @@ class HandoffTracker:
         return entry.get("resume_prompt", "")
 
     @classmethod
-    def get_search_hints(cls, jsonl_path: Path = _DEFAULT_JSONL_PATH) -> "SearchHints | None":
+    def get_search_hints(cls, jsonl_path: Path = _DEFAULT_JSONL_PATH) -> SearchHints | None:
         """Return a ``SearchHints`` object from the latest JSONL entry.
 
         Returns ``None`` when no JSONL file exists, is empty, or has no

@@ -27,21 +27,21 @@ Exit codes:
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 from typing import Optional
 
 import click
-import yaml
 from rich import box
 from rich.console import Console
 from rich.table import Table
+import yaml
 
 from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
 from harness_skills.generators.evaluation import (
+    EvaluationReport,
     GateConfig,
     GateId,
-    EvaluationReport,
     Severity,
     format_report,
     run_all_gates,
@@ -130,7 +130,7 @@ def evaluate_cmd(
         max_staleness_days=max_staleness_days,
     )
 
-    gates: Optional[list[GateId]] = (
+    gates: list[GateId] | None = (
         [GateId(g) for g in selected_gates] if selected_gates else None
     )
 

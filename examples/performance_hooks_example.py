@@ -22,15 +22,14 @@ from __future__ import annotations
 
 import asyncio
 import os
-import sys
 from pathlib import Path
+import sys
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from harness_skills.performance_hooks import PerformanceTracker
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -45,14 +45,13 @@ Usage (programmatic)::
 from __future__ import annotations
 
 import argparse
-import fnmatch
-import sys
 from dataclasses import dataclass, field
+import fnmatch
 from pathlib import Path
+import sys
 from typing import Literal
 
 from harness_skills.models.gate_configs import FileSizeGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Result types

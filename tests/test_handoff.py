@@ -18,8 +18,8 @@ All tests run entirely offline — no network, no LLM calls.
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -167,7 +167,7 @@ class TestToMarkdown:
         lines = md.splitlines()
         assert lines[0] == "---"
         # Find the closing ---
-        close_idx = next(i for i, l in enumerate(lines[1:], 1) if l == "---")
+        close_idx = next(i for i, line in enumerate(lines[1:], 1) if line == "---")
         assert close_idx > 0
 
     def test_section_headers_present(self) -> None:

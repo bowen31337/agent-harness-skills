@@ -32,16 +32,15 @@ Usage (programmatic)::
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, field
+from pathlib import Path
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Literal
+import xml.etree.ElementTree as ET
 
 from harness_skills.models.gate_configs import RegressionGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -213,7 +212,7 @@ def _parse_junit_xml(
                 file_path=fp,
                 line_number=ln,
                 suggestion=(
-                    f"Fix the failing assertion in "
+                    "Fix the failing assertion in "
                     + (f"{fp}" if fp else "the test file")
                     + (f" at line {ln}" if ln else "")
                     + ". Run `pytest -x` locally for the full traceback."

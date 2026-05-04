@@ -17,7 +17,7 @@ Usage (programmatic):
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from rich import box
 from rich.columns import Columns
@@ -32,7 +32,6 @@ from .models import (
     EffectivenessMetrics,
     EffectivenessTier,
 )
-
 
 # ---------------------------------------------------------------------------
 # Colour mapping

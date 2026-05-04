@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from harness_skills.telemetry_reporter import build_report, render_report
 from harness_tools.harness_telemetry import (
     HarnessTelemetry,
     _identify_gate,
@@ -25,8 +26,6 @@ from harness_tools.harness_telemetry import (
     _merge_counts,
     _output_indicates_failure,
 )
-from harness_skills.telemetry_reporter import build_report, render_report
-
 
 # ---------------------------------------------------------------------------
 # Helpers

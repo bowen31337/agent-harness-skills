@@ -23,7 +23,6 @@ from harness_dashboard.models import (
 )
 from harness_dashboard.scorer import compute_scores
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -99,7 +98,9 @@ class TestScoresAndTiers:
             assert 0.0 <= m.effectiveness_score <= 100.0
 
     def test_tier_thresholds(self) -> None:
-        from harness_dashboard.scorer import _tier, EffectivenessTier  # noqa: PLC0415
+        from harness_dashboard.scorer import (
+            _tier,  # noqa: PLC0415  # _tier is private; EffectivenessTier already imported at top
+        )
         assert _tier(80.0) == EffectivenessTier.ELITE
         assert _tier(79.9) == EffectivenessTier.STRONG
         assert _tier(60.0) == EffectivenessTier.STRONG

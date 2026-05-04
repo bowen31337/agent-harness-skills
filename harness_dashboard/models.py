@@ -5,13 +5,13 @@ Data models for the harness effectiveness scoring system.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 
-class ArtifactType(str, Enum):
+class ArtifactType(StrEnum):
     FIXTURE = "fixture"
     MOCK = "mock"
     STUB = "stub"
@@ -19,7 +19,7 @@ class ArtifactType(str, Enum):
     SNAPSHOT = "snapshot"
 
 
-class EffectivenessTier(str, Enum):
+class EffectivenessTier(StrEnum):
     ELITE = "Elite"        # score >= 80
     STRONG = "Strong"      # score >= 60
     MODERATE = "Moderate"  # score >= 40
@@ -49,7 +49,7 @@ class PRRecord(BaseModel):
     merged_at: datetime = Field(default_factory=datetime.utcnow)
 
     @model_validator(mode="after")
-    def _check_merged_has_time(self) -> "PRRecord":
+    def _check_merged_has_time(self) -> PRRecord:
         if self.merged and self.time_to_merge_hours <= 0:
             raise ValueError("merged=True requires time_to_merge_hours > 0")
         return self

@@ -45,8 +45,8 @@ Notes
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 
 # Make the sibling ``dom_snapshot_utility`` package importable when this file
 # is executed from the repo root (``python -m harness_skills.dom_snapshot_skill``)
@@ -56,7 +56,6 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from dom_snapshot_utility import snapshot_from_html, snapshot_from_url, snapshot_to_text
-
 
 # ---------------------------------------------------------------------------
 # Public skill functions

@@ -10,15 +10,14 @@ pipeline — contributing to the final :class:`EvaluationSummary`.
 
 from __future__ import annotations
 
+from pathlib import Path
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 import yaml
 
-from harness_skills.gates.runner import GateEvaluator, run_gates, EvaluationSummary
-
+from harness_skills.gates.runner import EvaluationSummary, GateEvaluator, run_gates
 
 # ---------------------------------------------------------------------------
 # Platform-safe exit commands

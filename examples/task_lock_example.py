@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+from pathlib import Path
 import sys
 import time
-from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
@@ -187,7 +187,7 @@ def demo_list() -> None:
     tasks = ["task/ui", "task/api", "task/db"]
     agents = ["agent-A", "agent-B", "agent-C"]
 
-    for task, agent in zip(tasks, agents):
+    for task, agent in zip(tasks, agents, strict=False):
         proto.acquire(task, agent_id=agent)
 
     locks = proto.list_locks()
@@ -196,7 +196,7 @@ def demo_list() -> None:
         print(f"    {lk.task_id:<20} → held by {lk.agent_id:<12} "
               f"expires in {lk.seconds_remaining():.0f}s")
 
-    for task, agent in zip(tasks, agents):
+    for task, agent in zip(tasks, agents, strict=False):
         proto.release(task, agent_id=agent)
 
 

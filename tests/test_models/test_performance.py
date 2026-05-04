@@ -30,8 +30,8 @@ from __future__ import annotations
 import asyncio
 import json
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.performance import (
     MemorySnapshotModel,
@@ -40,7 +40,6 @@ from harness_skills.models.performance import (
     ToolTimingModel,
 )
 from harness_skills.performance_hooks import PerformanceTracker
-
 
 # ===========================================================================
 # ToolTimingModel

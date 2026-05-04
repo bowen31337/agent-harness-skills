@@ -46,16 +46,15 @@ Usage (programmatic)::
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass, field
 import json
+from pathlib import Path
 import re
 import sys
-import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Literal
+import xml.etree.ElementTree as ET
 
 from harness_skills.models.gate_configs import CoverageGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Result types

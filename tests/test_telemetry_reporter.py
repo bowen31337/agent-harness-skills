@@ -19,8 +19,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.models.base import Status
 from harness_skills.telemetry_reporter import (
@@ -28,7 +28,6 @@ from harness_skills.telemetry_reporter import (
     render_report,
     telemetry_cmd,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

@@ -32,10 +32,10 @@ Quick start - Programmatic:
 from __future__ import annotations
 
 import argparse
-import json
-import sys
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
+import sys
 from typing import Any
 
 _DEFAULT_MD_PATH = Path(".claude/plan-progress.md")

@@ -27,10 +27,6 @@ jobs:
         run: uv sync --extra dev --python ${{ matrix.python-version }}
 
       - name: Lint
-        # Advisory only — repo carries pre-existing lint debt that other gates
-        # (security/type/principles/etc.) also treat as advisory. Tracked separately;
-        # don't block publish on it.
-        continue-on-error: true
         run: uv run ruff check .
 
       - name: Test

@@ -38,7 +38,7 @@ Exit codes:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -70,7 +70,7 @@ def _get_generator():
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 @click.command("create")
@@ -137,7 +137,7 @@ def _iso_now() -> str:
 def create_cmd(
     ctx: click.Context,
     profile: str,
-    stack: Optional[str],
+    stack: str | None,
     output: Path,
     dry_run: bool,
     no_merge: bool,

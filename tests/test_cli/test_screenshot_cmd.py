@@ -11,12 +11,11 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.main import cli
 from harness_skills.cli.screenshot import screenshot_cmd
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -168,7 +167,6 @@ class TestScreenshotCmdCapture:
         with patch("harness_skills.cli.screenshot.sync_playwright", mock_sync_pw):
             # We need to mock the import inside the function
             import harness_skills.cli.screenshot as ss_mod
-            original_cmd = ss_mod.screenshot_cmd.callback
 
             # Directly test by creating the file and mocking
             out = tmp_path / "shots"

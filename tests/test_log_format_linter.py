@@ -5,8 +5,8 @@ Tests for log_format_linter — rule generator, checker, detector, and CLI.
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 

@@ -22,12 +22,11 @@ Usage
 
 from __future__ import annotations
 
-import random
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
+import random
 
 from .models import ArtifactType, HarnessRecord, PRRecord
-
 
 # ---------------------------------------------------------------------------
 # Dataset container
@@ -55,7 +54,7 @@ _PROFILES: dict[ArtifactType, tuple[float, float, tuple[int, int], float, float]
     ArtifactType.SNAPSHOT: (70.0, +0.05, (4,  22), 2.1, 42.0),
 }
 
-_START_DATE = datetime(2025, 9, 1, tzinfo=timezone.utc)
+_START_DATE = datetime(2025, 9, 1, tzinfo=UTC)
 
 
 # ---------------------------------------------------------------------------

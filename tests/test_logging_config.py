@@ -11,19 +11,18 @@ from unittest.mock import patch
 import pytest
 
 from harness_skills.logging_config import (
-    ConventionFormatter,
-    DomainLogger,
-    LOGGING_CONFIG,
-    PrettyConventionFormatter,
     _LEVEL_MAP,
     _RESERVED_FIELDS,
+    LOGGING_CONFIG,
+    ConventionFormatter,
+    DomainLogger,
+    PrettyConventionFormatter,
     configure,
     get_current_trace_id,
     get_logger,
     root_logger,
     set_trace_id,
 )
-
 
 # ── Trace-ID ─────────────────────────────────────────────────────────────────
 
@@ -40,7 +39,7 @@ class TestTraceId:
             assert get_current_trace_id() == fixed_tid
 
     def test_set_trace_id_restores_after_exit(self):
-        outer = get_current_trace_id()
+        get_current_trace_id()
         fixed = "b" * 32
         with set_trace_id(fixed):
             assert get_current_trace_id() == fixed
@@ -49,14 +48,12 @@ class TestTraceId:
         # (Note: get_current_trace_id() generates a fresh one if None)
 
     def test_invalid_trace_id_raises_valueerror(self):
-        with pytest.raises(ValueError, match="32 lowercase hex"):
-            with set_trace_id("too-short"):
-                pass
+        with pytest.raises(ValueError, match="32 lowercase hex"), set_trace_id("too-short"):
+            pass
 
     def test_uppercase_trace_id_rejected(self):
-        with pytest.raises(ValueError):
-            with set_trace_id("A" * 32):
-                pass
+        with pytest.raises(ValueError), set_trace_id("A" * 32):
+            pass
 
 
 # ── ConventionFormatter ──────────────────────────────────────────────────────
@@ -134,7 +131,7 @@ class TestConventionFormatter:
             assert parsed["level"] == expected_str
 
     def test_iso_timestamp_format(self):
-        fmt = ConventionFormatter()
+        ConventionFormatter()
         record = self._make_record()
         ts = ConventionFormatter._iso_timestamp(record)
         assert ts.endswith("Z")

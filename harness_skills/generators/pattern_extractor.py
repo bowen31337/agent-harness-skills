@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import ast
-import logging
-import re
 from collections import Counter
 from dataclasses import dataclass, field
+import logging
 from pathlib import Path
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)

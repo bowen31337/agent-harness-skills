@@ -1,6 +1,9 @@
 """Run a list of plugin gates sequentially."""
 from __future__ import annotations
+
+import contextlib
 import logging
+
 from harness_skills.models.base import GateResult, Status
 from harness_skills.plugins.gate_plugin import PluginGateConfig, PluginGateRunner
 
@@ -26,9 +29,7 @@ def run_plugin_gates(gates: list[PluginGateConfig]) -> list[GateResult]:
     for cfg in gates:
         result = PluginGateRunner(cfg).run()
         if result.status in (Status.FAILED, Status.WARNING):
-            try:
+            with contextlib.suppress(Exception):
                 _record_telemetry(cfg, result)
-            except Exception:
-                pass
         results.append(result)
     return results

@@ -22,7 +22,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse
 
-
 # ── Shared type aliases ────────────────────────────────────────────────────────
 
 DebtSeverity = Literal["critical", "high", "medium", "low"]
@@ -40,19 +39,19 @@ class CompletedTaskSummary(BaseModel):
     task_id: str = Field(description="Unique task identifier (e.g. TASK-001).")
     title: str = Field(description="Human-readable task title.")
     plan_id: str = Field(description="Identifier of the parent plan.")
-    assigned_agent: Optional[str] = Field(
+    assigned_agent: str | None = Field(
         default=None,
         description="Agent responsible for the task, or null if unassigned.",
     )
-    started_at: Optional[str] = Field(
+    started_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp when the task started.",
     )
-    completed_at: Optional[str] = Field(
+    completed_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp when the task completed.",
     )
-    duration_min: Optional[float] = Field(
+    duration_min: float | None = Field(
         default=None,
         description=(
             "Wall-clock duration in minutes (rounded to 1 dp), "
@@ -60,7 +59,7 @@ class CompletedTaskSummary(BaseModel):
             "are unavailable."
         ),
     )
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         default=None,
         description="Free-form notes attached to the task.",
     )
@@ -124,7 +123,7 @@ class FollowUpItem(BaseModel):
         default="medium",
         description="Task priority: critical | high | medium | low.",
     )
-    reason: Optional[str] = Field(
+    reason: str | None = Field(
         default=None,
         description="Short explanation of why follow-up is required.",
     )
@@ -132,7 +131,7 @@ class FollowUpItem(BaseModel):
         default_factory=list,
         description="Task IDs that must be resolved before this task can proceed.",
     )
-    assigned_agent: Optional[str] = Field(
+    assigned_agent: str | None = Field(
         default=None,
         description="Agent last assigned to this task, or null if unassigned.",
     )
@@ -220,7 +219,7 @@ class CompletionReportSummary(BaseModel):
             "none = no plans found."
         ),
     )
-    state_service_reachable: Optional[bool] = Field(
+    state_service_reachable: bool | None = Field(
         default=None,
         description=(
             "Whether the claw-forge state service responded to a health probe.  "

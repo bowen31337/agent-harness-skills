@@ -44,9 +44,9 @@ def generate_structural_tests(
             "",
             f"    def test_{safe_name}_has_init(self) -> None:",
             f'        init = Path("{domain.root_path}") / "__init__.py"',
-            f"        # Not all domains require __init__.py (e.g., Go packages)",
-            f"        # This is a soft check",
-            f"        pass",
+            "        # Not all domains require __init__.py (e.g., Go packages)",
+            "        # This is a soft check",
+            "        pass",
             "",
             "",
         ])

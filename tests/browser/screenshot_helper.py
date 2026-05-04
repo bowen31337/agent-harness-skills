@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
+import os
 from pathlib import Path
 
 from playwright.sync_api import Page

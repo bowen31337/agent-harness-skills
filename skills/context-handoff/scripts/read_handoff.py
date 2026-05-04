@@ -29,9 +29,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
-
+import sys
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Defaults
@@ -109,7 +108,7 @@ def _read_jsonl_latest(path: Path) -> dict | None:
 
 def _fmt_bullets(items: list[str], indent: int = 2) -> str:
     prefix = " " * indent
-    return "\n".join(f"{prefix}- {item}" for item in items) if items else f"  (none)"
+    return "\n".join(f"{prefix}- {item}" for item in items) if items else "  (none)"
 
 
 def _print_summary(entry: dict) -> None:

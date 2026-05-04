@@ -43,12 +43,11 @@ synthetic (no-API-key) demo.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 import statistics
 import time
 import tracemalloc
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Optional
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -78,24 +77,24 @@ class PerformanceReport:
     """Aggregated performance data for a completed agent session."""
 
     # Timing
-    startup_duration_ms: Optional[float]
-    session_duration_ms: Optional[float]
+    startup_duration_ms: float | None
+    session_duration_ms: float | None
 
     # Tool stats
     tool_count: int
-    tool_timings: List[ToolTiming]
+    tool_timings: list[ToolTiming]
 
     # Response time percentiles (None when tool_count == 0)
-    mean_response_ms: Optional[float]
-    median_response_ms: Optional[float]
-    min_response_ms: Optional[float]
-    max_response_ms: Optional[float]
-    p95_response_ms: Optional[float]
+    mean_response_ms: float | None
+    median_response_ms: float | None
+    min_response_ms: float | None
+    max_response_ms: float | None
+    p95_response_ms: float | None
 
     # Memory
     peak_tracemalloc_bytes: int   # -1 when tracemalloc was not started
     delta_rss_bytes: int          # end_rss - start_rss; -1 when unavailable
-    memory_snapshots: List[MemorySnapshot] = field(default_factory=list)
+    memory_snapshots: list[MemorySnapshot] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +132,7 @@ def _tracemalloc_peak() -> int:
     return peak
 
 
-def _p95(values: List[float]) -> float:
+def _p95(values: list[float]) -> float:
     """95th-percentile of *values* (linear interpolation)."""
     if not values:
         return 0.0
@@ -162,20 +161,20 @@ class PerformanceTracker:
 
     def __init__(self) -> None:
         # Session-level timing
-        self._session_start_ms: Optional[float] = None
-        self._session_end_ms: Optional[float] = None
-        self._first_tool_ms: Optional[float] = None
+        self._session_start_ms: float | None = None
+        self._session_end_ms: float | None = None
+        self._first_tool_ms: float | None = None
 
         # Per-tool in-flight tracking: tool_id → start time
-        self._tool_start: Dict[str, float] = {}
-        self._tool_name_map: Dict[str, str] = {}
+        self._tool_start: dict[str, float] = {}
+        self._tool_name_map: dict[str, str] = {}
 
         # Completed tool records
-        self._timings: List[ToolTiming] = []
+        self._timings: list[ToolTiming] = []
 
         # Memory bookmarks
         self._start_rss: int = -1
-        self._memory_snapshots: List[MemorySnapshot] = []
+        self._memory_snapshots: list[MemorySnapshot] = []
 
     # ------------------------------------------------------------------
     # Hook callbacks
@@ -266,7 +265,7 @@ class PerformanceTracker:
     # Live query API
     # ------------------------------------------------------------------
 
-    def get_startup_duration_ms(self) -> Optional[float]:
+    def get_startup_duration_ms(self) -> float | None:
         """
         Milliseconds from ``SessionStart`` to the first ``PreToolUse`` event.
 
@@ -276,7 +275,7 @@ class PerformanceTracker:
             return None
         return self._first_tool_ms - self._session_start_ms
 
-    def get_response_times(self) -> List[ToolTiming]:
+    def get_response_times(self) -> list[ToolTiming]:
         """All completed tool timings recorded so far (copy)."""
         return list(self._timings)
 
@@ -307,7 +306,7 @@ class PerformanceTracker:
             mean_ms = median_ms = min_ms = max_ms = p95_ms = None
 
         # Session wall time
-        session_ms: Optional[float] = None
+        session_ms: float | None = None
         if self._session_start_ms is not None and self._session_end_ms is not None:
             session_ms = self._session_end_ms - self._session_start_ms
 
@@ -348,7 +347,7 @@ class PerformanceTracker:
         print("  Performance Summary")
         print(f"{'━' * 54}")
 
-        def _fmt(v: Optional[float], unit: str = "ms") -> str:
+        def _fmt(v: float | None, unit: str = "ms") -> str:
             return f"{v:.1f} {unit}" if v is not None else "n/a"
 
         print(f"  Startup duration   : {_fmt(r.startup_duration_ms)}")
@@ -386,7 +385,7 @@ class PerformanceTracker:
     # Hooks dict
     # ------------------------------------------------------------------
 
-    def hooks(self) -> Dict[str, Any]:
+    def hooks(self) -> dict[str, Any]:
         """
         Return a hooks dictionary compatible with ``ClaudeAgentOptions(hooks=…)``.
 

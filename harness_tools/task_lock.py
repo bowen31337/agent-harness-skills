@@ -298,8 +298,8 @@ def _cmd_release(
 
 
 def main() -> None:
-    import sys
     from pathlib import Path
+    import sys
 
     parser = _build_parser()
     args = parser.parse_args()

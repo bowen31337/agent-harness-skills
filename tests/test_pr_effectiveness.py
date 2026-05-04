@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 
 import pytest
 
@@ -14,7 +14,6 @@ from harness_skills.pr_effectiveness import (
     PRRecord,
     generate_sample_prs,
 )
-
 
 # ---------------------------------------------------------------------------
 # ArtifactType enum
@@ -74,7 +73,7 @@ class TestPRRecord:
             pr_id="PR-0001",
             repo="api-gateway",
             author="dev-01",
-            created_at=datetime(2025, 10, 1, tzinfo=timezone.utc),
+            created_at=datetime(2025, 10, 1, tzinfo=UTC),
             artifacts=[
                 HarnessArtifact(
                     artifact_type=ArtifactType.BUILD,
@@ -91,7 +90,7 @@ class TestPRRecord:
             review_cycles=1,
             time_to_merge_hours=24.0,
             merged=True,
-            merged_at=datetime(2025, 10, 2, tzinfo=timezone.utc),
+            merged_at=datetime(2025, 10, 2, tzinfo=UTC),
         )
 
     def test_artifact_types_used(self, sample_pr):
@@ -105,7 +104,7 @@ class TestPRRecord:
             pr_id="PR-X",
             repo="r",
             author="a",
-            created_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2025, 1, 1, tzinfo=UTC),
             gate_pass_rate=0.5,
             review_cycles=0,
         )

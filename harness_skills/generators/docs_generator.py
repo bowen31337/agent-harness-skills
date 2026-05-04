@@ -21,14 +21,15 @@ Design principles
 from __future__ import annotations
 
 import ast
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 import re
 import subprocess
 import textwrap
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Literal
 
+from harness_skills.models.base import Status
 from harness_skills.models.docs import (
     APICategoryResult,
     DependencyEdge,
@@ -39,9 +40,7 @@ from harness_skills.models.docs import (
     SchemaCategoryResult,
     SchemaEntity,
 )
-from harness_skills.models.base import Status
 from harness_skills.utils.import_graph import ImportEdge, ImportGraph
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,7 +73,7 @@ def _git_head() -> str:
 
 
 def _now_iso() -> str:
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _harness_header(timestamp: str, head: str) -> str:
@@ -571,9 +570,8 @@ def _extract_imports(py_file: Path) -> list[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 targets.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.level == 0:
-                targets.append(node.module)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            targets.append(node.module)
     return targets
 
 

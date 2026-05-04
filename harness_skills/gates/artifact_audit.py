@@ -23,14 +23,14 @@ Artifact discovery
 from __future__ import annotations
 
 import argparse
+import contextlib
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, timezone
 import json
+from pathlib import Path
 import re
 import sys
-from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Literal
-
 
 # ---------------------------------------------------------------------------
 # Types
@@ -171,7 +171,7 @@ class AuditResult:
 
 def _today() -> date:
     """Return today UTC date.  Isolated for test monkeypatching."""
-    return datetime.now(tz=timezone.utc).date()
+    return datetime.now(tz=UTC).date()
 
 
 def _parse_generated_at(content: str) -> date | None:
@@ -386,10 +386,8 @@ class ArtifactAuditGate:
 
         # ── Read content ─────────────────────────────────────────────────
         content = ""
-        try:
+        with contextlib.suppress(OSError):
             content = p.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            pass
 
         gen_date = _parse_generated_at(content)
         today = _today()

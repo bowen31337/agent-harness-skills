@@ -52,11 +52,11 @@ the runtime behaviour of ``harness evaluate``.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from pathlib import Path
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 try:
@@ -65,7 +65,14 @@ try:
 except ImportError:
     _YAML_AVAILABLE = False
 
+from datetime import UTC
+
+from harness_skills.models.base import GateResult as BaseGateResult
+from harness_skills.models.base import Status
 from harness_skills.models.gate_configs import (
+    ARCHITECTURE_STYLE_PRESETS,
+    GATE_CONFIG_CLASSES,
+    PROFILE_GATE_DEFAULTS,
     ArchitectureGateConfig,
     BaseGateConfig,
     CoverageGateConfig,
@@ -76,14 +83,9 @@ from harness_skills.models.gate_configs import (
     RegressionGateConfig,
     SecurityGateConfig,
     TypesGateConfig,
-    GATE_CONFIG_CLASSES,
-    PROFILE_GATE_DEFAULTS,
-    ARCHITECTURE_STYLE_PRESETS,
 )
-from harness_skills.models.base import GateResult as BaseGateResult, Status
 from harness_skills.plugins.loader import load_plugin_gates
 from harness_skills.plugins.runner import run_plugin_gates
-
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -363,8 +365,8 @@ def check_regression(
     project_root: Path, cfg: RegressionGateConfig
 ) -> list[GateFailure]:
     """Run test suite and collect failures."""
-    import xml.etree.ElementTree as ET
     import re as _re
+    import xml.etree.ElementTree as ET
 
     junit_xml = project_root / ".harness-junit.xml"
     cmd = [
@@ -771,8 +773,8 @@ def check_principles(
     When ``cfg.fail_on_critical=False`` all ``"error"``-level violations are
     downgraded to ``"warning"`` so the gate runs in advisory mode.
     """
-    from harness_skills.gates.principles import PrinciplesGate
     from harness_skills.gates.principles import GateConfig as _PrinciplesGateConfig
+    from harness_skills.gates.principles import PrinciplesGate
 
     gate_cfg = _PrinciplesGateConfig(
         fail_on_critical=getattr(cfg, "fail_on_critical", True),
@@ -801,11 +803,11 @@ def check_docs_freshness(
     project_root: Path, cfg: DocsFreshnessGateConfig
 ) -> list[GateFailure]:
     """Flag generated harness artifacts that are older than max_staleness_days."""
-    import re as _re
     from datetime import datetime, timezone
+    import re as _re
 
     ts_re = _re.compile(r"generated_at:\s*([\d\-T:.+Z]+)")
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     failures: list[GateFailure] = []
 
     for name in cfg.tracked_files:

@@ -13,8 +13,8 @@ Coverage targets:
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 import yaml
@@ -23,7 +23,6 @@ from harness_skills.generators.config_generator import (
     generate_gate_config,
     write_harness_config,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -463,12 +462,12 @@ class TestIdempotency:
 # ---------------------------------------------------------------------------
 
 
-from harness_skills.models.gate_configs import ArchitectureGateConfig
 from harness_skills.generators.config_generator import (
+    _merge_with_regex,
     _render_architecture,
     _render_gate,
-    _merge_with_regex,
 )
+from harness_skills.models.gate_configs import ArchitectureGateConfig
 
 
 class TestRenderArchitectureLayerDefinitions:

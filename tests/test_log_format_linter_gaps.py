@@ -11,9 +11,9 @@ Tests covering uncovered lines in log_format_linter:
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import sys
 import textwrap
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -34,6 +34,8 @@ from log_format_linter.cli import (
     _colour_severity,
     _run_check,
     _use_colour,
+)
+from log_format_linter.cli import (
     main as cli_main,
 )
 from log_format_linter.detector import detect_framework
@@ -457,7 +459,6 @@ class TestCLICheckEdges:
         # The severity arg is a choices in argparse, so we need to bypass argparse
         # by directly calling _run_check with a namespace that has an invalid severity
         import argparse
-        from log_format_linter.cli import _run_check
         ns = argparse.Namespace(
             path=str(tmp_path / "app.py"),
             fields=None,
@@ -567,7 +568,7 @@ class TestDetectorGaps:
 
     def test_oserror_skips_file(self, tmp_path):
         """Line 86-87: OSError when reading a file is silently skipped."""
-        p = _write(tmp_path, "app.py", "import structlog\n")
+        _write(tmp_path, "app.py", "import structlog\n")
         # Make the file unreadable by patching
         with patch("pathlib.Path.read_text", side_effect=OSError("Permission denied")):
             result = detect_framework(tmp_path)

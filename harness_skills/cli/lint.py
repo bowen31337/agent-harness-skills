@@ -17,7 +17,7 @@ Exit codes:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -27,15 +27,14 @@ from rich.console import Console
 from rich.table import Table
 
 from harness_skills.generators.evaluation import (
+    EvaluationReport,
     GateConfig,
     GateId,
-    EvaluationReport,
     Severity,
     run_all_gates,
 )
 from harness_skills.models.base import Status, Violation
 from harness_skills.models.lint import LintResponse
-
 
 # ---------------------------------------------------------------------------
 # Gates that harness lint considers (subset of all evaluation gates)
@@ -193,7 +192,7 @@ def _build_lint_response(report: EvaluationReport) -> LintResponse:
         command="harness lint",
         status=Status.PASSED if report.passed else Status.FAILED,
         passed=report.passed,
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         message=(
             "All architectural and principle checks passed."
             if report.passed

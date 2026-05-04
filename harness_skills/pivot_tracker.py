@@ -43,11 +43,11 @@ Usage
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime, timezone
+from enum import Enum, StrEnum
 
 
-class PivotDecision(str, Enum):
+class PivotDecision(StrEnum):
     """Decision after recording an evaluation score."""
 
     REFINE = "REFINE"
@@ -178,7 +178,7 @@ class PivotTracker:
         str
             Markdown-formatted summary of scores, decisions, and trend.
         """
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         lines: list[str] = [
             f"### Pivot Tracker Status ({now})",
             "",

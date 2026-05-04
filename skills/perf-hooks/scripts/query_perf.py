@@ -43,8 +43,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 # ---------------------------------------------------------------------------
 # Resolve the repo root so the script works regardless of cwd.
@@ -56,8 +56,7 @@ _REPO_ROOT  = _SKILLS_DIR.parent                       # repo root
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from skills.perf_hooks import PerfHooks, VALID_METRICS  # noqa: E402
-
+from skills.perf_hooks import VALID_METRICS, PerfHooks  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Argument parser

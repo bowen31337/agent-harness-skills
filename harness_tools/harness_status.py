@@ -32,10 +32,10 @@ Exit codes
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime, timezone
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any
 
 import yaml  # PyYAML
@@ -46,7 +46,8 @@ import yaml  # PyYAML
 try:
     from harness_skills.handoff import HandoffDocument  # type: ignore[import]
 except ImportError:  # running as a standalone script without a package install
-    import importlib.util, os
+    import importlib.util
+    import os
 
     _spec = importlib.util.spec_from_file_location(
         "handoff",
@@ -403,7 +404,7 @@ def main(argv: list[str] | None = None) -> int:
         records = [r for r in records if r["status"] in status_filter]
 
     # Build dashboard
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    generated_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     dashboard    = build_dashboard(records, generated_at)
 
     # Render
@@ -430,10 +431,10 @@ def main(argv: list[str] | None = None) -> int:
 
 def _make_demo_files(tmp_dir: Path) -> None:
     """Write three synthetic HandoffDocument markdown files into *tmp_dir*."""
-    import textwrap
     from datetime import timedelta
+    import textwrap
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     docs = [
         # Active plan

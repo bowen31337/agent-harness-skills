@@ -18,13 +18,13 @@ Exit codes:
 
 from __future__ import annotations
 
+from collections import defaultdict
+from datetime import UTC, datetime, timezone
+from fnmatch import fnmatch
 import json
+from pathlib import Path
 import re
 import subprocess
-from collections import defaultdict
-from datetime import datetime, timezone
-from fnmatch import fnmatch
-from pathlib import Path
 from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -142,12 +142,12 @@ def context_cmd(
     ctx: click.Context,
     input_arg: str,
     max_files: int,
-    budget: Optional[int],
+    budget: int | None,
     output_format: str,
     state_url: str,
     no_git: bool,
-    include_glob: Optional[str],
-    exclude_glob: Optional[str],
+    include_glob: str | None,
+    exclude_glob: str | None,
     depth_map: bool,
 ) -> None:
     """Return a minimal ContextManifest for PLAN_ID_OR_DOMAIN.
@@ -225,8 +225,8 @@ def _build_manifest(
     max_files: int,
     state_url: str,
     no_git: bool,
-    include_glob: Optional[str],
-    exclude_glob: Optional[str],
+    include_glob: str | None,
+    exclude_glob: str | None,
 ) -> ContextManifest:
     """Orchestrate all discovery steps and return a populated ContextManifest."""
 
@@ -322,7 +322,7 @@ def _build_manifest(
             total_estimated_lines=total_lines,
             state_service_used=state_service_used,
         ),
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         message=(
             f"{len(files)} file(s) found for '{input_arg}'"
             if files
@@ -486,7 +486,7 @@ def _path_strategy(keywords: list[str]) -> list[str]:
     hits: set[str] = set()
     skip_dirs = {".git", "node_modules", "__pycache__", "dist", "build"}
     try:
-        root = Path(".")
+        root = Path()
         for p in root.rglob("*"):
             if not p.is_file():
                 continue
@@ -525,7 +525,7 @@ def _filter_and_rank(
     scores: dict[str, int],
     max_files: int,
     extra_excludes: list[str],
-    include_glob: Optional[str],
+    include_glob: str | None,
 ) -> tuple[list[str], list[SkipEntry]]:
     """Apply exclusions, optional include filter, rank, and cap the file list.
 
@@ -644,7 +644,7 @@ _SOURCE_LABEL: dict[str, str] = {
 }
 
 
-def _print_human_report(manifest: ContextManifest, budget: Optional[int]) -> None:
+def _print_human_report(manifest: ContextManifest, budget: int | None) -> None:
     """Print the human-readable summary to stdout (rich console)."""
     console = Console()
     sep = "━" * 56

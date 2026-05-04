@@ -37,10 +37,10 @@ Programmatic use
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 import re
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -151,12 +151,12 @@ class DebtTracker:
         description: str,
         remediation: str,
         logged_by: str,
-        logged_at: Optional[str] = None,
+        logged_at: str | None = None,
     ) -> str:
         """Append a new open-debt entry. Returns the assigned DEBT-NNN id."""
         severity = _normalise_severity(severity)
         if logged_at is None:
-            logged_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            logged_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
         content = self.debt_file.read_text(encoding="utf-8")
         new_id = self._next_id(content)
@@ -183,12 +183,12 @@ class DebtTracker:
         id_: str,
         resolution: str,
         resolved_by: str,
-        resolved_at: Optional[str] = None,
+        resolved_at: str | None = None,
     ) -> None:
         """Move a debt entry from Open to Resolved."""
         id_ = id_.upper().strip()
         if resolved_at is None:
-            resolved_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+            resolved_at = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
         content = self.debt_file.read_text(encoding="utf-8")
 
@@ -266,9 +266,7 @@ class DebtTracker:
         tail = content[insert_after:]
         for line in tail.splitlines(keepends=True):
             stripped = line.strip()
-            if stripped.startswith("| ID |") or stripped.startswith("|----"):
-                insert_after += len(line)
-            elif stripped == "":
+            if stripped.startswith("| ID |") or stripped.startswith("|----") or stripped == "":
                 insert_after += len(line)
             else:
                 break
@@ -289,9 +287,7 @@ class DebtTracker:
         tail = content[insert_after:]
         for line in tail.splitlines(keepends=True):
             stripped = line.strip()
-            if stripped.startswith("| ID |") or stripped.startswith("|----"):
-                insert_after += len(line)
-            elif stripped == "":
+            if stripped.startswith("| ID |") or stripped.startswith("|----") or stripped == "":
                 insert_after += len(line)
             else:
                 break

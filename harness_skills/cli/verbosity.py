@@ -143,7 +143,7 @@ def get_verbosity(ctx: click.Context) -> str:
         return ctx.obj["verbosity"]
 
     # 2. Walk up the context tree
-    current: Optional[click.Context] = ctx
+    current: click.Context | None = ctx
     while current is not None:
         raw = current.params.get("verbosity")
         if raw is not None:

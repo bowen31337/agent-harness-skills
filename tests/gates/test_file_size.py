@@ -28,7 +28,6 @@ from harness_skills.gates.file_size import (
 )
 from harness_skills.models.gate_configs import FileSizeGateConfig
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

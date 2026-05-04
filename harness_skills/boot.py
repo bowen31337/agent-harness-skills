@@ -25,22 +25,21 @@ Data models
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from enum import Enum, StrEnum
 import subprocess
 import textwrap
 import time
+from typing import Optional
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class DatabaseIsolation(str, Enum):
+class DatabaseIsolation(StrEnum):
     """Strategy used to keep each worktree's database separate."""
 
     NONE = "none"           # No database isolation — share a single DB
@@ -49,7 +48,7 @@ class DatabaseIsolation(str, Enum):
     CONTAINER = "container" # Separate container per worktree
 
 
-class HealthCheckMethod(str, Enum):
+class HealthCheckMethod(StrEnum):
     """HTTP method used to probe the health endpoint."""
 
     GET = "GET"
@@ -242,13 +241,13 @@ def _build_isolation_block(cfg: BootConfig) -> str:
         schema = iso.db_schema or f"worktree_{cfg.worktree_id}"
         lines.append(f'export DB_SCHEMA="{schema}"')
         lines.append(
-            f'echo "[harness:boot] Database isolation: schema=$DB_SCHEMA"'
+            'echo "[harness:boot] Database isolation: schema=$DB_SCHEMA"'
         )
     elif iso.db_isolation == DatabaseIsolation.FILE:
         db_file = iso.db_file or f"/tmp/harness_{cfg.worktree_id}.db"
         lines.append(f'export DATABASE_URL="sqlite:///{db_file}"')
         lines.append(
-            f'echo "[harness:boot] Database isolation: file=$DATABASE_URL"'
+            'echo "[harness:boot] Database isolation: file=$DATABASE_URL"'
         )
     elif iso.db_isolation == DatabaseIsolation.CONTAINER:
         lines.append(
@@ -402,24 +401,20 @@ def _poll_health_check(spec: HealthCheckSpec) -> tuple[bool, float, str]:
             with urllib.request.urlopen(req, timeout=spec.timeout_s) as resp:
                 if resp.status in spec.expected_codes:
                     return True, time.monotonic() - start, ""
-                error_msg = (
-                    f"Unexpected HTTP {resp.status} from {spec.url}"
-                )
         except urllib.error.HTTPError as exc:
             if exc.code in spec.expected_codes:
                 return True, time.monotonic() - start, ""
-            error_msg = f"HTTP {exc.code} from {spec.url}"
-        except urllib.error.URLError as exc:
-            error_msg = f"Connection error: {exc.reason}"
-        except OSError as exc:
-            error_msg = f"Request failed: {exc}"
+        except urllib.error.URLError:
+            pass
+        except OSError:
+            pass
 
         time.sleep(spec.interval_s)
 
 
 def boot_instance(
     config: BootConfig,
-    timeout: Optional[float] = None,
+    timeout: float | None = None,
 ) -> BootResult:
     """
     Start an isolated application instance and wait for its health check
@@ -498,10 +493,7 @@ def boot_instance(
 
     # Resolve command
     cmd: str | list[str]
-    if isinstance(config.start_command, list):
-        cmd = config.start_command
-    else:
-        cmd = config.start_command
+    cmd = config.start_command if isinstance(config.start_command, list) else config.start_command
 
     # Set up stdout/stderr redirection
     stdout = stderr = None

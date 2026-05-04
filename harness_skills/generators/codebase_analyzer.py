@@ -24,9 +24,9 @@ Usage::
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import re
 import tomllib
-from pathlib import Path
 
 from harness_skills.models.create import DetectedStack
 
@@ -340,12 +340,10 @@ def _detect_languages(root: Path) -> tuple[str, list[str]]:
 
     for pattern, lang in _PACKAGE_FILE_PRIORITY:
         if "*" in pattern:
-            if list(root.glob(pattern)):
-                if lang not in found:
-                    found.append(lang)
-        elif (root / pattern).exists():
-            if lang not in found:
+            if list(root.glob(pattern)) and lang not in found:
                 found.append(lang)
+        elif (root / pattern).exists() and lang not in found:
+            found.append(lang)
 
     # Upgrade javascript → typescript when tsconfig.json or typescript dep is present
     if "javascript" in found and _is_typescript_project(root):

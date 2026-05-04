@@ -23,7 +23,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse, Status
 
-
 # ── Task-level detail ──────────────────────────────────────────────────────────
 
 
@@ -48,7 +47,7 @@ class TaskDetail(BaseModel):
         default="medium",
         description="Task priority: critical | high | medium | low.",
     )
-    assigned_agent: Optional[str] = Field(
+    assigned_agent: str | None = Field(
         default=None,
         description="ID of the agent currently responsible for this task, or null.",
     )
@@ -60,23 +59,23 @@ class TaskDetail(BaseModel):
         default_factory=list,
         description="List of task_ids this task depends on.",
     )
-    started_at: Optional[str] = Field(
+    started_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp when the task started, or null.",
     )
-    completed_at: Optional[str] = Field(
+    completed_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp when the task completed, or null.",
     )
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         default=None,
         description="Free-form notes attached to the task.",
     )
-    description: Optional[str] = Field(
+    description: str | None = Field(
         default=None,
         description="Extended description of what the task involves.",
     )
-    dep_state: Optional[DepState] = Field(
+    dep_state: DepState | None = Field(
         default=None,
         description=(
             "Computed dependency state: 'ready' (all deps done or no deps), "
@@ -132,15 +131,15 @@ class PlanSnapshot(BaseModel):
             "pending | running | done | blocked | cancelled."
         )
     )
-    created_at: Optional[str] = Field(
+    created_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp when the plan was created.",
     )
-    updated_at: Optional[str] = Field(
+    updated_at: str | None = Field(
         default=None,
         description="ISO-8601 UTC timestamp of the most recent plan update.",
     )
-    source_file: Optional[str] = Field(
+    source_file: str | None = Field(
         default=None,
         description="Path to the YAML/JSON file this plan was loaded from.",
     )
@@ -210,7 +209,7 @@ class DashboardSummary(BaseModel):
             "none = no plans found."
         ),
     )
-    state_service_reachable: Optional[bool] = Field(
+    state_service_reachable: bool | None = Field(
         default=None,
         description=(
             "Whether the claw-forge state service responded to a health probe. "

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from pathlib import Path
+import time
 
 import pytest
 
@@ -20,7 +20,6 @@ from harness_skills.task_lock import (
     TaskLock,
     TaskLockProtocol,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

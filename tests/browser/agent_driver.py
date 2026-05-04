@@ -61,9 +61,9 @@ class AgentDriver:
     def launch(
         cls,
         headless: bool = True,
-        base_url: Optional[str] = None,
+        base_url: str | None = None,
         record_video: bool = False,
-    ) -> "AgentDriver":
+    ) -> AgentDriver:
         """Launch a Chromium browser and return an :class:`AgentDriver`.
 
         Args:
@@ -119,7 +119,7 @@ class AgentDriver:
         self._context.close()
         self._browser.close()
 
-    def __enter__(self) -> "AgentDriver":
+    def __enter__(self) -> AgentDriver:
         return self
 
     def __exit__(self, *_: object) -> None:

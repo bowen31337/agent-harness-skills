@@ -58,21 +58,20 @@ Test strategy
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
 from harness_skills.gates.runner import (
-    check_architecture,
     _resolve_layer_definitions,
+    check_architecture,
 )
 from harness_skills.generators.config_generator import _render_architecture
 from harness_skills.models.gate_configs import (
     ARCHITECTURE_STYLE_PRESETS,
     ArchitectureGateConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixture helpers

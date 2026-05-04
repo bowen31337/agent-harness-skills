@@ -51,11 +51,11 @@ Programmatic use
 from __future__ import annotations
 
 import argparse
+from datetime import UTC, datetime, timezone
 import fcntl
 import json
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
 from typing import Any, Literal
 
 try:
@@ -90,7 +90,7 @@ _VALID_TYPES: frozenset[str] = frozenset(
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:

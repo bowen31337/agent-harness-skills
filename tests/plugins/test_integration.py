@@ -13,7 +13,6 @@ from harness_skills.models.evaluate import EvaluateResponse
 from harness_skills.plugins.loader import load_plugin_gates
 from harness_skills.plugins.runner import run_plugin_gates
 
-
 _EXIT_0 = "exit 0" if sys.platform != "win32" else "exit /b 0"
 _EXIT_1 = "exit 1" if sys.platform != "win32" else "exit /b 1"
 

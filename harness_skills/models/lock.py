@@ -23,6 +23,7 @@ Wire payload shapes
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -55,7 +56,7 @@ class LockAcquireRequest(BaseModel):
             "Default: 300 s (5 minutes).  Maximum: 3600 s (1 hour)."
         ),
     )
-    acquired_at: Optional[str] = Field(
+    acquired_at: str | None = Field(
         default=None,
         description=(
             "ISO-8601 UTC timestamp when the file-based lock was acquired.  "
@@ -113,7 +114,7 @@ class LockReleaseRequest(BaseModel):
             "'handed-off' — task is being passed to another agent."
         ),
     )
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         default=None,
         description="Optional free-form notes recorded alongside the release event.",
     )
@@ -132,7 +133,7 @@ class LockRecord(BaseModel):
     acquired_at: str = Field(description="ISO-8601 UTC timestamp of acquisition.")
     expires_at: str = Field(description="ISO-8601 UTC timestamp of auto-expiry.")
     timeout_seconds: float = Field(gt=0, description="Configured TTL in seconds.")
-    state_service_url: Optional[str] = Field(
+    state_service_url: str | None = Field(
         default=None,
         description="URL of the state service that registered this lock.",
     )
@@ -142,10 +143,7 @@ class LockRecord(BaseModel):
         from datetime import datetime, timezone
 
         expires = datetime.fromisoformat(self.expires_at)
-        if now_iso:
-            now = datetime.fromisoformat(now_iso)
-        else:
-            now = datetime.now(timezone.utc)
+        now = datetime.fromisoformat(now_iso) if now_iso else datetime.now(UTC)
         return (expires - now).total_seconds()
 
     def is_expired(self, now_iso: str | None = None) -> bool:
@@ -159,11 +157,11 @@ class LockStateResponse(BaseModel):
 
     task_id: str = Field(description="Task whose lock was queried.")
     locked: bool = Field(description="True when an active (non-expired) lock exists.")
-    lock: Optional[LockRecord] = Field(
+    lock: LockRecord | None = Field(
         default=None,
         description="Full lock record when ``locked`` is True; null otherwise.",
     )
-    message: Optional[str] = Field(
+    message: str | None = Field(
         default=None,
         description="Human-readable status message from the state service.",
     )
@@ -181,21 +179,21 @@ class LockOperationResponse(BaseModel):
         description="The operation that was attempted.",
     )
     task_id: str = Field(description="Target task identifier.")
-    lock: Optional[LockRecord] = Field(
+    lock: LockRecord | None = Field(
         default=None,
         description=(
             "The resulting lock record after the operation.  "
             "Present after acquire/extend; null after release."
         ),
     )
-    conflict_holder: Optional[LockRecord] = Field(
+    conflict_holder: LockRecord | None = Field(
         default=None,
         description=(
             "When ``success`` is False and the operation was 'acquire', "
             "this field contains the lock held by the blocking agent."
         ),
     )
-    message: Optional[str] = Field(
+    message: str | None = Field(
         default=None,
         description="Human-readable result message.",
     )

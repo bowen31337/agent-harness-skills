@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from harness_skills.models.base import HarnessResponse
 
 
-class EnvVarSource(str, Enum):
+class EnvVarSource(StrEnum):
     """The kind of file or construct where the variable was found."""
 
     DOTENV_EXAMPLE = "dotenv_example"
@@ -31,18 +31,18 @@ class EnvVarEntry(BaseModel):
     name: str = Field(description="The variable name, e.g. DATABASE_URL.")
     source: EnvVarSource
     file_path: str = Field(description="Repo-relative path of the file where it was found.")
-    line_number: Optional[int] = Field(
+    line_number: int | None = Field(
         default=None,
         description="1-based line number within file_path (None when unavailable).",
     )
-    default_value: Optional[str] = Field(
+    default_value: str | None = Field(
         default=None,
         description=(
             "The example/default value as written in a .env file or config. "
             "None when the source is source_code or the entry has no value."
         ),
     )
-    comment: Optional[str] = Field(
+    comment: str | None = Field(
         default=None,
         description="Inline or preceding comment associated with the variable definition.",
     )

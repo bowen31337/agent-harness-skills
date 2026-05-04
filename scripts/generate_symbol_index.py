@@ -17,12 +17,11 @@ from __future__ import annotations
 
 import argparse
 import ast
+from datetime import date, datetime, timezone
 import fnmatch
 import json
-import sys
-from datetime import date, timezone, datetime
 from pathlib import Path
-
+import sys
 
 # ---------------------------------------------------------------------------
 # Defaults

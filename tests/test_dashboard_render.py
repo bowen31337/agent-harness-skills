@@ -7,21 +7,22 @@ _correlation_table, _tier_summary, render_dashboard, and _cli_main.
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+import contextlib
+from datetime import UTC, datetime, timezone
 from io import StringIO
+import json
 from unittest.mock import patch
 
 import pytest
 from rich.console import Console
 
 from harness_dashboard.dashboard import (
+    _cli_main,
     _correlation_table,
     _header_panel,
     _metrics_table,
     _tier_summary,
     render_dashboard,
-    _cli_main,
 )
 from harness_dashboard.models import (
     ArtifactType,
@@ -30,7 +31,6 @@ from harness_dashboard.models import (
     EffectivenessMetrics,
     EffectivenessTier,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -95,7 +95,7 @@ def _report(
         _correlation(r=-0.45, direction="negative"),
     ][:n_corr]
     return DashboardReport(
-        generated_at=datetime(2025, 6, 1, 12, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2025, 6, 1, 12, 0, tzinfo=UTC),
         harness_count=n_metrics,
         pr_count=n_metrics * 5,
         metrics=metrics,
@@ -281,10 +281,8 @@ class TestCliMain:
     def test_json_output(self, capsys):
         """_cli_main with --json emits valid JSON."""
         with patch("sys.argv", ["dashboard", "--harnesses", "3", "--seed", "42", "--json"]):
-            try:
+            with contextlib.suppress(SystemExit):
                 _cli_main()
-            except SystemExit:
-                pass
         captured = capsys.readouterr()
         data = json.loads(captured.out)
         assert "harness_count" in data
@@ -293,7 +291,5 @@ class TestCliMain:
     def test_seed_zero_means_random(self):
         """--seed 0 should translate to None (random)."""
         with patch("sys.argv", ["dashboard", "--harnesses", "2", "--seed", "0"]):
-            try:
+            with contextlib.suppress(SystemExit):
                 _cli_main()
-            except SystemExit:
-                pass

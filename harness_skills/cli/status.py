@@ -37,21 +37,21 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import click
-import yaml
 from rich import box
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
+import yaml
 
 from harness_skills.cli.verbosity import VerbosityLevel, at_least, get_verbosity, vecho
 from harness_skills.models.base import Status
@@ -104,10 +104,7 @@ def _load_plan_file(path: Path) -> PlanSnapshot:
     """Parse a YAML or JSON execution-plan file into a ``PlanSnapshot``."""
     raw: str = path.read_text(encoding="utf-8")
 
-    if path.suffix.lower() in {".yaml", ".yml"}:
-        data = yaml.safe_load(raw)
-    else:
-        data = json.loads(raw)
+    data = yaml.safe_load(raw) if path.suffix.lower() in {".yaml", ".yml"} else json.loads(raw)
 
     # Support both top-level-plan wrapper {"plan": {...}, "tasks": [...]}
     # and a bare task list [...].
@@ -196,7 +193,7 @@ def _normalise_plan_status(raw: object) -> PlanStatusValue:
     return mapping.get(str(raw).lower(), "pending")  # type: ignore[return-value]
 
 
-def _str_or_none(val: object) -> Optional[str]:
+def _str_or_none(val: object) -> str | None:
     if val is None:
         return None
     s = str(val).strip()
@@ -274,10 +271,10 @@ def _build_dashboard(
     plans: list[PlanSnapshot],
     *,
     data_source: str,
-    state_reachable: Optional[bool],
+    state_reachable: bool | None,
 ) -> StatusDashboardResponse:
     """Aggregate plan snapshots into a full ``StatusDashboardResponse``."""
-    t = datetime.now(tz=timezone.utc).isoformat()
+    t = datetime.now(tz=UTC).isoformat()
 
     total_tasks = sum(p.task_counts.total for p in plans)
     done_tasks  = sum(p.task_counts.completed for p in plans)
@@ -585,7 +582,7 @@ def status_cmd(
     start_ms = int(time.monotonic() * 1000)
     plans: list[PlanSnapshot] = []
     data_sources: list[str] = []
-    state_reachable: Optional[bool] = None
+    state_reachable: bool | None = None
 
     # ── 1. Load from plan files ───────────────────────────────────────────────
     for path in plan_files:

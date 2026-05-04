@@ -12,8 +12,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import click
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.lint import (
     _build_lint_response,
@@ -32,7 +32,6 @@ from harness_skills.generators.evaluation import (
     Severity,
 )
 from harness_skills.models.base import Status
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -350,7 +349,7 @@ class TestLintCmdErrors:
             lint_cmd.callback(
                 selected_gates=(),
                 no_principles=False,
-                project_root=Path("."),
+                project_root=Path(),
                 output_format="table",
             )
         ctx.exit.assert_called_with(2)

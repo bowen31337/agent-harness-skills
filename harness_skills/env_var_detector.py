@@ -19,10 +19,10 @@ Public API
 
 from __future__ import annotations
 
-import re
-from datetime import datetime, timezone
+from collections.abc import Sequence
+from datetime import UTC, datetime, timezone
 from pathlib import Path
-from typing import Sequence
+import re
 
 from harness_skills.models.base import Status
 from harness_skills.models.env_vars import (
@@ -427,7 +427,7 @@ def detect_env_vars(
     return EnvVarDetectionResult(
         command="detect-env-vars",
         status=Status.PASSED,
-        timestamp=datetime.now(tz=timezone.utc).isoformat(),
+        timestamp=datetime.now(tz=UTC).isoformat(),
         scanned_path=str(path),
         env_vars=all_entries,
         unique_var_names=unique_names,

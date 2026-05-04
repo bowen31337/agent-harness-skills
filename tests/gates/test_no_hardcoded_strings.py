@@ -8,8 +8,8 @@ named constants, docstrings, and comments.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 from harness_skills.gates.principles import (
     GateConfig,

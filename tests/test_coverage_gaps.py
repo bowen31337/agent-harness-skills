@@ -10,14 +10,13 @@ import ast
 import errno
 import json
 import os
+from pathlib import Path
 import textwrap
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-
 
 # ===========================================================================
 # 1. harness_skills/gates/principles.py
@@ -38,7 +37,7 @@ class TestPrinciplesYamlNotAvailable:
     """Cover lines 79-80: _YAML_AVAILABLE = False branch."""
 
     def test_load_principles_without_yaml(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         # Create a principles file so the gate tries to load it
         pf = tmp_path / "principles.yaml"
@@ -54,7 +53,7 @@ class TestPrinciplesCustomPatternSkipAndError:
     """Cover lines 368 (skip dir), 378-379 (OSError on file read)."""
 
     def test_custom_pattern_skips_venv_dirs(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         pf = tmp_path / "principles.yaml"
         yaml.dump({
@@ -77,7 +76,7 @@ class TestPrinciplesCustomPatternSkipAndError:
         assert not any("bad.py" in v.file_path for v in result.violations if v.file_path)
 
     def test_custom_pattern_os_error(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         pf = tmp_path / "principles.yaml"
         yaml.dump({
@@ -111,7 +110,7 @@ class TestPrinciplesLoadExceptions:
     """Cover lines 404, 408-409: _load_principles edge cases."""
 
     def test_yaml_available_but_invalid_yaml(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         pf = tmp_path / "principles.yaml"
         pf.write_text(": : : invalid yaml [[", encoding="utf-8")
@@ -121,7 +120,7 @@ class TestPrinciplesLoadExceptions:
         assert result.principles_loaded == 0
 
     def test_yaml_available_but_no_yaml_lib(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         pf = tmp_path / "principles.yaml"
         pf.write_text("principles: []\n", encoding="utf-8")
@@ -132,7 +131,7 @@ class TestPrinciplesLoadExceptions:
         assert result.principles_loaded == 0
 
     def test_yaml_returns_none_data(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         pf = tmp_path / "principles.yaml"
         pf.write_text("", encoding="utf-8")  # yaml.safe_load returns None
@@ -146,7 +145,7 @@ class TestPrinciplesAdvisoryModeFailOnError:
     """Cover line 446: fail_on_critical=False, fail_on_error=True path."""
 
     def test_advisory_fail_on_error_keeps_errors(self, tmp_path: Path) -> None:
-        from harness_skills.gates.principles import _apply_advisory, GateConfig, Violation
+        from harness_skills.gates.principles import GateConfig, Violation, _apply_advisory
 
         v = Violation(
             principle_id="P001", severity="error",
@@ -530,7 +529,7 @@ class TestRunnerCheckCoverageEdgeCases:
             "totals": {"percent_covered": 50.0}
         }), encoding="utf-8")
 
-        proc = MagicMock(returncode=0, stdout="", stderr="")
+        MagicMock(returncode=0, stdout="", stderr="")
         with patch("harness_skills.gates.runner._run_cmd", return_value=(0, "", "")):
             failures = check_coverage(tmp_path, cfg)
         # Coverage file needs to exist after run_cmd
@@ -669,7 +668,7 @@ class TestRunnerCheckLint:
         }])
         with patch("harness_skills.gates.runner._run_cmd", return_value=(1, ruff_output, "")):
             failures = check_lint(tmp_path, cfg)
-        assert any("E501" == (f.rule_id or "") for f in failures)
+        assert any((f.rule_id or "") == "E501" for f in failures)
 
     def test_eslint_violations(self, tmp_path: Path) -> None:
         from harness_skills.gates.runner import check_lint
@@ -689,7 +688,7 @@ class TestRunnerCheckLint:
         }])
         with patch("harness_skills.gates.runner._run_cmd", return_value=(1, eslint_output, "")):
             failures = check_lint(tmp_path, cfg)
-        assert any("no-var" == (f.rule_id or "") for f in failures)
+        assert any((f.rule_id or "") == "no-var" for f in failures)
 
 
 # ===========================================================================
@@ -1008,7 +1007,9 @@ class TestPerformanceBaselineRegression:
 
     def test_baseline_regression_detected(self, tmp_path: Path) -> None:
         from harness_skills.gates.performance import (
-            _check_baseline_regression, SpanRecord, ThresholdViolation,
+            SpanRecord,
+            ThresholdViolation,
+            _check_baseline_regression,
         )
 
         # Write a baseline file
@@ -1065,7 +1066,7 @@ class TestPerformanceOutputFile:
             output_file=str(output),
         )
         gate = PerformanceGate(cfg)
-        result = gate.run(repo_root=tmp_path)
+        gate.run(repo_root=tmp_path)
         if output.exists():
             data = json.loads(output.read_text())
             assert isinstance(data, dict)
@@ -1132,7 +1133,7 @@ class TestCompletionReportFollowUpItems:
 
     def test_done_tasks_produce_no_follow_ups(self) -> None:
         from harness_skills.cli.completion_report import _extract_follow_up_items
-        from harness_skills.models.status import PlanSnapshot, TaskStatusCounts, TaskDetail
+        from harness_skills.models.status import PlanSnapshot, TaskDetail, TaskStatusCounts
 
         tasks = [
             TaskDetail(task_id="T1", title="Done Task", status="done"),
@@ -1144,7 +1145,7 @@ class TestCompletionReportFollowUpItems:
 
     def test_running_task_produces_incomplete_follow_up(self) -> None:
         from harness_skills.cli.completion_report import _extract_follow_up_items
-        from harness_skills.models.status import PlanSnapshot, TaskStatusCounts, TaskDetail
+        from harness_skills.models.status import PlanSnapshot, TaskDetail, TaskStatusCounts
 
         tasks = [
             TaskDetail(task_id="T1", title="Running Task", status="running"),
@@ -1161,6 +1162,7 @@ class TestCompletionReportStateServiceUnreachable:
 
     def test_state_service_unreachable_warning(self, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from harness_skills.cli.main import cli
 
         runner = CliRunner()
@@ -1178,6 +1180,7 @@ class TestCompletionReportNoPlans:
 
     def test_no_plans_exit_1(self, tmp_path: Path) -> None:
         from click.testing import CliRunner
+
         from harness_skills.cli.main import cli
 
         runner = CliRunner()
@@ -1199,10 +1202,7 @@ class TestCompletionReportMixedSources:
         # Testing the full flow is complex, so we test the label logic
         sources = ["file", "state-service"]
         unique = list(dict.fromkeys(sources))
-        if len(unique) == 1:
-            label = unique[0]
-        else:
-            label = "mixed"
+        label = unique[0] if len(unique) == 1 else "mixed"
         assert label == "mixed"
 
 
@@ -1217,7 +1217,9 @@ class TestStatusModelProperties:
 
     def test_plan_snapshot_filter_properties(self) -> None:
         from harness_skills.models.status import (
-            PlanSnapshot, TaskStatusCounts, TaskDetail,
+            PlanSnapshot,
+            TaskDetail,
+            TaskStatusCounts,
         )
 
         tasks = [
@@ -1240,8 +1242,10 @@ class TestStatusModelProperties:
 
     def test_dashboard_response_filter_properties(self) -> None:
         from harness_skills.models.status import (
-            StatusDashboardResponse, DashboardSummary,
-            PlanSnapshot, TaskStatusCounts,
+            DashboardSummary,
+            PlanSnapshot,
+            StatusDashboardResponse,
+            TaskStatusCounts,
         )
 
         summary = DashboardSummary(
@@ -1277,7 +1281,7 @@ class TestBootHealthCheckWithHeaders:
     """Cover line 401: health check with custom headers."""
 
     def test_health_check_sends_headers(self) -> None:
-        from harness_skills.boot import _poll_health_check, HealthCheckSpec
+        from harness_skills.boot import HealthCheckSpec, _poll_health_check
 
         spec = HealthCheckSpec(
             url="http://localhost:19999/health",
@@ -1306,7 +1310,7 @@ class TestBootProcessLaunchFailure:
     """Cover lines 514-515, 530: log file OSError and process launch failure."""
 
     def test_process_launch_os_error(self, tmp_path: Path) -> None:
-        from harness_skills.boot import boot_instance, BootConfig, IsolationConfig
+        from harness_skills.boot import BootConfig, IsolationConfig, boot_instance
 
         cfg = BootConfig(
             start_command="nonexistent_binary_xyz",
@@ -1321,7 +1325,7 @@ class TestBootProcessLaunchFailure:
         assert "Failed to start" in (result.error or "")
 
     def test_log_file_open_error(self, tmp_path: Path) -> None:
-        from harness_skills.boot import boot_instance, BootConfig, IsolationConfig
+        from harness_skills.boot import BootConfig, IsolationConfig, boot_instance
 
         cfg = BootConfig(
             start_command="echo hello",
@@ -1350,7 +1354,8 @@ class TestBootHealthCheckNotReadyKill:
 
     def test_not_ready_kill_timeout(self, tmp_path: Path) -> None:
         import subprocess
-        from harness_skills.boot import boot_instance, BootConfig, IsolationConfig
+
+        from harness_skills.boot import BootConfig, IsolationConfig, boot_instance
 
         cfg = BootConfig(
             start_command="sleep 100",
@@ -1408,7 +1413,7 @@ class TestHandoffProgressLogIntegration:
     """Cover lines 562, 564-565: _append_progress_log_entry ImportError fallback."""
 
     def test_progress_log_import_error(self) -> None:
-        from harness_skills.handoff import _append_progress_log_entry, HandoffDocument
+        from harness_skills.handoff import HandoffDocument, _append_progress_log_entry
 
         doc = HandoffDocument(
             session_id="s1",
@@ -1560,7 +1565,6 @@ class TestCodebaseAnalyzerExceptPaths:
         # Patch tomllib to fail so it falls through to regex, then patch
         # the read_text in the fallback to also fail
         import tomllib
-        original_loads = tomllib.loads
 
         def bad_loads(text):
             raise Exception("bad toml")

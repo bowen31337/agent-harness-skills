@@ -22,15 +22,14 @@ Key exports
 
 from __future__ import annotations
 
-import dataclasses
-import json
-import re
 from collections import defaultdict
+import dataclasses
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
+import json
 from pathlib import Path
+import re
 from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Core data structures
@@ -64,7 +63,7 @@ class ErrorRecord:
             self.timestamp = datetime.fromisoformat(self.timestamp)
         # Normalise to UTC-aware datetime.
         if self.timestamp.tzinfo is None:
-            self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
+            self.timestamp = self.timestamp.replace(tzinfo=UTC)
 
 
 @dataclass
@@ -99,13 +98,13 @@ class ErrorGroup:
     @property
     def age_seconds(self) -> float:
         """Seconds since the first occurrence of this group."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return (now - self.first_seen).total_seconds()
 
     @property
     def recency_seconds(self) -> float:
         """Seconds since the most recent occurrence."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         return (now - self.last_seen).total_seconds()
 
 
@@ -154,10 +153,7 @@ def _fingerprint(message: str, stack_hint: str = "") -> str:
     Return a normalised fingerprint for deduplication.
     Uses *stack_hint* when available (more stable than message text).
     """
-    if stack_hint:
-        source = stack_hint
-    else:
-        source = message
+    source = stack_hint or message
     fp = source.lower()
     for pattern in _STRIP_PATTERNS:
         fp = pattern.sub(" ", fp)
@@ -203,7 +199,7 @@ def _dominant_severity(severities: list[str]) -> str:
 def aggregate_errors(
     records: list[ErrorRecord],
     window_minutes: int = 60,
-    now: Optional[datetime] = None,
+    now: datetime | None = None,
 ) -> ErrorAggregationView:
     """
     Aggregate *records* into deduplicated :class:`ErrorGroup` objects.
@@ -223,7 +219,7 @@ def aggregate_errors(
         Fully populated view, ready for serialisation or agent queries.
     """
     if now is None:
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
 
     window_start = now - timedelta(minutes=window_minutes)
 
@@ -281,7 +277,7 @@ def aggregate_errors(
 def top_errors(
     view: ErrorAggregationView,
     n: int = 10,
-    domain: Optional[str] = None,
+    domain: str | None = None,
 ) -> list[ErrorGroup]:
     """
     Return the *n* most frequent :class:`ErrorGroup` objects.
@@ -292,10 +288,7 @@ def top_errors(
     n:      Maximum number of groups to return.
     domain: If provided, restrict results to this domain only.
     """
-    if domain is not None:
-        source = view.by_domain.get(domain.lower(), [])
-    else:
-        source = view.groups
+    source = view.by_domain.get(domain.lower(), []) if domain is not None else view.groups
     return source[:n]
 
 
@@ -406,7 +399,7 @@ def load_errors_from_log(
     if not path.exists():
         return []
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     cutoff = now - timedelta(minutes=window_minutes)
     records: list[ErrorRecord] = []
 
@@ -419,7 +412,7 @@ def load_errors_from_log(
                 obj = json.loads(line)
                 ts = datetime.fromisoformat(obj["timestamp"])
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=UTC)
                 if ts < cutoff:
                     continue
                 records.append(

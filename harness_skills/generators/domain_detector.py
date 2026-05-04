@@ -75,7 +75,7 @@ def detect_domains(
     # Import clustering enrichment
     if import_graph and candidates:
         clusters = import_graph.clusters(depth=1)
-        for domain_key, domain in candidates.items():
+        for domain in candidates.values():
             name = domain.name
             if name in clusters:
                 cluster_mods = clusters[name]

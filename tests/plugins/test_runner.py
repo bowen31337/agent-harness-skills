@@ -9,8 +9,7 @@ import pytest
 
 from harness_skills.models.base import Status
 from harness_skills.plugins.gate_plugin import PluginGateConfig
-from harness_skills.plugins.runner import run_plugin_gates, _record_telemetry
-
+from harness_skills.plugins.runner import _record_telemetry, run_plugin_gates
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -122,8 +121,8 @@ class TestRunPluginGates:
 class TestRecordTelemetry:
     def test_increments_session_gates_counter(self, tmp_path):
         """_record_telemetry should increment the session gate counter."""
-        from harness_skills.telemetry import HarnessTelemetry
         import harness_skills.plugins.runner as runner_module
+        from harness_skills.telemetry import HarnessTelemetry
 
         tel = HarnessTelemetry(output_path=str(tmp_path / "telemetry.json"))
         tel._start_session("test-session")
@@ -146,8 +145,8 @@ class TestRecordTelemetry:
 
     def test_telemetry_flush_called(self, tmp_path):
         """_record_telemetry should flush telemetry to disk."""
-        from harness_skills.telemetry import HarnessTelemetry
         from harness_skills.models.base import GateResult
+        from harness_skills.telemetry import HarnessTelemetry
 
         tel = HarnessTelemetry(output_path=str(tmp_path / "telemetry.json"))
         tel._start_session("test-session")

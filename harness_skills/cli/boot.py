@@ -229,7 +229,7 @@ def boot_cmd(
     working_dir: str,
     log_file: str,
     mode: str,
-    output: Optional[str],
+    output: str | None,
     dry_run: bool,
 ) -> None:
     """Launch an isolated application instance for an agent worktree.

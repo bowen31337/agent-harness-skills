@@ -8,13 +8,13 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import traceback
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
 
@@ -24,7 +24,7 @@ from harness_skills.models.base import ArtifactFreshness, FreshnessScore, Status
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 _ARTIFACT_PATTERNS = [
@@ -60,7 +60,7 @@ def _extract_date(path: Path) -> datetime | None:
         text = path.read_text(errors="ignore")[:2000]
         m = _GENERATED_RE.search(text)
         if m:
-            return datetime.fromisoformat(m.group(1)).replace(tzinfo=timezone.utc)
+            return datetime.fromisoformat(m.group(1)).replace(tzinfo=UTC)
     except OSError:
         pass
     return None
@@ -93,7 +93,7 @@ def audit_cmd(
     """Score artifact freshness against current codebase state."""
     fmt = resolve_output_format(output_format)
     root = Path(project_root)
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
 
     try:
         artifacts: list[ArtifactFreshness] = []
@@ -104,7 +104,7 @@ def audit_cmd(
             date = _extract_date(path)
             if date is None:
                 mtime = os.path.getmtime(path)
-                date = datetime.fromtimestamp(mtime, tz=timezone.utc)
+                date = datetime.fromtimestamp(mtime, tz=UTC)
             days_old = (now - date).total_seconds() / 86400
             score = _score_freshness(days_old, stale_days, outdated_days, obsolete_days)
             artifacts.append(

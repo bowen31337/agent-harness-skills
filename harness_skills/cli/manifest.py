@@ -21,15 +21,14 @@ Exit codes::
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 from typing import Optional
 
 import click
 
 from harness_skills.models.base import Status
-from harness_skills.models.manifest import ManifestValidationError, ManifestValidateResponse
-
+from harness_skills.models.manifest import ManifestValidateResponse, ManifestValidationError
 
 # ---------------------------------------------------------------------------
 # ``harness manifest`` group
@@ -171,7 +170,7 @@ def _emit_error(
     *,
     output_json: bool,
     error: str,
-    path: Optional[Path] = None,
+    path: Path | None = None,
 ) -> None:
     """Emit a fatal error in either JSON or human-readable format.
 

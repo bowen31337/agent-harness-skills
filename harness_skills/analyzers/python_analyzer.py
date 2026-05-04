@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import ast
 import logging
-import sys
 from pathlib import Path
+import sys
 
 from harness_skills.analyzers import register_analyzer
 from harness_skills.analyzers.base import AnalysisResult, BaseAnalyzer, Symbol
@@ -118,14 +118,13 @@ class PythonAnalyzer(BaseAnalyzer):
                         import_type="direct",
                         line_number=node.lineno,
                     ))
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
-                    edges.append(ImportEdge(
-                        source=src_mod,
-                        target=node.module,
-                        import_type="from",
-                        line_number=node.lineno,
-                    ))
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                edges.append(ImportEdge(
+                    source=src_mod,
+                    target=node.module,
+                    import_type="from",
+                    line_number=node.lineno,
+                ))
 
         return edges
 

@@ -17,12 +17,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from click.testing import CliRunner
 import pytest
 import yaml
-from click.testing import CliRunner
 
 from harness_skills.cli.status import status_cmd
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

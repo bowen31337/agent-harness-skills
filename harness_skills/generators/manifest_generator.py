@@ -31,8 +31,8 @@ from __future__ import annotations
 
 import datetime
 import json
-import shutil
 from pathlib import Path
+import shutil
 from typing import Any
 
 # Bundled canonical schema lives next to the other harness schemas
@@ -385,7 +385,7 @@ def _to_dict(obj: Any) -> Any:
 
 def _utc_now() -> str:
     """Return the current UTC time as an ISO-8601 string with timezone offset."""
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def _jsonpath_from_absolute_path(absolute_path: Any) -> str:

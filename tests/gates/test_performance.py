@@ -27,8 +27,8 @@ Test strategy
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -43,7 +43,6 @@ from harness_skills.gates.performance import (
     _load_thresholds,
 )
 from harness_skills.models.gate_configs import PerformanceGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Fixture helpers

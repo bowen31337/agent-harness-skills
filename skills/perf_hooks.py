@@ -81,15 +81,16 @@ Metric kinds
 from __future__ import annotations
 
 import argparse
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime, timezone
 import json
 import math
 import os
+from pathlib import Path
 import sys
 import time
-from contextlib import contextmanager
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Generator, Iterator, Optional
+from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -144,7 +145,7 @@ def _escape(value: str) -> str:
 
 
 def _now_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _ensure_perf_file() -> None:
@@ -203,7 +204,7 @@ class Measurement:
         return {s: getattr(self, s) for s in self.__slots__}
 
 
-def _parse_row(line: str) -> Optional[Measurement]:
+def _parse_row(line: str) -> Measurement | None:
     """Parse a Markdown table data row into a Measurement, or return None."""
     line = line.strip()
     if not line.startswith("|") or line.startswith("|---") or line.startswith(_TABLE_HEADER_PREFIX):
@@ -335,8 +336,8 @@ class PerfHooks:
 
     def __init__(
         self,
-        perf_file: Optional[Path] = None,
-        timer_state: Optional[Path] = None,
+        perf_file: Path | None = None,
+        timer_state: Path | None = None,
     ) -> None:
         self._file   = Path(perf_file)   if perf_file   else PERF_FILE
         self._timers = Path(timer_state) if timer_state else TIMER_STATE
@@ -352,7 +353,7 @@ class PerfHooks:
         value: float,
         agent: str,
         notes: str = "",
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ) -> Measurement:
         if metric not in VALID_METRICS:
             raise ValueError(
@@ -417,7 +418,7 @@ class PerfHooks:
         label: str,
         agent: str,
         notes: str = "",
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ) -> float:
         """Stop a previously started timer and record the elapsed duration.
 
@@ -503,7 +504,7 @@ class PerfHooks:
         label: str,
         agent: str,
         notes: str = "",
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ) -> float:
         """Sample and record the current process RSS.
 
@@ -537,7 +538,7 @@ class PerfHooks:
         agent: str,
         duration_ms: float,
         notes: str = "",
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ) -> Measurement:
         """Record agent initialisation / cold-start duration.
 
@@ -568,9 +569,9 @@ class PerfHooks:
 
     def list(
         self,
-        agent: Optional[str] = None,
-        metric: Optional[str] = None,
-        label: Optional[str] = None,
+        agent: str | None = None,
+        metric: str | None = None,
+        label: str | None = None,
     ) -> list[Measurement]:
         """Return recorded measurements, optionally filtered.
 
@@ -606,8 +607,8 @@ class PerfHooks:
 
     def stats(
         self,
-        agent: Optional[str] = None,
-        metric: Optional[str] = None,
+        agent: str | None = None,
+        metric: str | None = None,
     ) -> None:
         """Print aggregate statistics (min / max / mean / p95 / count) to stdout.
 
@@ -703,7 +704,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args   = parser.parse_args(argv)
     hooks  = PerfHooks()

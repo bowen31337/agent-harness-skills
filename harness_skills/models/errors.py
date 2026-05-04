@@ -34,7 +34,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from harness_skills.models.base import HarnessResponse
 
-
 # ── Per-group ──────────────────────────────────────────────────────────────────
 
 
@@ -167,7 +166,7 @@ class ErrorAggregationResponse(HarnessResponse):
         default_factory=list,
         description="Per-domain summary sorted by total_errors descending.",
     )
-    by_domain: Optional[dict[str, list[ErrorGroupResponse]]] = Field(
+    by_domain: dict[str, list[ErrorGroupResponse]] | None = Field(
         default=None,
         description=(
             "Per-domain error groups (up to 10 per domain).  "
@@ -177,7 +176,7 @@ class ErrorAggregationResponse(HarnessResponse):
 
     # ── Provenance ───────────────────────────────────────────────────────────
 
-    log_source: Optional[str] = Field(
+    log_source: str | None = Field(
         default=None,
         description="Absolute or relative path to the NDJSON log file used as input.",
     )

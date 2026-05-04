@@ -6,16 +6,17 @@ _stream_llm_analysis, CLI entry point, skipped dirs in artifact scan.
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, timedelta, timezone
 import json
-import textwrap
-from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+import textwrap
 from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.models.base import Severity, Status
+from harness_skills.models.stale import StaleTask
 from harness_skills.stale_plan_detector import (
     PlanTask,
     _artifact_severity,
@@ -26,10 +27,8 @@ from harness_skills.stale_plan_detector import (
     detect_stale_plan,
     scan_artifact_freshness,
 )
-from harness_skills.models.stale import StaleTask
 
-
-_FROZEN_NOW = datetime(2026, 3, 14, 12, 0, 0, tzinfo=timezone.utc)
+_FROZEN_NOW = datetime(2026, 3, 14, 12, 0, 0, tzinfo=UTC)
 _THRESHOLD = 1800.0
 
 
@@ -188,8 +187,8 @@ class TestNaiveTimestamp:
 
 class TestStreamLlmAnalysis:
     def test_stream_llm_analysis(self):
-        from harness_skills.stale_plan_detector import _stream_llm_analysis
         from harness_skills.models.stale import StalePlanSummary, StaleTask
+        from harness_skills.stale_plan_detector import _stream_llm_analysis
 
         stale_tasks = [
             StaleTask(
@@ -275,7 +274,7 @@ class TestCLI:
                 "task_id": "t1",
                 "title": "Fresh",
                 "status": "in_progress",
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
         ]
         plan_file = tmp_path / "plan.json"
@@ -290,7 +289,7 @@ class TestCLI:
         assert result.exit_code == 0
 
     def test_stale_plan_exits_1(self, tmp_path):
-        old = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        old = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
         plan = [
             {
                 "task_id": "t1",
@@ -340,7 +339,7 @@ class TestCLI:
                 "task_id": "t1",
                 "title": "Fresh",
                 "status": "in_progress",
-                "last_updated": datetime.now(timezone.utc).isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
         ]
         plan_file = tmp_path / "plan.json"

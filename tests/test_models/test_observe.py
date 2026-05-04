@@ -14,12 +14,12 @@ Coverage targets:
 
 from __future__ import annotations
 
-import json
 from io import StringIO
+import json
 from unittest.mock import patch
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.observe import LogEntry, ObserveResponse
 

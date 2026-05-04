@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,7 +21,6 @@ from harness_skills.task_lock import (
     TaskLock,
     TaskLockProtocol,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

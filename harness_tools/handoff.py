@@ -34,16 +34,14 @@ Quick-start
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import anthropic
-from pydantic import BaseModel
-
 from claude_agent_sdk import HookMatcher
-
+from pydantic import BaseModel
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Structured-output schema (Pydantic)
@@ -131,7 +129,7 @@ class HandoffTracker:
         self._events.append(
             {
                 "kind": kind,
-                "ts": datetime.now(timezone.utc).isoformat(),
+                "ts": datetime.now(UTC).isoformat(),
                 **data,
             }
         )
@@ -284,7 +282,7 @@ resume_prompt
 
         entry: dict[str, Any] = {
             "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "task": self.task,
             "status": "completed",
             "summary": data.summary,

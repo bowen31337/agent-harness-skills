@@ -59,7 +59,7 @@ class TestAnalyzerRegistry:
 
     def test_register_analyzer_adds_to_registry(self) -> None:
         from harness_skills.analyzers import register_analyzer
-        from harness_skills.analyzers.base import BaseAnalyzer, AnalysisResult
+        from harness_skills.analyzers.base import AnalysisResult, BaseAnalyzer
         from harness_skills.utils.import_graph import ImportEdge
 
         class FakeAnalyzer(BaseAnalyzer):

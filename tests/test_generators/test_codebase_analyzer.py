@@ -46,7 +46,6 @@ from harness_skills.generators.codebase_analyzer import (
 )
 from harness_skills.models.create import DetectedStack
 
-
 # ===========================================================================
 # Fixtures — package file writers
 # ===========================================================================
@@ -551,7 +550,7 @@ class TestGetPythonDeps:
     def test_pep621_dependencies_extracted(self, tmp_path: Path):
         write_pyproject(tmp_path / "pyproject.toml", deps=["fastapi>=0.100", "pydantic"])
         deps = _get_python_deps(tmp_path)
-        assert "fastapi>=0.100".split(">=")[0].lower() in deps or "fastapi" in " ".join(deps)
+        assert ["fastapi", "0.100"][0].lower() in deps or "fastapi" in " ".join(deps)
 
     def test_requirements_txt_parsed(self, tmp_path: Path):
         write_requirements(tmp_path / "requirements.txt", ["flask==2.3.0", "gunicorn"])
@@ -1095,7 +1094,7 @@ class TestDetectDatabase:
 
     def test_unsupported_lang_in_database_deps(self, tmp_path: Path) -> None:
         # "ruby" is not in _DATABASE_DEPS unless _DATABASE_DEPS includes it.
-        result = _detect_database(tmp_path, "ruby")
+        _detect_database(tmp_path, "ruby")
         # Should return None gracefully
 
 
@@ -1136,7 +1135,7 @@ class TestProjectStructure:
 
     def test_package_json_malformed(self, tmp_path: Path) -> None:
         (tmp_path / "package.json").write_text("{not valid json")
-        result = _detect_project_structure(tmp_path)
+        _detect_project_structure(tmp_path)
         # Should not crash
 
 

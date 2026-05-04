@@ -22,8 +22,8 @@ Test strategy
 from __future__ import annotations
 
 import json
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -38,7 +38,6 @@ from harness_skills.gates.coverage import (
     _ParseError,
 )
 from harness_skills.models.gate_configs import CoverageGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers — report writers

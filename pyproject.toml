@@ -112,21 +112,55 @@ ignore = [
     "B011",
     # Allow `*` imports in __init__ re-export files
     "F401",
+    # Constants/lazy-imported classes assigned inside functions are common in
+    # this codebase (e.g., `_SCANNERS = {...}`, `BootConfig = _lazy_import()`).
+    # The N806 rule can't distinguish "constant assigned in function" from
+    # "regular local variable that should be lower_case".
+    "N806",
+    # Existing exception names (TreeSitterNotInstalled, LanguageNotAvailable)
+    # are part of the public API; renaming them with an `Error` suffix would
+    # break downstream callers' `except` clauses.
+    "N818",
+    # `pytest.raises(Exception)` in tests is intentional when verifying that
+    # *some* error is raised without coupling to the exact subclass.
+    "B017",
+    # SIM102/105/108/117 are stylistic — the codebase has consistently chosen
+    # the alternate form (nested if, try/except/pass, if/else, nested with) for
+    # readability of long blocks. Disabling avoids forcing a stylistic rewrite.
+    "SIM102", "SIM105", "SIM108", "SIM117",
+    # PTH100/101/109/118/120/123/204: pathlib migrations. Mechanical conversion
+    # changes return types (`os.getcwd()` returns str, `Path.cwd()` returns Path)
+    # and can silently break str-concatenation callers. TODO: tackle in a
+    # focused migration PR with callsite-by-callsite review.
+    "PTH100", "PTH101", "PTH109", "PTH118", "PTH120", "PTH123", "PTH204",
 ]
 
 # Per-file rule overrides
 [tool.ruff.lint.per-file-ignores]
-# Test files: relax naming rules (fixture functions, parametrize ids, etc.)
-"tests/**/*.py"     = ["N802", "N803", "N806"]
-"test_*.py"         = ["N802", "N803", "N806"]
+# Test files: relax naming rules (fixture functions, parametrize ids, etc.).
+# E402 (module imports not at top): tests routinely set sys.path or apply
+# `pytest.importorskip` before importing the module under test.
+"tests/**/*.py"     = ["N802", "N803", "E402"]
+"test_*.py"         = ["N802", "N803", "E402"]
 # Example files are allowed to be more permissive
 "*_example.py"      = ["N802", "E402"]
 # CLI entry-points that shadow builtins
 "harness_skills/cli/*.py" = ["N802"]
+# Modules that legitimately defer imports until after sys.path manipulation
+# or to break import cycles.
+"harness_skills/dom_snapshot_skill.py" = ["E402"]
+"harness_skills/handoff.py" = ["E402"]
+# Aligned isinstance() dispatch table — one-liners are more readable.
+"harness_skills/generators/config_generator.py" = ["E701"]
 
 [tool.ruff.lint.pep8-naming]
-# Allow these patterns as "class-like" names that may use PascalCase
-classmethod-decorators = ["classmethod", "pydantic.validator", "pydantic.model_validator"]
+# Decorators whose decorated function should be treated as a classmethod by N804.
+# NOTE: pydantic v2's `@model_validator(mode="after")` is an *instance* method
+# (operates on the constructed model), so listing `pydantic.model_validator` here
+# is incorrect and causes N804 to mis-rename `self` → `cls`. `pydantic.field_validator`
+# is genuinely a classmethod, but we leave it off to avoid the same mis-detection
+# trap with `model_validator`'s mode-conditional semantics.
+classmethod-decorators = ["classmethod"]
 
 [tool.ruff.lint.isort]
 known-first-party = [

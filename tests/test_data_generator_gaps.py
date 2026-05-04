@@ -9,8 +9,8 @@ or by patching the random number generator.
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
 import random
+from unittest.mock import MagicMock, patch
 
 from harness_dashboard.data_generator import generate_dataset
 

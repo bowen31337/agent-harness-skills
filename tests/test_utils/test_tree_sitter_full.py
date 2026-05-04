@@ -6,19 +6,19 @@ mocking since tree-sitter is not installed in the test environment.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from harness_skills.utils.tree_sitter import (
-    LanguageNotAvailable,
-    TreeSitterNotInstalled,
     _GRAMMAR_PACKAGES,
     _LANGUAGE_CACHE,
     _PARSER_CACHE,
+    LanguageNotAvailable,
+    TreeSitterNotInstalled,
     clear_caches,
     is_available,
 )
@@ -151,9 +151,8 @@ class TestGetLanguage:
         with patch.dict("sys.modules", {
             "tree_sitter": mock_ts,
             "tree_sitter_go": mock_grammar,
-        }):
-            with pytest.raises(LanguageNotAvailable):
-                get_language("go")
+        }), pytest.raises(LanguageNotAvailable):
+            get_language("go")
 
     def test_import_error_wraps_as_language_not_available(self):
         from harness_skills.utils.tree_sitter import get_language

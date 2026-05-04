@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 from .checker import check_directory, check_file
 from .detector import detect_framework

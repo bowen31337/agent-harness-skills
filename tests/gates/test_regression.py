@@ -25,9 +25,9 @@ Test strategy
 
 from __future__ import annotations
 
+from pathlib import Path
 import subprocess
 import textwrap
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -39,7 +39,6 @@ from harness_skills.gates.regression import (
     _parse_junit_xml,
 )
 from harness_skills.models.gate_configs import RegressionGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers — JUnit XML writers

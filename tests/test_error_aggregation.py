@@ -67,13 +67,13 @@ ErrorAggregationResponse (Pydantic model)
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
 import json
-import textwrap
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import textwrap
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.error_aggregation import (
     ErrorAggregationView,
@@ -95,12 +95,11 @@ from harness_skills.models.errors import (
     ErrorGroupResponse,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-_UTC = timezone.utc
+_UTC = UTC
 
 
 def _ts(minutes_ago: float = 0, *, now: datetime | None = None) -> datetime:

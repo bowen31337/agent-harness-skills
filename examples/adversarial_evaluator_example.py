@@ -12,7 +12,7 @@ In production, you would:
 """
 
 from harness_skills.evaluator import AdversarialEvaluator, Verdict
-from harness_skills.pivot_tracker import PivotTracker, PivotDecision
+from harness_skills.pivot_tracker import PivotDecision, PivotTracker
 
 
 def main():

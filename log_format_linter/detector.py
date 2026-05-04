@@ -7,8 +7,8 @@ framework in use.  When multiple frameworks are found the most-used one wins.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+import re
 
 from .models import Language, LogFramework
 

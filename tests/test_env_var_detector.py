@@ -4,8 +4,8 @@ Tests for harness_skills.env_var_detector and harness_skills.models.env_vars.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 
@@ -15,13 +15,12 @@ from harness_skills.env_var_detector import (
     scan_dotenv_file,
     scan_source_file,
 )
+from harness_skills.models.base import Status
 from harness_skills.models.env_vars import (
     EnvVarDetectionResult,
     EnvVarEntry,
     EnvVarSource,
 )
-from harness_skills.models.base import Status
-
 
 # ---------------------------------------------------------------------------
 # Helpers

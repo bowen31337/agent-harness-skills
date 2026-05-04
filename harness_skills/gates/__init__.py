@@ -19,7 +19,6 @@ Public API
 from harness_skills.gates.coverage import CoverageGate
 from harness_skills.gates.docs_freshness import DocsFreshnessGate
 from harness_skills.gates.docs_freshness import GateConfig as DocsGateConfig
-from harness_skills.gates.types import TypesGate, TypesGateResult, TypeViolation
 from harness_skills.gates.runner import (
     EvaluationSummary,
     GateEvaluator,
@@ -28,6 +27,7 @@ from harness_skills.gates.runner import (
     HarnessConfigLoader,
     run_gates,
 )
+from harness_skills.gates.types import TypesGate, TypesGateResult, TypeViolation
 
 __all__ = [
     # ── coverage gate ────────────────────────────────────────────────────────

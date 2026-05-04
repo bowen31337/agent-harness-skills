@@ -52,10 +52,11 @@ Programmatic use
 from __future__ import annotations
 
 import argparse
+import contextlib
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 import shutil
 import sys
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 try:
@@ -98,7 +99,7 @@ _LOCK_ICON = {
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 # ---------------------------------------------------------------------------
@@ -125,7 +126,7 @@ class ExecPlan:
         approach: str | None = None,
         steps: list[str] | None = None,
         completion_criteria: list[str] | None = None,
-    ) -> "ExecPlan":
+    ) -> ExecPlan:
         """Create a new plan file from the template and return an ExecPlan.
 
         Parameters
@@ -219,7 +220,7 @@ class ExecPlan:
         return instance
 
     @classmethod
-    def load(cls, plan_id: str) -> "ExecPlan":
+    def load(cls, plan_id: str) -> ExecPlan:
         """Load an existing plan by ID."""
         path = _EXEC_PLANS_DIR / f"{plan_id}.yaml"
         if not path.exists():
@@ -230,7 +231,7 @@ class ExecPlan:
         return cls._load_file(path)
 
     @classmethod
-    def _load_file(cls, path: Path) -> "ExecPlan":
+    def _load_file(cls, path: Path) -> ExecPlan:
         with path.open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
         plan_id = data.get("plan", {}).get("id", path.stem)
@@ -508,10 +509,8 @@ def _next_plan_id() -> str:
     existing = sorted(_EXEC_PLANS_DIR.glob("PLAN-*.yaml"))
     nums = []
     for p in existing:
-        try:
+        with contextlib.suppress(IndexError, ValueError):
             nums.append(int(p.stem.split("-")[1]))
-        except (IndexError, ValueError):
-            pass
     next_num = max(nums, default=0) + 1
     return f"PLAN-{next_num:03d}"
 

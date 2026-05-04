@@ -42,16 +42,15 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Verdict enum
 # ---------------------------------------------------------------------------
 
 
-class Verdict(str, Enum):
+class Verdict(StrEnum):
     """Evaluation verdict."""
 
     APPROVE = "APPROVE"

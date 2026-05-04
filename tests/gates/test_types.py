@@ -29,8 +29,8 @@ Test strategy
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -41,11 +41,10 @@ from harness_skills.gates.types import (
     TypeViolation,
     _detect_checker,
     _parse_mypy_output,
-    _parse_tsc_output,
     _parse_pyright_output,
+    _parse_tsc_output,
 )
 from harness_skills.models.gate_configs import TypesGateConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

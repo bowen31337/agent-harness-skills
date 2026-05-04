@@ -15,20 +15,19 @@ Data model hierarchy
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
+from enum import Enum, StrEnum
 import random
-from datetime import datetime, timedelta, timezone
-from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
-
 
 # ---------------------------------------------------------------------------
 # Artifact taxonomy
 # ---------------------------------------------------------------------------
 
 
-class ArtifactType(str, Enum):
+class ArtifactType(StrEnum):
     BUILD              = "build"
     LINT               = "lint"
     UNIT_TESTS         = "unit_tests"
@@ -53,7 +52,7 @@ class HarnessArtifact(BaseModel):
     artifact_type: ArtifactType
     passed: bool
     execution_time_seconds: float
-    coverage_pct: Optional[float] = None   # populated only for COVERAGE_REPORT
+    coverage_pct: float | None = None   # populated only for COVERAGE_REPORT
     issues_found: int = 0
 
 
@@ -64,7 +63,7 @@ class PRRecord(BaseModel):
     repo: str
     author: str
     created_at: datetime
-    merged_at: Optional[datetime] = None
+    merged_at: datetime | None = None
     artifacts: list[HarnessArtifact] = Field(default_factory=list)
 
     # ── Quality metrics ──────────────────────────────────────────────────────
@@ -73,7 +72,7 @@ class PRRecord(BaseModel):
     # time_to_merge  : wall-clock hours from open to merge (None if abandoned)
     gate_pass_rate: float
     review_cycles: int
-    time_to_merge_hours: Optional[float] = None
+    time_to_merge_hours: float | None = None
 
     merged: bool = False
     post_merge_incidents: int = 0
@@ -208,7 +207,7 @@ def generate_sample_prs(n: int = 250, seed: int = 42) -> list[PRRecord]:
     # api-gateway and auth-service teams run more artifacts than others
     _HIGH_QUALITY_REPOS = {"api-gateway", "auth-service"}
 
-    start_date = datetime(2025, 9, 1, tzinfo=timezone.utc)
+    start_date = datetime(2025, 9, 1, tzinfo=UTC)
     records: list[PRRecord] = []
 
     for i in range(n):

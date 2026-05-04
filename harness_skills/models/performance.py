@@ -24,10 +24,9 @@ PerformanceResponse
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # ---------------------------------------------------------------------------
 # ToolTimingModel
@@ -152,7 +151,7 @@ class PerformanceReportModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # ── Timing ──────────────────────────────────────────────────────────────
-    startup_duration_ms: Optional[float] = Field(
+    startup_duration_ms: float | None = Field(
         default=None,
         ge=0.0,
         description=(
@@ -160,7 +159,7 @@ class PerformanceReportModel(BaseModel):
             "None until the first tool call is observed."
         ),
     )
-    session_duration_ms: Optional[float] = Field(
+    session_duration_ms: float | None = Field(
         default=None,
         ge=0.0,
         description=(
@@ -175,13 +174,13 @@ class PerformanceReportModel(BaseModel):
         ge=0,
         description="Total number of tool calls recorded (success + failure).",
     )
-    tool_timings: List[ToolTimingModel] = Field(
+    tool_timings: list[ToolTimingModel] = Field(
         default_factory=list,
         description="Per-call timing records in invocation order.",
     )
 
     # ── Response-time percentiles ────────────────────────────────────────────
-    mean_response_ms: Optional[float] = Field(
+    mean_response_ms: float | None = Field(
         default=None,
         ge=0.0,
         description=(
@@ -189,22 +188,22 @@ class PerformanceReportModel(BaseModel):
             "None when tool_count == 0."
         ),
     )
-    median_response_ms: Optional[float] = Field(
+    median_response_ms: float | None = Field(
         default=None,
         ge=0.0,
         description="50th-percentile elapsed_ms. None when tool_count == 0.",
     )
-    min_response_ms: Optional[float] = Field(
+    min_response_ms: float | None = Field(
         default=None,
         ge=0.0,
         description="Fastest tool call in ms. None when tool_count == 0.",
     )
-    max_response_ms: Optional[float] = Field(
+    max_response_ms: float | None = Field(
         default=None,
         ge=0.0,
         description="Slowest tool call in ms. None when tool_count == 0.",
     )
-    p95_response_ms: Optional[float] = Field(
+    p95_response_ms: float | None = Field(
         default=None,
         ge=0.0,
         description=(
@@ -230,7 +229,7 @@ class PerformanceReportModel(BaseModel):
             "-1 when psutil is unavailable."
         ),
     )
-    memory_snapshots: List[MemorySnapshotModel] = Field(
+    memory_snapshots: list[MemorySnapshotModel] = Field(
         default_factory=list,
         description="Ordered list of memory snapshots taken during the session.",
     )
@@ -276,7 +275,7 @@ class PerformanceResponse(BaseModel):
         default="harness_skills.performance_hooks.PerformanceTracker",
         description="Fully-qualified name of the tracker implementation.",
     )
-    dimensions: List[str] = Field(
+    dimensions: list[str] = Field(
         default_factory=lambda: [
             "startup_duration_ms",
             "tool_response_times",
@@ -284,7 +283,7 @@ class PerformanceResponse(BaseModel):
         ],
         description="Performance dimensions captured by the tracker.",
     )
-    report: Optional[PerformanceReportModel] = Field(
+    report: PerformanceReportModel | None = Field(
         default=None,
         description=(
             "Populated when the tracker has collected data "

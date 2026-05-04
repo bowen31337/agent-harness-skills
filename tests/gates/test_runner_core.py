@@ -7,12 +7,13 @@ and _resolve_layer_definitions.
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
+from pathlib import Path
 import subprocess
 import sys
 import textwrap
 import time
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,9 +26,9 @@ from harness_skills.gates.runner import (
     GateOutcome,
     HarnessConfigLoader,
     _plugin_result_to_outcome,
+    _repo_rel,
     _resolve_layer_definitions,
     _run_cmd,
-    _repo_rel,
     check_architecture,
     check_coverage,
     check_docs_freshness,
@@ -51,7 +52,6 @@ from harness_skills.models.gate_configs import (
     SecurityGateConfig,
     TypesGateConfig,
 )
-
 
 # ── Dataclass properties ────────────────────────────────────────────────────
 
@@ -192,7 +192,7 @@ class TestHarnessConfigLoader:
         cfg_file.write_text(": : : invalid yaml {{{")
         loader = HarnessConfigLoader(cfg_file)
         with pytest.raises(ValueError, match="Failed to parse"):
-            loader.active_profile
+            _ = loader.active_profile
 
     def test_profile_not_in_profiles_returns_defaults(self, tmp_path):
         cfg_file = tmp_path / "harness.config.yaml"
@@ -472,7 +472,7 @@ class TestCheckDocsFreshness:
 
     def test_fresh_file(self, tmp_path):
         from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         cfg = DocsFreshnessGateConfig(
             tracked_files=["AGENTS.md"],
             max_staleness_days=30,

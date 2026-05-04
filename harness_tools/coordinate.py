@@ -20,16 +20,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import subprocess
-import sys
 from dataclasses import dataclass, field
 from datetime import datetime
+import json
 from pathlib import Path
+import subprocess
+import sys
 from typing import Literal
 
-import httpx
 from dotenv import load_dotenv
+import httpx
 
 load_dotenv()
 
@@ -88,7 +88,7 @@ class CoordinationReport:
     suggested_slots: list[list[str]]   # each inner list = agents safe to run in parallel
     rationale: str
     savings_msg: str
-    active_locks: list["TaskLock"] = field(default_factory=list)   # from TaskLockProtocol
+    active_locks: list[TaskLock] = field(default_factory=list)   # from TaskLockProtocol
 
 
 # ── State service client ───────────────────────────────────────────────────────
@@ -291,7 +291,7 @@ async def suggest_reordering(
     Falls back to a heuristic if the Agent SDK is unavailable.
     """
     try:
-        from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+        from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
     except ImportError:
         return _heuristic_reorder(tasks, conflicts)
 
@@ -360,8 +360,12 @@ Reply with ONLY a JSON object — no markdown fences, no extra text:
 
     # Parse the JSON reply
     try:
-        # Strip any accidental markdown fences
-        cleaned = full_response.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
+        # Strip any accidental markdown fences. Use removeprefix/removesuffix
+        # because lstrip/rstrip with a multi-char arg strips any of those chars
+        # — not the literal substring — and can chew into real JSON content.
+        cleaned = full_response.strip()
+        cleaned = cleaned.removeprefix("```json").removeprefix("```")
+        cleaned = cleaned.removesuffix("```").strip()
         parsed = json.loads(cleaned)
         slots: list[list[str]] = parsed["slots"]
         rationale: str = parsed["rationale"]
@@ -429,15 +433,15 @@ DIV = "─" * WIDTH
 
 
 def _pad(s: str, width: int) -> str:
-    visible = len(s.encode("utf-8").decode("utf-8"))  # rough, ignores CJK
+    len(s.encode("utf-8").decode("utf-8"))  # rough, ignores CJK
     # Strip ANSI for length calc if needed
     return s + " " * max(0, width - len(s))
 
 
-def _render_locks_panel(locks: "list[TaskLock]") -> None:
+def _render_locks_panel(locks: list[TaskLock]) -> None:
     """Render the Task Lock State panel inside the coordination report."""
     print()
-    print(f"  Task Lock State")
+    print("  Task Lock State")
     print(f"  {DIV}")
     if not locks:
         print("  🟢  No tasks are currently locked.")
@@ -513,7 +517,7 @@ def render_report(report: CoordinationReport, as_json: bool = False) -> None:
 
     print()
     print(f"  {BAR}")
-    print(f"  Cross-Agent Coordination — claw-forge")
+    print("  Cross-Agent Coordination — claw-forge")
     print(f"  Snapshot: {report.snapshot_time}  |  Agents: {agent_count}  |  Conflicts: {conflict_count}")
     print(f"  {BAR}")
 
@@ -530,7 +534,7 @@ def render_report(report: CoordinationReport, as_json: bool = False) -> None:
 
     # ── Conflict matrix ──
     print()
-    print(f"  Conflict Analysis")
+    print("  Conflict Analysis")
     print(f"  {DIV}")
     if not report.conflicts:
         print("  ✅  No conflicts detected — all agents are touching distinct files.")
@@ -548,7 +552,7 @@ def render_report(report: CoordinationReport, as_json: bool = False) -> None:
 
     # ── Suggested execution order ──
     print()
-    print(f"  Suggested Execution Order  (minimises merge conflicts)")
+    print("  Suggested Execution Order  (minimises merge conflicts)")
     print(f"  {DIV}")
     if not report.suggested_slots:
         print("  (no active agents to schedule)")
@@ -560,7 +564,7 @@ def render_report(report: CoordinationReport, as_json: bool = False) -> None:
 
     print()
     # Rationale (indented bullet list)
-    print(f"  Rationale:")
+    print("  Rationale:")
     for line in report.rationale.strip().splitlines():
         print(f"    {line.strip()}")
 

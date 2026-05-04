@@ -29,19 +29,18 @@ Data models
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+from enum import Enum, StrEnum
 import re
 import textwrap
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
 
 
-class OutputFormat(str, Enum):
+class OutputFormat(StrEnum):
     """Supported output formats for the generated isolation configuration."""
 
     DOTENV = "dotenv"
@@ -49,7 +48,7 @@ class OutputFormat(str, Enum):
     SHELL = "shell"
 
 
-class DbIsolation(str, Enum):
+class DbIsolation(StrEnum):
     """Database isolation strategy.
 
     Mirrors :class:`harness_skills.boot.DatabaseIsolation` so that callers
@@ -185,7 +184,7 @@ def container_name(worktree_id: str, suffix: str = "") -> str:
 
 def assign_port(
     worktree_id: str,
-    taken: Optional[list[int]] = None,
+    taken: list[int] | None = None,
     base: int = 8000,
     max_search: int = 200,
 ) -> int:

@@ -20,15 +20,14 @@ Key exports
 from __future__ import annotations
 
 import dataclasses
-import json
 from dataclasses import dataclass
+import json
 from typing import Optional
 
 import numpy as np
 from scipy import stats as sp_stats
 
 from harness_skills.pr_effectiveness import ArtifactType, PRRecord
-
 
 # ---------------------------------------------------------------------------
 # Per-artifact statistics dataclass
@@ -56,19 +55,19 @@ class ArtifactStats:
     review_without: float
     review_delta:   float      # negative = artifact users need fewer review rounds
 
-    merge_time_with:    Optional[float]   # hours; None if too few merged PRs
-    merge_time_without: Optional[float]
-    merge_time_delta:   Optional[float]   # negative = artifact users merge faster
+    merge_time_with:    float | None   # hours; None if too few merged PRs
+    merge_time_without: float | None
+    merge_time_delta:   float | None   # negative = artifact users merge faster
 
     # ── Point-biserial correlations (binary use ↔ continuous metric) ─────────
     gate_pass_correlation: float
     review_correlation:    float
-    merge_time_correlation: Optional[float]
+    merge_time_correlation: float | None
 
     # ── Two-tailed p-values ───────────────────────────────────────────────────
     gate_pass_pvalue:    float
     review_pvalue:       float
-    merge_time_pvalue:   Optional[float]
+    merge_time_pvalue:   float | None
 
 
 # ---------------------------------------------------------------------------
@@ -127,8 +126,8 @@ def compute_artifact_stats(prs: list[PRRecord], artifact_type: ArtifactType) -> 
     gp_r, gp_p = _safe_pointbiserial(usage, gate_pass)
     rv_r, rv_p = _safe_pointbiserial(usage, review)
 
-    mt_r: Optional[float] = None
-    mt_p: Optional[float] = None
+    mt_r: float | None = None
+    mt_p: float | None = None
     if len(merge_times_arr) >= 10:
         mt_r, mt_p = _safe_pointbiserial(usage_merged, merge_times_arr)
 

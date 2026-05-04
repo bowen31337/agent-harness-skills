@@ -19,13 +19,12 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
+from click.testing import CliRunner, Result
 import pytest
 import yaml
-from click.testing import CliRunner
 
 from harness_skills.cli.main import cli
 from harness_skills.models.completion import PlanCompletionReport
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -68,7 +67,7 @@ def _simple_plan(
     }
 
 
-def _invoke(runner: CliRunner, extra_args: list[str]) -> "Result":  # type: ignore[name-defined]
+def _invoke(runner: CliRunner, extra_args: list[str]) -> Result:
     return runner.invoke(
         cli,
         ["completion-report", "--no-state-service"] + extra_args,

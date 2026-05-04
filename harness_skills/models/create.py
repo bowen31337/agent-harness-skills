@@ -131,7 +131,7 @@ class CreateConfigResponse(HarnessResponse):
     profile: str = Field(
         description="Complexity profile used to generate gate defaults (starter | standard | advanced).",
     )
-    stack: Optional[str] = Field(
+    stack: str | None = Field(
         default=None,
         description="Stack hint used for generation (None = auto-detected from project files).",
     )

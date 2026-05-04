@@ -413,7 +413,7 @@ class TestRegenerateFrontMatterCreation:
     def test_creates_file_when_missing(self, tmp_path):
         target = tmp_path / "AGENTS.md"
         assert not target.exists()
-        diff = regenerate_front_matter(target, run_date=RUN_DATE, head_hash=HEAD_HASH, root=tmp_path)
+        regenerate_front_matter(target, run_date=RUN_DATE, head_hash=HEAD_HASH, root=tmp_path)
         assert target.exists()
 
     def test_created_file_has_front_matter_block(self, tmp_path):
@@ -699,7 +699,7 @@ class TestRegenerateAll:
 # ---------------------------------------------------------------------------
 
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from harness_skills.generators.agents_md import (
     _build_quick_reference,
@@ -837,7 +837,7 @@ class TestRegenerateFrontMatterDefaultParams:
         service = tmp_path.name.lower().replace(" ", "-")
         block = build_front_matter(service, "2026-01-01", "old0000")
         target.write_text(block + "\n\nBody content.\n")
-        diff = regenerate_front_matter(target, run_date=RUN_DATE, head_hash=HEAD_HASH, root=tmp_path)
+        regenerate_front_matter(target, run_date=RUN_DATE, head_hash=HEAD_HASH, root=tmp_path)
         content = target.read_text()
         assert content.endswith("\n")
 

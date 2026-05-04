@@ -32,8 +32,8 @@ Usage
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
+import sys
 
 # ---------------------------------------------------------------------------
 # Ensure the project root is importable regardless of CWD.
@@ -51,11 +51,10 @@ if str(_PROJECT_ROOT) not in sys.path:
 # Imports (deferred so the path fix above takes effect first).
 # ---------------------------------------------------------------------------
 
-from harness_skills.dom_snapshot_skill import (   # noqa: E402
+from harness_skills.dom_snapshot_skill import (  # noqa: E402
     dom_snapshot_html,
     dom_snapshot_url,
 )
-
 
 # ---------------------------------------------------------------------------
 # Argument parsing

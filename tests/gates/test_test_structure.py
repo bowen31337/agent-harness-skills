@@ -8,8 +8,8 @@ use descriptive test names (test_ prefix + verb).
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 from harness_skills.gates.principles import (
     GateConfig,

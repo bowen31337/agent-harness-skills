@@ -1,10 +1,12 @@
 from __future__ import annotations
-from enum import Enum
+
+from enum import Enum, StrEnum
 from typing import Optional
+
 from pydantic import BaseModel
 
 
-class Status(str, Enum):
+class Status(StrEnum):
     PASSED = "passed"
     FAILED = "failed"
     SKIPPED = "skipped"
@@ -12,14 +14,14 @@ class Status(str, Enum):
     RUNNING = "running"
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
 
 
-class FreshnessScore(str, Enum):
+class FreshnessScore(StrEnum):
     CURRENT = "current"
     STALE = "stale"
     OUTDATED = "outdated"
@@ -29,44 +31,44 @@ class FreshnessScore(str, Enum):
 class Violation(BaseModel):
     rule_id: str
     severity: str
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    column: Optional[int] = None
+    file_path: str | None = None
+    line_number: int | None = None
+    column: int | None = None
     message: str
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
 
 
 class GateResult(BaseModel):
     gate_id: str
     gate_name: str
     status: Status
-    duration_ms: Optional[int] = None
+    duration_ms: int | None = None
     violations: list[Violation] = []
-    message: Optional[str] = None
+    message: str | None = None
 
 
 class HarnessResponse(BaseModel):
     command: str
     status: Status
-    timestamp: Optional[str] = None
-    duration_ms: Optional[int] = None
-    version: Optional[str] = None
-    message: Optional[str] = None
+    timestamp: str | None = None
+    duration_ms: int | None = None
+    version: str | None = None
+    message: str | None = None
 
 
 class ArtifactFreshness(BaseModel):
     artifact_path: str
     artifact_type: str
     freshness: FreshnessScore
-    last_generated: Optional[str] = None
-    staleness_score: Optional[float] = None
+    last_generated: str | None = None
+    staleness_score: float | None = None
     stale_references: list[str] = []
 
 
 class FileLocation(BaseModel):
     file_path: str
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
+    start_line: int | None = None
+    end_line: int | None = None
 
 
 class TaskInfo(BaseModel):
@@ -80,4 +82,4 @@ class AgentConflict(BaseModel):
     agent_id: str
     resource: str
     conflict_type: str
-    message: Optional[str] = None
+    message: str | None = None

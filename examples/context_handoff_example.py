@@ -19,12 +19,11 @@ python examples/context_handoff_example.py resume
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+import sys
 
 import anyio
-
-from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage
+from claude_agent_sdk import ClaudeAgentOptions, ResultMessage, query
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:

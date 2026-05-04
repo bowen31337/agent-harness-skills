@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.base import Status
-from harness_skills.models.manifest import ManifestValidationError, ManifestValidateResponse
-
+from harness_skills.models.manifest import ManifestValidateResponse, ManifestValidationError
 
 # ---------------------------------------------------------------------------
 # ManifestValidationError
@@ -291,7 +290,7 @@ class TestManifestCliJsonSchemaConsistency:
     """White-box integration tests: cli/manifest.py JSON output == ManifestValidateResponse."""
 
     def _get_commands(self):
-        from harness_skills.cli.manifest import manifest_cmd, _emit_error
+        from harness_skills.cli.manifest import _emit_error, manifest_cmd
         return manifest_cmd, _emit_error
 
     def test_emit_error_produces_valid_schema(self, capsys) -> None:

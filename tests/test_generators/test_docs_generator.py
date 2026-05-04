@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import ast
-import textwrap
 from pathlib import Path
+import textwrap
 from unittest.mock import patch
 
 import pytest
@@ -36,7 +36,6 @@ from harness_skills.generators.docs_generator import (
     generate_schemas,
 )
 from harness_skills.models.docs import DependencyEdge, RouteEntity, SchemaEntity
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -524,7 +523,7 @@ class TestGenerateApi:
         _write_pkg(tmp_path, "myapp", {"api.py": FASTAPI_SOURCE})
         header = "<!-- test -->"
         with patch("harness_skills.generators.docs_generator._grep_recursive", return_value=[]):
-            result = generate_api(
+            generate_api(
                 tmp_path, tmp_path / "docs" / "generated",
                 header=header, timestamp="2025-01-01", head="abc",
                 dry_run=True,
@@ -680,7 +679,7 @@ class TestGenerateGraphs:
     def test_dry_run(self, tmp_path):
         _write_pkg(tmp_path, "myapp", {"main.py": "x = 1\n"})
         header = "<!-- test -->"
-        result = generate_graphs(
+        generate_graphs(
             tmp_path, tmp_path / "docs" / "generated",
             header=header, dry_run=True,
         )
@@ -775,7 +774,7 @@ class TestGenerateDocs:
     @patch("harness_skills.generators.docs_generator._grep_recursive", return_value=[])
     def test_writes_index(self, mock_grep, mock_head, tmp_path):
         _write_pkg(tmp_path, "myapp", {"models.py": PYDANTIC_SOURCE})
-        report = generate_docs(root=tmp_path)
+        generate_docs(root=tmp_path)
         index_path = tmp_path / "docs" / "generated" / "index.md"
         assert index_path.exists()
         content = index_path.read_text()

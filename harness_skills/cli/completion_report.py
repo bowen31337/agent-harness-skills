@@ -42,21 +42,21 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import re
 import sys
 import time
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import click
-import yaml
 from rich import box
 from rich.console import Console
 from rich.table import Table
+import yaml
 
 from harness_skills.cli.fmt import output_format_option, resolve_output_format
 from harness_skills.models.base import Status
@@ -153,10 +153,7 @@ def _load_plan_file(path: Path) -> PlanSnapshot:
     """Parse a YAML or JSON execution-plan file into a ``PlanSnapshot``."""
     raw: str = path.read_text(encoding="utf-8")
 
-    if path.suffix.lower() in {".yaml", ".yml"}:
-        data = yaml.safe_load(raw)
-    else:
-        data = json.loads(raw)
+    data = yaml.safe_load(raw) if path.suffix.lower() in {".yaml", ".yml"} else json.loads(raw)
 
     if isinstance(data, list):
         plan_meta: dict = {"id": path.stem, "title": path.stem, "status": "running"}
@@ -241,7 +238,7 @@ def _normalise_plan_status(raw: object) -> PlanStatusValue:
     return mapping.get(str(raw).lower(), "pending")  # type: ignore[return-value]
 
 
-def _str_or_none(val: object) -> Optional[str]:
+def _str_or_none(val: object) -> str | None:
     if val is None:
         return None
     s = str(val).strip()
@@ -424,7 +421,7 @@ def _extract_follow_up_items(plan: PlanSnapshot) -> list[FollowUpItem]:
 # ---------------------------------------------------------------------------
 
 
-def _duration_min(started_at: Optional[str], completed_at: Optional[str]) -> Optional[float]:
+def _duration_min(started_at: str | None, completed_at: str | None) -> float | None:
     """Compute task duration in minutes from ISO-8601 timestamps."""
     if not started_at or not completed_at:
         return None
@@ -446,11 +443,11 @@ def _build_report(
     plans: list[PlanSnapshot],
     *,
     data_source: str,
-    state_reachable: Optional[bool],
+    state_reachable: bool | None,
     min_debt_severity: str,
 ) -> PlanCompletionReport:
     """Build a ``PlanCompletionReport`` from a list of plan snapshots."""
-    ts = datetime.now(tz=timezone.utc).isoformat()
+    ts = datetime.now(tz=UTC).isoformat()
 
     all_completed: list[CompletedTaskSummary] = []
     all_debt: list[TechnicalDebtItem] = []
@@ -835,7 +832,7 @@ def _print_table_output(report: PlanCompletionReport) -> None:  # noqa: C901
 @click.pass_context
 def completion_report_cmd(
     ctx: click.Context,
-    output_format: Optional[str],
+    output_format: str | None,
     plan_files: tuple[Path, ...],
     state_url: str,
     plan_ids: tuple[str, ...],
@@ -876,7 +873,7 @@ def completion_report_cmd(
     start_ms = int(time.monotonic() * 1000)
     plans: list[PlanSnapshot] = []
     data_sources: list[str] = []
-    state_reachable: Optional[bool] = None
+    state_reachable: bool | None = None
 
     # ── 1. Load from plan files ───────────────────────────────────────────────
     for path in plan_files:

@@ -33,7 +33,6 @@ from harness_skills.cli.status import status_cmd
 from harness_skills.cli.update import update_cmd
 from harness_skills.telemetry_reporter import telemetry_cmd
 
-
 # ---------------------------------------------------------------------------
 # --then pipeline helpers
 # ---------------------------------------------------------------------------

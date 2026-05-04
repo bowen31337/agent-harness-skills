@@ -47,10 +47,10 @@ CLI entry point (main)
 
 from __future__ import annotations
 
-import json
-import sys
 from io import StringIO
+import json
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -181,9 +181,8 @@ class TestTimerContextManager:
         assert rows[0].notes == "ok"
 
     def test_row_written_even_on_exception(self, tmp_hooks) -> None:
-        with pytest.raises(RuntimeError):
-            with tmp_hooks.timer("ctx_err", agent="ag"):
-                raise RuntimeError("boom")
+        with pytest.raises(RuntimeError), tmp_hooks.timer("ctx_err", agent="ag"):
+            raise RuntimeError("boom")
         rows = tmp_hooks.list(label="ctx_err")
         assert len(rows) == 1
 

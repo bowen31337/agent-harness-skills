@@ -19,7 +19,6 @@ import pytest
 from harness_dashboard.data_generator import generate_dataset
 from harness_dashboard.models import ArtifactType, HarnessRecord, PRRecord
 
-
 # ---------------------------------------------------------------------------
 # Basic structure
 # ---------------------------------------------------------------------------
@@ -114,7 +113,7 @@ class TestReproducibility:
         ds2 = generate_dataset(num_harnesses=10, seed=99)
         assert len(ds1.harnesses) == len(ds2.harnesses)
         assert len(ds1.prs) == len(ds2.prs)
-        for h1, h2 in zip(ds1.harnesses, ds2.harnesses):
+        for h1, h2 in zip(ds1.harnesses, ds2.harnesses, strict=False):
             assert h1.harness_id == h2.harness_id
             assert h1.artifact_count == h2.artifact_count
             assert h1.coverage_pct == h2.coverage_pct

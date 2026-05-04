@@ -37,14 +37,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
+import json
 from pathlib import Path
-from typing import Callable, Optional
+import sys
+from typing import Optional
 
 import anyio
-
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
@@ -65,7 +65,6 @@ from harness_skills.error_aggregation import (
     load_errors_from_log,
     top_errors,
 )
-
 
 # ---------------------------------------------------------------------------
 # Tool definitions
@@ -89,7 +88,7 @@ def _make_query_recent_errors(view: ErrorAggregationView) -> Callable:
         },
     )
     async def query_recent_errors(args: dict) -> dict:
-        domain: Optional[str] = args.get("domain") or None
+        domain: str | None = args.get("domain") or None
         limit: int = max(1, min(int(args.get("limit", 10)), 50))
 
         groups = top_errors(view, n=limit, domain=domain)
@@ -153,8 +152,8 @@ def _make_get_error_domain_list(view: ErrorAggregationView) -> Callable:
 
 
 def build_error_tools(
-    records: Optional[list[ErrorRecord]] = None,
-    view: Optional[ErrorAggregationView] = None,
+    records: list[ErrorRecord] | None = None,
+    view: ErrorAggregationView | None = None,
     window_minutes: int = 60,
 ) -> object:
     """
@@ -192,8 +191,8 @@ def build_error_tools(
 
 async def run_error_query(
     prompt: str,
-    records: Optional[list[ErrorRecord]] = None,
-    view: Optional[ErrorAggregationView] = None,
+    records: list[ErrorRecord] | None = None,
+    view: ErrorAggregationView | None = None,
     window_minutes: int = 60,
     model: str = "claude-opus-4-6",
     max_turns: int = 6,
@@ -328,7 +327,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-async def _async_main(argv: Optional[list[str]] = None) -> None:
+async def _async_main(argv: list[str] | None = None) -> None:
     parser = _build_arg_parser()
     args = parser.parse_args(argv)
 
@@ -368,7 +367,7 @@ async def _async_main(argv: Optional[list[str]] = None) -> None:
     )
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     """Synchronous entry point for CLI use."""
     anyio.run(_async_main, argv)
 

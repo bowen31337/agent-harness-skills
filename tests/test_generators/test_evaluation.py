@@ -11,9 +11,10 @@ Coverage targets:
 
 from __future__ import annotations
 
+from datetime import UTC
 import json
-import time
 from pathlib import Path
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -40,7 +41,6 @@ from harness_skills.generators.evaluation import (
     run_all_gates,
     run_gate,
 )
-
 
 # ---------------------------------------------------------------------------
 # GateFailure model tests
@@ -507,7 +507,7 @@ class TestDocsFreshnessGate:
     def test_passes_for_fresh_artifact(self, tmp_path: Path) -> None:
         from datetime import datetime, timezone
 
-        now_str = datetime.now(timezone.utc).isoformat()
+        now_str = datetime.now(UTC).isoformat()
         for name in ["AGENTS.md", "docs/ARCHITECTURE.md", "docs/PRINCIPLES.md", "docs/EVALUATION.md"]:
             p = tmp_path / name
             p.parent.mkdir(parents=True, exist_ok=True)
@@ -806,7 +806,7 @@ class TestSecurityGateExtended:
             )
             result = SecurityGate().run(tmp_path, GateConfig())
         # Should not produce failures for missing pip-audit
-        pip_audit_failures = [f for f in result.failures if "pip-audit" in f.message.lower()]
+        [f for f in result.failures if "pip-audit" in f.message.lower()]
         # Bandit part may also be missing — that's fine
         assert all(f.gate_id == GateId.SECURITY for f in result.failures)
 
@@ -933,7 +933,6 @@ class TestPerformanceGate:
         script = tmp_path / ".harness-perf.sh"
         script.write_text("#!/bin/bash\nexit 0")
 
-        original_monotonic = time.monotonic
         call_count = [0]
 
         def fake_monotonic():
@@ -1054,7 +1053,7 @@ class TestDocsFreshnessGateExtended:
     def test_invalid_timestamp_ignored(self, tmp_path: Path) -> None:
         agents = tmp_path / "AGENTS.md"
         agents.write_text("# AGENTS\n<!-- generated_at: not-a-date -->\n")
-        result = DocsFreshnessGate().run(tmp_path, GateConfig())
+        DocsFreshnessGate().run(tmp_path, GateConfig())
         # Should not crash; the invalid timestamp should be silently skipped
 
 
@@ -1184,7 +1183,7 @@ class TestLintGateExtended:
             return MagicMock(returncode=0, stdout="[]", stderr="")
 
         with patch("harness_skills.generators.evaluation.subprocess.run", side_effect=fake_run):
-            result = LintGate().run(tmp_path, GateConfig())
+            LintGate().run(tmp_path, GateConfig())
         assert call_count[0] >= 2  # HEAD diff + cached fallback
 
 

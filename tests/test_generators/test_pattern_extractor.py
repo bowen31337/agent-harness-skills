@@ -69,15 +69,16 @@ class TestExtractPatterns:
 # ---------------------------------------------------------------------------
 
 
+import ast
+
 from harness_skills.generators.pattern_extractor import (
+    PatternFrequency,
     _decorator_name,
     _estimate_effort,
     _node_name,
     _slugify,
     generate_cleanup_tasks,
-    PatternFrequency,
 )
-import ast
 
 
 class TestDecoratorName:

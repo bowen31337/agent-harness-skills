@@ -49,11 +49,11 @@ Examples
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
+from pathlib import Path
 import sys
 import time
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional
 
 import click
@@ -138,8 +138,8 @@ def _domain_matches(entry_domain: str, filter_domain: str) -> bool:
 
 def _passes_filters(
     entry: dict,
-    domain_filter: Optional[str],
-    trace_id_filter: Optional[str],
+    domain_filter: str | None,
+    trace_id_filter: str | None,
     min_level: int,
 ) -> bool:
     """Return *True* when *entry* satisfies every active filter."""
@@ -153,10 +153,7 @@ def _passes_filters(
         return False
 
     # Trace-ID gate
-    if trace_id_filter and entry.get("trace_id", "") != trace_id_filter:
-        return False
-
-    return True
+    return not (trace_id_filter and entry.get("trace_id", "") != trace_id_filter)
 
 
 def _format_pretty(entry: dict, *, color: bool) -> str:
@@ -234,8 +231,8 @@ def _tail_file(
     *,
     follow: bool,
     lines: int,
-    domain: Optional[str],
-    trace_id: Optional[str],
+    domain: str | None,
+    trace_id: str | None,
     min_level: int,
     output_format: str,
     color: bool,
@@ -459,8 +456,8 @@ def _tail_file(
 def observe_cmd(
     ctx: click.Context,
     log_file: str,
-    domain: Optional[str],
-    trace_id: Optional[str],
+    domain: str | None,
+    trace_id: str | None,
     min_level_name: str,
     lines: int,
     follow: bool,

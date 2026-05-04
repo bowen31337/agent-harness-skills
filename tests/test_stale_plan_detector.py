@@ -5,7 +5,7 @@ These tests run entirely offline (skip_llm=True) so no API key is required.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 
@@ -18,7 +18,7 @@ _THRESHOLD = 1800.0  # 30 minutes
 
 # Frozen reference timestamp — used by both _task() and detect_stale_plan()
 # so that idle durations are always exact regardless of test execution speed.
-_FROZEN_NOW = datetime(2026, 3, 14, 12, 0, 0, tzinfo=timezone.utc)
+_FROZEN_NOW = datetime(2026, 3, 14, 12, 0, 0, tzinfo=UTC)
 
 
 def _task(
@@ -209,8 +209,8 @@ class TestResponseSchema:
 
 # ── Artifact freshness tests ───────────────────────────────────────────────────
 
-import textwrap
 from pathlib import Path as _Path
+import textwrap
 
 from harness_skills.stale_plan_detector import (
     DEFAULT_ARTIFACT_THRESHOLD_DAYS,

@@ -5,12 +5,11 @@ from __future__ import annotations
 import os
 import sys
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from harness_skills.models.base import Status
 from harness_skills.plugins.gate_plugin import PluginGateConfig, PluginGateRunner
-
 
 # ---------------------------------------------------------------------------
 # Helpers

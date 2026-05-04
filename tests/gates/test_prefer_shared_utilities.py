@@ -7,8 +7,8 @@ function names defined across multiple non-test Python files.
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 from harness_skills.gates.principles import (
     GateConfig,

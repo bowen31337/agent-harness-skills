@@ -6,7 +6,6 @@ import pytest
 
 from harness_skills.pivot_tracker import PivotDecision, PivotTracker
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

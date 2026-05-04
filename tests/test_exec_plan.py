@@ -15,8 +15,8 @@ Run with:
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 import yaml
@@ -25,8 +25,7 @@ import yaml
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT))
 
-from skills.exec_plan import ExecPlan, _EXEC_PLANS_DIR, _TEMPLATE  # noqa: E402
-
+from skills.exec_plan import _EXEC_PLANS_DIR, _TEMPLATE, ExecPlan  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -73,7 +72,7 @@ class TestTemplateSectionsPresent:
     ]
 
     def test_all_narrative_sections_exist(self, plans_dir: Path) -> None:
-        plan = ExecPlan.init(title="Test Plan", plan_id="PLAN-001")
+        ExecPlan.init(title="Test Plan", plan_id="PLAN-001")
         with (plans_dir / "PLAN-001.yaml").open(encoding="utf-8") as fh:
             data = yaml.safe_load(fh)
         for key in self.REQUIRED_TOP_LEVEL_KEYS:

@@ -13,5 +13,5 @@ class ResumeResponse(HarnessResponse):
     command: str = "harness resume"
     source: str = ""  # "md" or "jsonl"
     context_block: str = ""
-    hints_only: Optional[str] = None
-    plan_id: Optional[str] = None
+    hints_only: str | None = None
+    plan_id: str | None = None

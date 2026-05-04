@@ -11,11 +11,10 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import click
-import pytest
 from click.testing import CliRunner
+import pytest
 
 from harness_skills.cli.boot import _parse_env_pairs, boot_cmd
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -267,7 +266,7 @@ class TestBootCmdGenerateScript:
     @patch("harness_skills.cli.boot._get_boot_api")
     def test_generate_script_default_filename(self, mock_api, runner: CliRunner, tmp_path: Path):
         mock_api.return_value = _mock_boot_api()
-        result = runner.invoke(boot_cmd, [
+        runner.invoke(boot_cmd, [
             "--worktree-id", "task-def",
             "--command", "python app.py",
             "--generate-script",

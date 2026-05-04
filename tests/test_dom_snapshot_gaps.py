@@ -20,8 +20,8 @@ dom_snapshot_skill uncovered lines:
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,21 +33,21 @@ if str(REPO_ROOT) not in sys.path:
 pytest.importorskip("bs4", reason="beautifulsoup4 is required for DOM snapshot tests")
 pytest.importorskip("lxml", reason="lxml is required for DOM snapshot tests")
 
+from bs4 import BeautifulSoup
+
 from dom_snapshot_utility.snapshot import (
-    DOMSnapshot,
-    PageMeta,
     AriaRegion,
-    Link,
     Button,
-    snapshot_from_html,
-    snapshot_from_url,
-    snapshot_to_text,
+    DOMSnapshot,
+    Link,
+    PageMeta,
     _attr,
     _label_for,
     _parse_visible_text,
+    snapshot_from_html,
+    snapshot_from_url,
+    snapshot_to_text,
 )
-from bs4 import BeautifulSoup
-
 
 # ---------------------------------------------------------------------------
 # _attr — list attribute joined (line 164)

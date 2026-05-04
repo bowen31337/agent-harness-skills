@@ -38,13 +38,13 @@ Given a threshold T (default 1 800 s / 30 min):
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime, timezone
 import json
 import os
+from pathlib import Path
 import re
 import sys
 import time
-from datetime import date, datetime, timezone
-from pathlib import Path
 from typing import Literal
 
 import anthropic
@@ -394,7 +394,7 @@ def detect_stale_plan(
         Fully populated, schema-validated Pydantic response object.
     """
     start_ns = time.monotonic_ns()
-    now = now if now is not None else datetime.now(tz=timezone.utc)
+    now = now if now is not None else datetime.now(tz=UTC)
 
     # ── 1. Classify each task ──────────────────────────────────────────────────
     stale_task_details: list[StaleTask] = []
@@ -406,7 +406,7 @@ def detect_stale_plan(
 
         last_updated = task.last_updated
         if last_updated.tzinfo is None:
-            last_updated = last_updated.replace(tzinfo=timezone.utc)
+            last_updated = last_updated.replace(tzinfo=UTC)
 
         idle_seconds = (now - last_updated).total_seconds()
         if idle_seconds <= threshold_seconds:

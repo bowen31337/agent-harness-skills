@@ -52,7 +52,7 @@ class TestLayerStack:
     def test_all_presets_valid(self) -> None:
         for name, stack in PRESETS.items():
             assert len(stack.layers) >= 3, f"Preset {name} has too few layers"
-            ranks = [l.rank for l in stack.layers]
+            ranks = [layer.rank for layer in stack.layers]
             assert ranks == sorted(ranks), f"Preset {name} ranks not sorted"
 
 

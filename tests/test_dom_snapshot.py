@@ -10,8 +10,8 @@ All tests run without network access — URL-fetching is mocked where needed.
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,7 +39,6 @@ from dom_snapshot_utility.snapshot import (
     snapshot_to_text,
 )
 from harness_skills.dom_snapshot_skill import dom_snapshot_html, dom_snapshot_url
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers

@@ -17,8 +17,8 @@ Coverage
 
 from __future__ import annotations
 
-import textwrap
 from pathlib import Path
+import textwrap
 
 import pytest
 import yaml
@@ -39,11 +39,10 @@ from harness_skills.gates.principles import (
     main,
 )
 from harness_skills.models.gate_configs import (
-    BaseGateConfig,
     GATE_CONFIG_CLASSES,
+    BaseGateConfig,
     PrinciplesGateConfig,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -570,7 +569,7 @@ class TestCliMain:
         assert code == 0
 
     def test_json_format_output(self, tmp_path, capsys):
-        code = main(["--root", str(tmp_path), "--format", "json", "--rules"])
+        main(["--root", str(tmp_path), "--format", "json", "--rules"])
         out = capsys.readouterr().out
         import json
         data = json.loads(out)

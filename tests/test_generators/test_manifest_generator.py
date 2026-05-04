@@ -11,9 +11,9 @@ Covers:
 
 from __future__ import annotations
 
-import json
 from collections import deque
 from datetime import datetime
+import json
 from pathlib import Path
 
 import pytest
@@ -516,7 +516,8 @@ class TestGenerateManifestPatternsConventions:
 # ---------------------------------------------------------------------------
 
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 from harness_skills.generators.manifest_generator import _to_dict
 
 
@@ -551,14 +552,12 @@ class TestToDict:
 class TestValidateManifestSchemaNotFound:
     def test_schema_not_found_raises(self) -> None:
         with patch("harness_skills.generators.manifest_generator._BUNDLED_SCHEMA",
-                   Path("/nonexistent/schema.json")):
-            with pytest.raises(FileNotFoundError):
-                validate_manifest({})
+                   Path("/nonexistent/schema.json")), pytest.raises(FileNotFoundError):
+            validate_manifest({})
 
 
 class TestWriteManifestSchemaNotFound:
     def test_schema_not_found_raises(self) -> None:
         with patch("harness_skills.generators.manifest_generator._BUNDLED_SCHEMA",
-                   Path("/nonexistent/schema.json")):
-            with pytest.raises(FileNotFoundError):
-                write_manifest_schema("/tmp/out.json")
+                   Path("/nonexistent/schema.json")), pytest.raises(FileNotFoundError):
+            write_manifest_schema("/tmp/out.json")

@@ -6,16 +6,16 @@ Uses Click's CliRunner and mocks external dependencies.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
 import os
-import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
+import subprocess
 from unittest.mock import MagicMock, patch
 
+from click.testing import CliRunner
 import pytest
 import yaml
-from click.testing import CliRunner
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -614,7 +614,7 @@ class TestCompletionReportStateService:
         """Cover line 916: source_label = 'mixed'."""
         from harness_skills.cli.main import cli
 
-        plan = _write_plan(tmp_path, "plan.yaml", _simple_plan())
+        _write_plan(tmp_path, "plan.yaml", _simple_plan())
 
         mock_resp = MagicMock()
         mock_resp.__enter__ = MagicMock(return_value=mock_resp)
@@ -1171,11 +1171,11 @@ class TestCoordinateEmptyAgents:
     """Cover lines 131-140: empty agents list."""
 
     def test_empty_agents_json(self, runner):
-        from harness_skills.cli.coordinate import coordinate_cmd
-
         # Patch at the module level where 'requests' is imported inside the function
         import importlib
+
         import harness_skills.cli.coordinate as coord_mod
+        from harness_skills.cli.coordinate import coordinate_cmd
 
         mock_requests = MagicMock()
         mock_response = MagicMock()
@@ -2112,7 +2112,7 @@ class TestAuditAdditionalCoverage:
     def test_no_bad_artifacts_exits_0(self, runner, tmp_path):
         from harness_skills.cli.audit import audit_cmd
 
-        now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
+        now = datetime.now(tz=UTC).strftime("%Y-%m-%d")
         agents = tmp_path / "AGENTS.md"
         agents.write_text(f"last_updated: {now}\n# AGENTS")
         result = runner.invoke(
@@ -2189,14 +2189,14 @@ class TestEvaluateAdditionalCoverage:
 
     def test_evaluate_failure_with_line_number_table(self, runner, tmp_path):
         """Cover line 308: failure with line_number in table output."""
-        from harness_skills.cli.evaluate import evaluate_cmd, _print_table_report
+        from harness_skills.cli.evaluate import _print_table_report, evaluate_cmd
         from harness_skills.generators.evaluation import (
             EvaluationReport,
+            EvaluationSummary,
+            GateFailure,
             GateId,
             GateResult,
-            GateFailure,
             Severity,
-            EvaluationSummary,
         )
         from harness_skills.models.base import Status
 
@@ -2238,9 +2238,9 @@ class TestEvaluateAdditionalCoverage:
         from harness_skills.cli.evaluate import _print_table_report
         from harness_skills.generators.evaluation import (
             EvaluationReport,
+            EvaluationSummary,
             GateId,
             GateResult,
-            EvaluationSummary,
         )
         from harness_skills.models.base import Status
 

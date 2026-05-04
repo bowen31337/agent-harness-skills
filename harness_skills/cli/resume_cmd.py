@@ -8,11 +8,11 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import traceback
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
 
@@ -22,7 +22,7 @@ from harness_skills.models.resume import ResumeResponse
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 def _lazy_load():

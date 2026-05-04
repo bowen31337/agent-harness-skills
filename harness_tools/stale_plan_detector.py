@@ -16,15 +16,15 @@ be silent before it is considered stale.
 
 from __future__ import annotations
 
-import anyio
 import asyncio
-import time
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
+import logging
+import time
 from typing import Any
 
+import anyio
 from claude_agent_sdk import (
     ClaudeAgentOptions,
     HookMatcher,
@@ -216,7 +216,7 @@ class StaleDetector:
                     asyncio.shield(self._stop_event.wait()),
                     timeout=self.check_interval,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass  # normal -- time to sweep again
 
     def stop(self) -> None:

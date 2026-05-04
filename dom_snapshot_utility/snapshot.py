@@ -16,10 +16,10 @@ Public helpers
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import re
 import textwrap
-from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Optional
 from urllib.parse import urljoin
 
 # ---------------------------------------------------------------------------
@@ -88,16 +88,16 @@ class Form:
     id: str = ""
     action: str = ""
     method: str = "GET"
-    fields: List[InputField] = field(default_factory=list)
-    buttons: List[str] = field(default_factory=list)
+    fields: list[InputField] = field(default_factory=list)
+    buttons: list[str] = field(default_factory=list)
 
 
 @dataclass
 class TableSnapshot:
     caption: str = ""
     row_count: int = 0
-    headers: List[str] = field(default_factory=list)
-    sample_rows: List[List[str]] = field(default_factory=list)
+    headers: list[str] = field(default_factory=list)
+    sample_rows: list[list[str]] = field(default_factory=list)
 
 
 @dataclass
@@ -111,16 +111,16 @@ class ImageSnapshot:
 @dataclass
 class DOMSnapshot:
     meta: PageMeta = field(default_factory=PageMeta)
-    landmarks: List[AriaRegion] = field(default_factory=list)
-    headings: List[Heading] = field(default_factory=list)
-    nav_links: List[Link] = field(default_factory=list)
+    landmarks: list[AriaRegion] = field(default_factory=list)
+    headings: list[Heading] = field(default_factory=list)
+    nav_links: list[Link] = field(default_factory=list)
     nav_links_total: int = 0   # total found before max_links truncation
-    forms: List[Form] = field(default_factory=list)
-    buttons: List[Button] = field(default_factory=list)
-    tables: List[TableSnapshot] = field(default_factory=list)
-    images: List[ImageSnapshot] = field(default_factory=list)
+    forms: list[Form] = field(default_factory=list)
+    buttons: list[Button] = field(default_factory=list)
+    tables: list[TableSnapshot] = field(default_factory=list)
+    images: list[ImageSnapshot] = field(default_factory=list)
     visible_text: str = ""
-    errors: List[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +147,7 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def _get_text(el: "Tag") -> str:
+def _get_text(el: Tag) -> str:
     return _clean(el.get_text(" ", strip=True))
 
 
@@ -157,7 +157,7 @@ def _resolve(href: str, base_url: str) -> str:
     return urljoin(base_url, href)
 
 
-def _attr(el: "Tag", *attrs: str) -> str:
+def _attr(el: Tag, *attrs: str) -> str:
     for a in attrs:
         v = el.get(a, "")
         if isinstance(v, list):
@@ -167,7 +167,7 @@ def _attr(el: "Tag", *attrs: str) -> str:
     return ""
 
 
-def _label_for(input_el: "Tag", soup: "BeautifulSoup") -> str:
+def _label_for(input_el: Tag, soup: BeautifulSoup) -> str:
     """Try to find a <label> associated with an input element."""
     el_id = input_el.get("id", "")
     if el_id:
@@ -192,7 +192,7 @@ def _label_for(input_el: "Tag", soup: "BeautifulSoup") -> str:
 # Core parsing
 # ---------------------------------------------------------------------------
 
-def _parse(soup: "BeautifulSoup", base_url: str, max_links: int) -> DOMSnapshot:
+def _parse(soup: BeautifulSoup, base_url: str, max_links: int) -> DOMSnapshot:
     snap = DOMSnapshot()
     snap.meta = _parse_meta(soup, base_url)
     snap.landmarks = _parse_landmarks(soup)
@@ -206,7 +206,7 @@ def _parse(soup: "BeautifulSoup", base_url: str, max_links: int) -> DOMSnapshot:
     return snap
 
 
-def _parse_meta(soup: "BeautifulSoup", base_url: str) -> PageMeta:
+def _parse_meta(soup: BeautifulSoup, base_url: str) -> PageMeta:
     title_tag = soup.find("title")
     title = _get_text(title_tag) if title_tag else ""
 
@@ -221,8 +221,8 @@ def _parse_meta(soup: "BeautifulSoup", base_url: str) -> PageMeta:
     return PageMeta(url=base_url, title=title, description=desc, lang=lang)
 
 
-def _parse_landmarks(soup: "BeautifulSoup") -> List[AriaRegion]:
-    regions: List[AriaRegion] = []
+def _parse_landmarks(soup: BeautifulSoup) -> list[AriaRegion]:
+    regions: list[AriaRegion] = []
     # Explicit role= attributes
     for el in soup.find_all(attrs={"role": True}):
         role = _attr(el, "role")
@@ -244,7 +244,7 @@ def _parse_landmarks(soup: "BeautifulSoup") -> List[AriaRegion]:
     return regions
 
 
-def _parse_headings(soup: "BeautifulSoup") -> List[Heading]:
+def _parse_headings(soup: BeautifulSoup) -> list[Heading]:
     headings = []
     for level in range(1, 7):
         for h in soup.find_all(f"h{level}"):
@@ -253,7 +253,7 @@ def _parse_headings(soup: "BeautifulSoup") -> List[Heading]:
                 headings.append(Heading(level=level, text=txt))
     # Re-sort by document order
     all_tags = soup.find_all(re.compile(r"^h[1-6]$"))
-    ordered: List[Heading] = []
+    ordered: list[Heading] = []
     for el in all_tags:
         txt = _get_text(el)
         if txt:
@@ -262,10 +262,10 @@ def _parse_headings(soup: "BeautifulSoup") -> List[Heading]:
 
 
 def _parse_nav_links(
-    soup: "BeautifulSoup", base_url: str, max_links: int
-) -> "tuple[List[Link], int]":
+    soup: BeautifulSoup, base_url: str, max_links: int
+) -> tuple[list[Link], int]:
     """Return (truncated_links, total_found)."""
-    all_links: List[Link] = []
+    all_links: list[Link] = []
     # Prefer links inside <nav>
     for nav in soup.find_all("nav"):
         for a in nav.find_all("a", href=True):
@@ -284,7 +284,7 @@ def _parse_nav_links(
     return all_links[:max_links], total
 
 
-def _parse_forms(soup: "BeautifulSoup", base_url: str) -> List[Form]:
+def _parse_forms(soup: BeautifulSoup, base_url: str) -> list[Form]:
     forms = []
     for form_el in soup.find_all("form"):
         f = Form(
@@ -320,8 +320,8 @@ def _parse_forms(soup: "BeautifulSoup", base_url: str) -> List[Form]:
     return forms
 
 
-def _parse_buttons(soup: "BeautifulSoup") -> List[Button]:
-    buttons: List[Button] = []
+def _parse_buttons(soup: BeautifulSoup) -> list[Button]:
+    buttons: list[Button] = []
     # Standalone buttons not inside forms
     for btn in soup.find_all("button"):
         if btn.find_parent("form"):
@@ -339,7 +339,7 @@ def _parse_buttons(soup: "BeautifulSoup") -> List[Button]:
     return buttons
 
 
-def _parse_tables(soup: "BeautifulSoup") -> List[TableSnapshot]:
+def _parse_tables(soup: BeautifulSoup) -> list[TableSnapshot]:
     tables = []
     for tbl in soup.find_all("table"):
         ts = TableSnapshot()
@@ -360,7 +360,7 @@ def _parse_tables(soup: "BeautifulSoup") -> List[TableSnapshot]:
     return tables
 
 
-def _parse_images(soup: "BeautifulSoup", base_url: str) -> List[ImageSnapshot]:
+def _parse_images(soup: BeautifulSoup, base_url: str) -> list[ImageSnapshot]:
     images = []
     for img in soup.find_all("img")[:_MAX_IMAGES]:
         src = _resolve(_attr(img, "src"), base_url)
@@ -371,7 +371,7 @@ def _parse_images(soup: "BeautifulSoup", base_url: str) -> List[ImageSnapshot]:
     return images
 
 
-def _parse_visible_text(soup: "BeautifulSoup") -> str:
+def _parse_visible_text(soup: BeautifulSoup) -> str:
     # Work on a shallow copy so decompose() doesn't mutate the caller's tree.
     from copy import copy as _copy
     try:
@@ -398,7 +398,7 @@ def snapshot_from_html(
     html: str,
     base_url: str = "about:blank",
     max_links: int = 15,
-) -> "DOMSnapshot":
+) -> DOMSnapshot:
     """Parse *html* string and return a :class:`DOMSnapshot`."""
     if not _HAS_BS4:
         snap = DOMSnapshot()
@@ -417,7 +417,7 @@ def snapshot_from_url(
     url: str,
     timeout: int = 15,
     max_links: int = 15,
-) -> "DOMSnapshot":
+) -> DOMSnapshot:
     """Fetch *url* via HTTP GET and return a :class:`DOMSnapshot`."""
     if not _HAS_REQUESTS:
         snap = DOMSnapshot()
@@ -458,9 +458,9 @@ def snapshot_from_url(
         return snap
 
 
-def snapshot_to_text(snap: "DOMSnapshot", max_links: int = 15) -> str:
+def snapshot_to_text(snap: DOMSnapshot, max_links: int = 15) -> str:
     """Render *snap* as a compact, human/LLM-readable text block."""
-    lines: List[str] = []
+    lines: list[str] = []
 
     # ── Page Metadata ──────────────────────────────────────────────────────
     lines.append("### Page Metadata")

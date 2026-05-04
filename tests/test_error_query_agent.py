@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta, timezone
+from io import StringIO
 import json
 import sys
-from datetime import datetime, timedelta, timezone
-from io import StringIO
 from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -53,12 +53,11 @@ from harness_skills.error_query_agent import (
     run_error_query,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2025, 11, 1, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2025, 11, 1, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_records(n: int = 5) -> list[ErrorRecord]:
@@ -291,7 +290,7 @@ class TestRunErrorQuery:
         with patch("harness_skills.error_query_agent.ClaudeSDKClient", mock_client_cls), \
              patch("harness_skills.error_query_agent.build_error_tools") as mock_build:
             mock_build.return_value = MagicMock()
-            result = await run_error_query(
+            await run_error_query(
                 prompt="Show errors",
                 view=view,
                 stream_to_stdout=True,

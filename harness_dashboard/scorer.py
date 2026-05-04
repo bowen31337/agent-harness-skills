@@ -37,10 +37,10 @@ Public API
 
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Sequence
 import math
 import statistics
-from collections import defaultdict
-from typing import Sequence
 
 from .models import (
     CorrelationInsight,
@@ -110,7 +110,7 @@ def _pearson(xs: list[float], ys: list[float]) -> tuple[float, float]:
     mx = statistics.mean(xs)
     my = statistics.mean(ys)
 
-    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys, strict=False))
     sx  = math.sqrt(sum((x - mx) ** 2 for x in xs))
     sy  = math.sqrt(sum((y - my) ** 2 for y in ys))
 

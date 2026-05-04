@@ -26,7 +26,7 @@ Optional:
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -96,7 +96,7 @@ class LogEntry(BaseModel):
         min_length=1,
         description="Non-empty UTF-8 log message.",
     )
-    extra: Optional[Dict[str, Any]] = Field(
+    extra: dict[str, Any] | None = Field(
         default=None,
         description=(
             "Optional caller-supplied key/value pairs.  "
@@ -194,11 +194,11 @@ class ObserveResponse(BaseModel):
             "These are emitted as raw JSON rather than schema-validated output."
         ),
     )
-    domain_filter: Optional[str] = Field(
+    domain_filter: str | None = Field(
         default=None,
         description="Active ``--domain`` filter, or None if no domain filter was set.",
     )
-    trace_id_filter: Optional[str] = Field(
+    trace_id_filter: str | None = Field(
         default=None,
         description="Active ``--trace-id`` filter, or None if no trace filter was set.",
     )

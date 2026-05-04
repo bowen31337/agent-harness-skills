@@ -55,16 +55,16 @@ Agent SDK hook (auto-checkpoint after every Edit/Write/Bash)::
 
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timezone
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import textwrap
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Coroutine
-
+from typing import Any
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -223,7 +223,7 @@ class GitCheckpoint:
             self._git("add", "--", *files)
 
         # Bail out early if there is nothing to commit
-        status = self._git("status", "--porcelain")
+        self._git("status", "--porcelain")
         # After `git add`, use --cached to check staged changes
         staged = self._git("diff", "--cached", "--name-only").strip()
         if not staged:
@@ -233,7 +233,7 @@ class GitCheckpoint:
             )
 
         # Build commit message
-        timestamp = datetime.now(tz=timezone.utc).isoformat()
+        timestamp = datetime.now(tz=UTC).isoformat()
         subject = f"wip({self.task_id}): {description} [checkpoint #{idx}]"
         body = textwrap.dedent(f"""\
             Automated WIP checkpoint committed by agent harness.

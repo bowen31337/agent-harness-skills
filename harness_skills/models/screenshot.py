@@ -13,7 +13,7 @@ class ScreenshotResponse(HarnessResponse):
     """Response schema for ``harness screenshot``."""
 
     command: str = "harness screenshot"
-    file_path: Optional[str] = None
-    dimensions: Optional[str] = None
-    base64_data: Optional[str] = None
+    file_path: str | None = None
+    dimensions: str | None = None
+    base64_data: str | None = None
     existing_screenshots: list[str] = Field(default_factory=list)

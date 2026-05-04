@@ -73,11 +73,11 @@ Entry statuses
 from __future__ import annotations
 
 import argparse
+from collections import defaultdict
+from datetime import UTC, datetime, timezone
+from pathlib import Path
 import re
 import sys
-from collections import defaultdict
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
@@ -137,7 +137,7 @@ def _escape(value: str) -> str:
 
 
 def _now_utc() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _ensure_file(path: Path = PROGRESS_FILE) -> None:
@@ -195,7 +195,7 @@ class ProgressEntry:
         return {s: getattr(self, s) for s in self.__slots__}
 
 
-def _parse_row(line: str) -> Optional[ProgressEntry]:
+def _parse_row(line: str) -> ProgressEntry | None:
     """Parse a Markdown table row into a ProgressEntry, or return None."""
     line = line.strip()
     if not line.startswith("|") or line.startswith("|---") or line.startswith("| Tim"):
@@ -239,7 +239,7 @@ class ProgressLog:
     local filesystems).
     """
 
-    def __init__(self, log_file: Optional[Path] = None) -> None:
+    def __init__(self, log_file: Path | None = None) -> None:
         self._file = Path(log_file) if log_file else PROGRESS_FILE
 
     # ------------------------------------------------------------------
@@ -253,7 +253,7 @@ class ProgressLog:
         status: str,
         agent: str,
         message: str = "",
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ) -> ProgressEntry:
         """Append a timestamped progress entry.
 
@@ -302,7 +302,7 @@ class ProgressLog:
     # Read
     # ------------------------------------------------------------------
 
-    def list(self, plan_id: Optional[str] = None) -> list[ProgressEntry]:
+    def list(self, plan_id: str | None = None) -> list[ProgressEntry]:
         """Return all log entries, optionally filtered to *plan_id*.
 
         Parameters
@@ -328,7 +328,7 @@ class ProgressLog:
             entries.append(entry)
         return entries
 
-    def summary(self, plan_id: Optional[str] = None) -> None:
+    def summary(self, plan_id: str | None = None) -> None:
         """Print a per-plan progress summary to *stdout*.
 
         For each plan shows how many steps are ``done``, ``failed``,
@@ -427,7 +427,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = _build_parser()
     args = parser.parse_args(argv)
     log = ProgressLog()

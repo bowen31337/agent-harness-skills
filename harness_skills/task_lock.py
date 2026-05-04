@@ -71,10 +71,11 @@ Agent SDK integration (hooks):
 
 from __future__ import annotations
 
+import contextlib
+from datetime import UTC, datetime, timedelta, timezone
 import errno
 import json
 import os
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -122,11 +123,11 @@ class TaskLock(BaseModel):
 
     def is_expired(self) -> bool:
         """Return True if this lock's TTL has elapsed."""
-        return datetime.now(timezone.utc) >= self.expires_at_dt
+        return datetime.now(UTC) >= self.expires_at_dt
 
     def seconds_remaining(self) -> float:
         """Seconds until expiry. Negative when the lock has already expired."""
-        return (self.expires_at_dt - datetime.now(timezone.utc)).total_seconds()
+        return (self.expires_at_dt - datetime.now(UTC)).total_seconds()
 
     def to_dict(self) -> dict[str, Any]:
         return self.model_dump()
@@ -135,7 +136,7 @@ class TaskLock(BaseModel):
         return json.dumps(self.to_dict(), indent=2)
 
     @classmethod
-    def from_json(cls, text: str) -> "TaskLock":
+    def from_json(cls, text: str) -> TaskLock:
         return cls(**json.loads(text))
 
     def __repr__(self) -> str:
@@ -257,7 +258,7 @@ class TaskLockProtocol:
     def _make_lock(
         self, task_id: str, agent_id: str, timeout_seconds: float
     ) -> TaskLock:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return TaskLock(
             task_id=task_id,
             agent_id=agent_id,
@@ -372,9 +373,8 @@ class TaskLockProtocol:
         if existing is None:
             return False  # nothing to release
 
-        if not force and existing.agent_id != agent_id:
-            if not existing.is_expired():
-                raise LockNotOwnedError(task_id, agent_id, existing.agent_id)
+        if not force and existing.agent_id != agent_id and not existing.is_expired():
+            raise LockNotOwnedError(task_id, agent_id, existing.agent_id)
             # Expired lock from another agent — safe to remove
         try:
             path.unlink()
@@ -436,10 +436,8 @@ class TaskLockProtocol:
         if lock is None:
             return None
         if lock.is_expired():
-            try:
+            with contextlib.suppress(OSError):
                 path.unlink(missing_ok=True)
-            except OSError:
-                pass
             return None
         return lock
 
@@ -462,10 +460,8 @@ class TaskLockProtocol:
             if lock is None:
                 continue
             if lock.is_expired():
-                try:
+                with contextlib.suppress(OSError):
                     path.unlink(missing_ok=True)
-                except OSError:
-                    pass
             else:
                 active.append(lock)
         return active
@@ -707,7 +703,7 @@ class StateServiceLockClient:
     # Notification helpers
     # ------------------------------------------------------------------
 
-    async def notify_acquire(self, task_id: str, lock: "TaskLock") -> bool:
+    async def notify_acquire(self, task_id: str, lock: TaskLock) -> bool:
         """Tell the state service that *lock* was acquired for *task_id*.
 
         Sends:  PATCH /features/{task_id}
@@ -724,7 +720,7 @@ class StateServiceLockClient:
             "expires_at": lock.expires_at,
         })
 
-    async def notify_extend(self, task_id: str, lock: "TaskLock") -> bool:
+    async def notify_extend(self, task_id: str, lock: TaskLock) -> bool:
         """Tell the state service that the lock on *task_id* was extended.
 
         Sends:  PATCH /features/{task_id}
@@ -908,7 +904,7 @@ class AsyncTaskLockProtocol(TaskLockProtocol):
         agent_id: str,
         timeout_seconds: float | None = None,
         raise_on_conflict: bool = False,
-    ) -> "TaskLock | None":
+    ) -> TaskLock | None:
         """Acquire a file-based lock and notify the state service.
 
         Parameters mirror :meth:`TaskLockProtocol.acquire`.
@@ -955,7 +951,7 @@ class AsyncTaskLockProtocol(TaskLockProtocol):
         task_id: str,
         agent_id: str,
         additional_seconds: float,
-    ) -> "TaskLock | None":
+    ) -> TaskLock | None:
         """Extend a file-based lock TTL and notify the state service.
 
         Parameters mirror :meth:`TaskLockProtocol.extend`.

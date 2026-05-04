@@ -8,12 +8,12 @@ Exit codes:
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import sys
 import traceback
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
 
 import click
 import yaml
@@ -24,7 +24,7 @@ from harness_skills.models.plan import PlanResponse
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="milliseconds")
+    return datetime.now(tz=UTC).isoformat(timespec="milliseconds")
 
 
 @click.command("plan")

@@ -1,11 +1,17 @@
 from __future__ import annotations
-import textwrap
+
 from datetime import date, timedelta
 from pathlib import Path
+import textwrap
+
 import pytest
+
 from harness_skills.gates.docs_freshness import (
-    DocsFreshnessGate, GateConfig,
-    _extract_file_refs, _looks_like_file_path, _parse_generated_at,
+    DocsFreshnessGate,
+    GateConfig,
+    _extract_file_refs,
+    _looks_like_file_path,
+    _parse_generated_at,
 )
 
 TODAY = date(2025, 6, 15)
@@ -48,7 +54,7 @@ def test_slash_no_ext():     assert _looks_like_file_path("scripts/deploy")
 # _parse_generated_at
 # ---------------------------------------------------------------------------
 def test_html_comment():
-    assert _parse_generated_at(f"<!-- generated_at: 2024-03-01 -->") == date(2024, 3, 1)
+    assert _parse_generated_at("<!-- generated_at: 2024-03-01 -->") == date(2024, 3, 1)
 
 def test_bare_kv():
     assert _parse_generated_at("generated_at: 2023-12-31") == date(2023, 12, 31)
@@ -139,20 +145,18 @@ def test_fresh_ok(tmp_path):
     assert not [v for v in r.violations if v.kind in ("stale_content", "missing_timestamp")]
 
 def test_stale_violation(tmp_path):
-    agents(tmp_path, f"<!-- generated_at: 2025-04-16 -->\n# AGENTS\n")
+    agents(tmp_path, "<!-- generated_at: 2025-04-16 -->\n# AGENTS\n")
     r = DocsFreshnessGate().run(tmp_path)
     stale = [v for v in r.violations if v.kind == "stale_content"]
     assert len(stale) == 1 and "60 day" in stale[0].message
 
 def test_exactly_at_threshold_ok(tmp_path):
-    from datetime import timedelta
     gen = TODAY - timedelta(days=30)
     agents(tmp_path, f"<!-- generated_at: {gen} -->\n# AGENTS\n")
     r = DocsFreshnessGate(GateConfig(max_staleness_days=30)).run(tmp_path)
     assert not [v for v in r.violations if v.kind == "stale_content"]
 
 def test_one_over_threshold(tmp_path):
-    from datetime import timedelta
     gen = TODAY - timedelta(days=31)
     agents(tmp_path, f"<!-- generated_at: {gen} -->\n# AGENTS\n")
     r = DocsFreshnessGate(GateConfig(max_staleness_days=30)).run(tmp_path)
@@ -229,7 +233,7 @@ def test_fully_valid_passes(tmp_path):
     assert r.passed and not r.violations
 
 def test_stale_plus_dead_reported(tmp_path):
-    agents(tmp_path, f"<!-- generated_at: 2020-01-01 -->\n[dead](src/gone.py)\n")
+    agents(tmp_path, "<!-- generated_at: 2020-01-01 -->\n[dead](src/gone.py)\n")
     r = DocsFreshnessGate(GateConfig(fail_on_error=False)).run(tmp_path)
     kinds = {v.kind for v in r.violations}
     assert "dead_ref" in kinds and "stale_content" in kinds

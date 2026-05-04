@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-import re
 from pathlib import Path
+import re
 
 from harness_skills.analyzers import register_analyzer
 from harness_skills.analyzers.base import AnalysisResult, BaseAnalyzer, Symbol

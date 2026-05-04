@@ -1,8 +1,11 @@
 from __future__ import annotations
-import argparse, re, sys
+
+import argparse
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime, timezone
 from pathlib import Path
+import re
+import sys
 from typing import Literal
 
 
@@ -112,8 +115,10 @@ def _extract_file_refs(content: str) -> list[tuple[str, int]]:
             seen.add(key)
             results.append(key)
 
-    for m in _MD_LINK_RE.finditer(content):   add(m.group("path"), m.start())
-    for m in _BACKTICK_RE.finditer(content):   add(m.group("path"), m.start())
+    for m in _MD_LINK_RE.finditer(content):
+        add(m.group("path"), m.start())
+    for m in _BACKTICK_RE.finditer(content):
+        add(m.group("path"), m.start())
     for m in _BARE_PATH_RE.finditer(content):
         raw = m.group("path").strip().rstrip("/.")
         ln  = _char_to_line(line_starts, m.start())
@@ -135,7 +140,7 @@ def _parse_generated_at(content: str) -> date | None:
 
 def _today() -> date:
     """Return today UTC date. Isolated for test monkeypatching."""
-    return datetime.now(tz=timezone.utc).date()
+    return datetime.now(tz=UTC).date()
 
 
 class DocsFreshnessGate:

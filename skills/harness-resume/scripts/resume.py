@@ -25,8 +25,8 @@ Usage
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+import sys
 
 # Make harness_skills importable when running this script directly
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent

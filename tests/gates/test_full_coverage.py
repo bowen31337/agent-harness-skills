@@ -9,13 +9,12 @@ Each section targets specific uncovered lines identified via --cov-report=term-m
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import subprocess
 import textwrap
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ===========================================================================
 # 1. harness_skills/gates/types.py — uncovered: 291, 317, 412, 477-478,
@@ -336,7 +335,8 @@ class TestPrinciplesCustomPrinciples:
 
     def test_custom_principle_regex_scan(self, tmp_path):
         import yaml
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         # Write principles YAML
         p_dir = tmp_path / ".claude"
@@ -361,7 +361,8 @@ class TestPrinciplesCustomPrinciples:
 
     def test_custom_principle_bad_regex_skipped(self, tmp_path):
         import yaml
-        from harness_skills.gates.principles import PrinciplesGate, GateConfig
+
+        from harness_skills.gates.principles import GateConfig, PrinciplesGate
 
         p_dir = tmp_path / ".claude"
         p_dir.mkdir(parents=True, exist_ok=True)
@@ -571,7 +572,8 @@ class TestPerformanceResultStr:
 
     def test_str_with_violations(self):
         from harness_skills.gates.performance import (
-            PerformanceGateResult, ThresholdViolation,
+            PerformanceGateResult,
+            ThresholdViolation,
         )
 
         result = PerformanceGateResult(
@@ -615,7 +617,8 @@ class TestPerformancePrintViolations:
 
     def test_print_with_violations(self, capsys):
         from harness_skills.gates.performance import (
-            PerformanceGateResult, ThresholdViolation,
+            PerformanceGateResult,
+            ThresholdViolation,
         )
 
         result = PerformanceGateResult(
@@ -1095,8 +1098,9 @@ class TestDocsFreshnessLastUpdatedAlias:
     """Cover last_updated alias in regex (line 138 approx)."""
 
     def test_last_updated_alias(self):
-        from harness_skills.gates.docs_freshness import _parse_generated_at
         from datetime import date
+
+        from harness_skills.gates.docs_freshness import _parse_generated_at
 
         result = _parse_generated_at("last_updated: 2025-06-01")
         assert result == date(2025, 6, 1)
@@ -1364,6 +1368,7 @@ class TestHandoffTrackerStopHook:
 
     def test_stop_hook_no_handoff(self, tmp_path, capsys):
         import asyncio
+
         from harness_skills.handoff import HandoffTracker
 
         tracker = HandoffTracker(
@@ -1377,7 +1382,13 @@ class TestHandoffTrackerStopHook:
 
     def test_stop_hook_with_handoff(self, tmp_path):
         import asyncio
-        from harness_skills.handoff import HandoffTracker, HandoffProtocol, HandoffDocument, SearchHints
+
+        from harness_skills.handoff import (
+            HandoffDocument,
+            HandoffProtocol,
+            HandoffTracker,
+            SearchHints,
+        )
 
         # Write a handoff file
         doc = HandoffDocument(
@@ -1411,7 +1422,7 @@ class TestHandoffAppendProgressLog:
 
     def test_append_progress_log_no_import(self, tmp_path):
         """When skills.progress_log is not importable, it's a no-op."""
-        from harness_skills.handoff import _append_progress_log_entry, HandoffDocument, SearchHints
+        from harness_skills.handoff import HandoffDocument, SearchHints, _append_progress_log_entry
 
         doc = HandoffDocument(
             session_id="s1",
@@ -1504,8 +1515,8 @@ class TestLoadAllGates:
         assert result[0].gate_id == "my_gate"
 
     def test_load_all_gates_merges_entry_points(self):
-        from harness_skills.plugins.loader import load_all_gates
         from harness_skills.plugins.gate_plugin import PluginGateConfig
+        from harness_skills.plugins.loader import load_all_gates
 
         # Mock discover_plugins to return a plugin with gate_config
         mock_cls = MagicMock()
@@ -1521,8 +1532,8 @@ class TestLoadAllGates:
         assert any(g.gate_id == "ep_gate" for g in result)
 
     def test_load_all_gates_skips_duplicate_from_entry_points(self):
-        from harness_skills.plugins.loader import load_all_gates
         from harness_skills.plugins.gate_plugin import PluginGateConfig
+        from harness_skills.plugins.loader import load_all_gates
 
         profile = {
             "gates": {
@@ -1545,6 +1556,7 @@ class TestLoadAllGates:
 
     def test_load_all_gates_entry_point_error_handled(self, caplog):
         import logging
+
         from harness_skills.plugins.loader import load_all_gates
 
         mock_cls = MagicMock()
@@ -1553,9 +1565,8 @@ class TestLoadAllGates:
         with patch(
             "harness_skills.plugins.discovery.discover_plugins",
             return_value={"broken_gate": mock_cls},
-        ):
-            with caplog.at_level(logging.WARNING, logger="harness_skills.plugins.loader"):
-                result = load_all_gates({})
+        ), caplog.at_level(logging.WARNING, logger="harness_skills.plugins.loader"):
+            result = load_all_gates({})
         assert result == []
 
     def test_load_all_gates_no_gate_config_attr(self):
@@ -1585,8 +1596,9 @@ class TestLoadAllGates:
 
     def test_load_all_gates_discovery_import_error(self):
         """Cover ImportError fallback when discovery module unavailable."""
-        from harness_skills.plugins import loader as loader_mod
         import builtins
+
+        from harness_skills.plugins import loader as loader_mod
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

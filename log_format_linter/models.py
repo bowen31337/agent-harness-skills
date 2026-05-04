@@ -12,14 +12,14 @@ Structured log pattern (required fields per log entry)
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class Language(str, Enum):
+class Language(StrEnum):
     """Source language of the scanned codebase."""
     PYTHON = "python"
     TYPESCRIPT = "typescript"
@@ -27,7 +27,7 @@ class Language(str, Enum):
     UNKNOWN = "unknown"
 
 
-class LogFramework(str, Enum):
+class LogFramework(StrEnum):
     """Logging framework / library detected in (or configured for) the codebase."""
     # Python
     PYTHON_LOGGING = "python_logging"
@@ -45,7 +45,7 @@ class LogFramework(str, Enum):
     UNKNOWN = "unknown"
 
 
-class ViolationSeverity(str, Enum):
+class ViolationSeverity(StrEnum):
     """Severity level attached to a linting violation."""
     ERROR = "error"
     WARNING = "warning"

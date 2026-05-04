@@ -39,18 +39,17 @@ from __future__ import annotations
 
 import os
 import sys
-import anyio
 
+import anyio
 from claude_agent_sdk import (
-    query,
     ClaudeAgentOptions,
     HookMatcher,
     ResultMessage,
     SystemMessage,
+    query,
 )
 
 from harness_tools.git_checkpoint import GitCheckpoint
-
 
 # ---------------------------------------------------------------------------
 # Configuration — override via environment variables
@@ -152,6 +151,7 @@ async def main() -> None:
 
 def _print_meta_summary(meta) -> None:  # type: ignore[no-untyped-def]
     import json
+
     from harness_tools.git_checkpoint import CheckpointMeta
     print("\n── Checkpoint metadata ───────────────────────────────────")
     print(json.dumps(meta.to_dict(), indent=2))

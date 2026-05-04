@@ -1,11 +1,14 @@
 """Plugin gate configuration and runner."""
 from __future__ import annotations
+
 import os
 import re
 import subprocess
 import time
 from typing import Literal, Optional
+
 from pydantic import BaseModel, ConfigDict, field_validator
+
 from harness_skills.models.base import GateResult, Status, Violation
 
 
@@ -23,7 +26,7 @@ class PluginGateConfig(BaseModel):
     @classmethod
     def validate_gate_id(cls, v: str) -> str:
         if not re.match(r"^[a-z][a-z0-9_]*$", v):
-            raise ValueError(f"gate_id must match ^[a-z][a-z0-9_]*$, got " + repr(v))
+            raise ValueError("gate_id must match ^[a-z][a-z0-9_]*$, got " + repr(v))
         return v
 
     @field_validator("gate_name")

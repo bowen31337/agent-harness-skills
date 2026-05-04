@@ -67,10 +67,10 @@ Exit codes
 from __future__ import annotations
 
 import ast
-import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
+import sys
 from typing import Optional
 
 try:
@@ -193,10 +193,10 @@ class Violation:
     principle_id: str
     severity: str          # "error" | "warning" | "info"
     message: str
-    file_path: Optional[str] = None
-    line_number: Optional[int] = None
-    suggestion: Optional[str] = None
-    rule_id: Optional[str] = None
+    file_path: str | None = None
+    line_number: int | None = None
+    suggestion: str | None = None
+    rule_id: str | None = None
 
 
 @dataclass
@@ -267,7 +267,7 @@ class PrinciplesGate:
                 print(f"  → {v.file_path}:{v.line_number}")
     """
 
-    def __init__(self, cfg: Optional[GateConfig] = None) -> None:
+    def __init__(self, cfg: GateConfig | None = None) -> None:
         self._cfg = cfg or GateConfig()
 
     # ------------------------------------------------------------------
@@ -678,13 +678,12 @@ def _scan_no_hardcoded_strings(
                         ):
                             is_constant_assignment = True
                             break
-                elif isinstance(parent_node, ast.AnnAssign):
-                    if (
-                        isinstance(parent_node.target, ast.Name)
-                        and _UPPER_SNAKE_RE.match(parent_node.target.id)
-                        and parent_node.value is node
-                    ):
-                        is_constant_assignment = True
+                elif isinstance(parent_node, ast.AnnAssign) and (
+                    isinstance(parent_node.target, ast.Name)
+                    and _UPPER_SNAKE_RE.match(parent_node.target.id)
+                    and parent_node.value is node
+                ):
+                    is_constant_assignment = True
                 if is_constant_assignment:
                     break
             if is_constant_assignment:
@@ -765,9 +764,8 @@ def _scan_variable_naming(
         # Track For-loop variables to exempt standard counters.
         loop_vars: set[str] = set()
         for node in ast.walk(tree):
-            if isinstance(node, ast.For):
-                if isinstance(node.target, ast.Name):
-                    loop_vars.add(node.target.id)
+            if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+                loop_vars.add(node.target.id)
 
         for node in ast.walk(tree):
             if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -1097,8 +1095,8 @@ def _render_text(result: GateResult) -> str:
 
 
 def _render_json(result: GateResult) -> str:
-    import json
     import dataclasses
+    import json
     data = {
         "passed": result.passed,
         "principles_loaded": result.principles_loaded,

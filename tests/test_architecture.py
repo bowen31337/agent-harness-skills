@@ -78,10 +78,9 @@ def _collect_imports(init_py: Path) -> list[str]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imported.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.level == 0:
-                # absolute import — include the full dotted module name
-                imported.append(node.module)
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            # absolute import — include the full dotted module name
+            imported.append(node.module)
     return imported
 
 

@@ -9,7 +9,6 @@ import pytest
 from harness_skills.plugins.gate_plugin import PluginGateConfig
 from harness_skills.plugins.loader import load_plugin_gates
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

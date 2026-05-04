@@ -36,7 +36,7 @@ class EvaluateResponse(HarnessResponse):
     )
 
     @model_validator(mode="after")
-    def _sync_gate_counts(self) -> "EvaluateResponse":
+    def _sync_gate_counts(self) -> EvaluateResponse:
         """Ensure aggregate counts match the gates list if both are provided."""
         if self.gates:
             by_status: dict[Status, int] = {s: 0 for s in Status}

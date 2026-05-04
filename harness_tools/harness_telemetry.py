@@ -41,12 +41,12 @@ CLI
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
+from datetime import UTC, datetime, timezone
 import json
+from pathlib import Path
 import re
 import sys
-from collections import defaultdict
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -360,7 +360,7 @@ def _empty_store() -> dict:
 
 
 def _iso_now() -> str:
-    return datetime.now(tz=timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(tz=UTC).isoformat(timespec="seconds")
 
 
 def _merge_counts(target: dict, source: dict) -> None:
@@ -436,9 +436,7 @@ def _output_indicates_failure(output: str) -> bool:
         if marker in output:
             return True
     # Also check for non-zero exit-code annotations some shells/wrappers emit.
-    if re.search(r"exit(?:ed)? (?:with )?(?:code )?[1-9]\d*", output, re.IGNORECASE):
-        return True
-    return False
+    return bool(re.search(r"exit(?:ed)? (?:with )?(?:code )?[1-9]\d*", output, re.IGNORECASE))
 
 
 def _discover_commands(cwd: Path) -> None:

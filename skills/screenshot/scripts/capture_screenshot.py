@@ -51,8 +51,8 @@ import base64
 import datetime
 import json
 import os
-import sys
 from pathlib import Path
+import sys
 
 # ---------------------------------------------------------------------------
 # Ensure project root is importable regardless of CWD.
@@ -102,7 +102,7 @@ _DEFAULT_OUT = Path(".artifacts") / "screenshots"
 
 
 def _make_filename(label: str, ext: str = "png") -> str:
-    ts = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    ts = datetime.datetime.now(tz=datetime.UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     safe_label = label.replace(" ", "-").replace("/", "-")
     return f"{safe_label}_{ts}.{ext}"
 
@@ -131,8 +131,9 @@ def capture_url_playwright(
 
 def capture_desktop_pillow() -> bytes:
     """Capture the full desktop using Pillow and return PNG bytes."""
-    from PIL import ImageGrab  # type: ignore
     import io
+
+    from PIL import ImageGrab  # type: ignore
 
     img = ImageGrab.grab()
     buf = io.BytesIO()
@@ -145,8 +146,8 @@ def capture_window_pillow(title_substr: str) -> bytes:
     import io
 
     try:
-        import pygetwindow as gw  # type: ignore
         from PIL import ImageGrab
+        import pygetwindow as gw  # type: ignore
 
         wins = gw.getWindowsWithTitle(title_substr)
         if not wins:
@@ -183,7 +184,7 @@ def _metadata_record(
         "filename": filename,
         "path": str(path) if path else None,
         "label": label,
-        "timestamp": datetime.datetime.now(tz=datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(tz=datetime.UTC).isoformat(),
         "size_bytes": size_bytes,
         "backend": backend,
         **(extra or {}),

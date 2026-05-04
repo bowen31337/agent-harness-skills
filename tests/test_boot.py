@@ -25,13 +25,13 @@ Test strategy
 
 from __future__ import annotations
 
-import subprocess
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
+import subprocess
 from unittest.mock import MagicMock, call, patch
+import urllib.error
+import urllib.request
 
 import pytest
 
@@ -49,7 +49,6 @@ from harness_skills.boot import (
     generate_boot_script,
     generate_health_check_spec,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
