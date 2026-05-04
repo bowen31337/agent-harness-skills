@@ -4,6 +4,13 @@ on:
   release:
     types: [published]
 
+# Opt every JavaScript-based action (checkout, setup-python, setup-uv, etc.)
+# into Node.js 24 ahead of GitHub's June-2026 forced migration. This silences
+# the "Node.js 20 actions are deprecated" warning without having to chase
+# per-action version bumps as upstream actions migrate at different paces.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   # ── Run full test matrix first — publish is blocked until all green ─────────
   test:
