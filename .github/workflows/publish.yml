@@ -34,18 +34,10 @@ jobs:
         run: uv run ruff check .
 
       - name: Test
-        # Skips:
-        #   tests/browser/                — Playwright e2e, not part of publish gate
-        #   tests/test_task_lock_async.py — needs pytest-asyncio config (tracked separately)
-        #   tests/test_telemetry.py       — needs event loop fixture (tracked separately)
+        # Skip tests/browser/ — Playwright e2e tests aren't part of the publish gate.
         # pytest-playwright is still installed (project dep), so the global
         # `--browser chromium` addopt in pyproject.toml is harmless for unit tests.
-        run: |
-          uv run pytest tests/ \
-            --ignore=tests/browser \
-            --ignore=tests/test_task_lock_async.py \
-            --ignore=tests/test_telemetry.py \
-            -q --tb=short
+        run: uv run pytest tests/ --ignore=tests/browser -q --tb=short
 
   # ── Build and publish — only runs when ALL test matrix jobs pass ────────────
   publish:

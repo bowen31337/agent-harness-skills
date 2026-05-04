@@ -88,7 +88,7 @@ class TestStateServiceLockClient:
         assert "StateServiceLockClient" in r
         assert "localhost:9999" in r
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_notify_acquire_success(self):
         lock = TaskLock(
             task_id="t1", agent_id="a1",
@@ -111,7 +111,7 @@ class TestStateServiceLockClient:
             result = await client.notify_acquire("t1", lock)
         assert result is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_notify_acquire_failure(self):
         lock = TaskLock(
             task_id="t1", agent_id="a1",
@@ -131,7 +131,7 @@ class TestStateServiceLockClient:
             result = await client.notify_acquire("t1", lock)
         assert result is False
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_notify_extend(self):
         lock = TaskLock(
             task_id="t1", agent_id="a1",
@@ -153,7 +153,7 @@ class TestStateServiceLockClient:
             result = await client.notify_extend("t1", lock)
         assert result is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_notify_release_done(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -169,7 +169,7 @@ class TestStateServiceLockClient:
             result = await client.notify_release("t1", "a1", outcome="done")
         assert result is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_notify_release_with_notes(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -187,7 +187,7 @@ class TestStateServiceLockClient:
             )
         assert result is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_lock_state_200(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -204,7 +204,7 @@ class TestStateServiceLockClient:
             result = await client.get_lock_state("t1")
         assert result == {"task_id": "t1", "agent_id": "a1"}
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_lock_state_404(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -220,7 +220,7 @@ class TestStateServiceLockClient:
             result = await client.get_lock_state("t1")
         assert result is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_lock_state_error(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -234,7 +234,7 @@ class TestStateServiceLockClient:
             result = await client.get_lock_state("t1")
         assert result is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_get_lock_state_non_2xx_raises(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -251,7 +251,7 @@ class TestStateServiceLockClient:
             result = await client.get_lock_state("t1")
         assert result is None
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_locks_success_dict_response(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -268,7 +268,7 @@ class TestStateServiceLockClient:
             result = await client.list_locks()
         assert result == [{"task_id": "t1"}]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_locks_success_list_response(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -285,7 +285,7 @@ class TestStateServiceLockClient:
             result = await client.list_locks()
         assert result == [{"task_id": "t1"}]
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_list_locks_error(self):
         client = StateServiceLockClient(state_url="http://localhost:9999")
 
@@ -328,19 +328,19 @@ class TestAsyncTaskLockProtocol:
             default_timeout_seconds=120,
         )
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_acquire_no_client(self, proto):
         lock = await proto.async_acquire("t1", "a1")
         assert lock is not None
         assert lock.task_id == "t1"
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_acquire_with_client(self, proto_with_client, mock_client):
         lock = await proto_with_client.async_acquire("t1", "a1")
         assert lock is not None
         mock_client.notify_acquire.assert_awaited_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_acquire_conflict_no_notify(self, proto_with_client, mock_client):
         await proto_with_client.async_acquire("t1", "a1")
         result = await proto_with_client.async_acquire("t1", "a2")
@@ -348,41 +348,41 @@ class TestAsyncTaskLockProtocol:
         # Only one acquire notification (for the first successful acquire)
         assert mock_client.notify_acquire.await_count == 1
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_release_no_client(self, proto):
         proto.acquire("t1", "a1")
         released = await proto.async_release("t1", "a1")
         assert released is True
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_release_with_client(self, proto_with_client, mock_client):
         await proto_with_client.async_acquire("t1", "a1")
         released = await proto_with_client.async_release("t1", "a1")
         assert released is True
         mock_client.notify_release.assert_awaited_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_release_always_notifies(self, proto_with_client, mock_client):
         """Even when no lock exists, the state service is still notified."""
         released = await proto_with_client.async_release("nonexistent", "a1")
         assert released is False
         mock_client.notify_release.assert_awaited_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_extend_no_client(self, proto):
         proto.acquire("t1", "a1", timeout_seconds=60)
         lock = await proto.async_extend("t1", "a1", additional_seconds=120)
         assert lock is not None
         assert lock.timeout_seconds == pytest.approx(180.0)
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_extend_with_client(self, proto_with_client, mock_client):
         await proto_with_client.async_acquire("t1", "a1")
         lock = await proto_with_client.async_extend("t1", "a1", additional_seconds=60)
         assert lock is not None
         mock_client.notify_extend.assert_awaited_once()
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_extend_no_lock(self, proto_with_client, mock_client):
         lock = await proto_with_client.async_extend("nonexistent", "a1", additional_seconds=60)
         assert lock is None
@@ -399,21 +399,21 @@ class TestAsyncTaskLockProtocol:
 
     # ── Async SDK hooks ──────────────────────────────────────────────────
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_acquire_hook(self, proto_with_client, mock_client):
         hook = proto_with_client.as_async_acquire_hook("t1", "a1")
         result = await hook({}, "tid", {})
         assert result == {}
         assert proto_with_client.is_locked("t1")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_acquire_hook_conflict(self, proto_with_client, mock_client):
         await proto_with_client.async_acquire("t1", "a1")
         hook = proto_with_client.as_async_acquire_hook("t1", "a2")
         with pytest.raises(LockConflictError):
             await hook({}, "tid", {})
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_release_hook(self, proto_with_client, mock_client):
         await proto_with_client.async_acquire("t1", "a1")
         hook = proto_with_client.as_async_release_hook("t1", "a1")
@@ -421,7 +421,7 @@ class TestAsyncTaskLockProtocol:
         assert result == {}
         assert not proto_with_client.is_locked("t1")
 
-    @pytest.mark.asyncio
+    @pytest.mark.anyio
     async def test_async_release_hook_no_lock(self, proto_with_client, mock_client):
         hook = proto_with_client.as_async_release_hook("t1", "a1")
         result = await hook({}, "tid", {})

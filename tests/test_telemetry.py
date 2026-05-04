@@ -35,7 +35,9 @@ from harness_skills.telemetry_reporter import build_report, render_report
 
 def _run(coro: Any) -> Any:
     """Run a coroutine synchronously inside tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    # asyncio.get_event_loop() no longer auto-creates a loop on Python 3.10+
+    # main thread; asyncio.run is the modern equivalent for one-shot execution.
+    return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------
