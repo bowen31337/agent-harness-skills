@@ -38,7 +38,10 @@ export default function Landing() {
 			<section className="max-w-4xl mx-auto px-6 py-20 text-center">
 				<h2 className="text-3xl font-bold gradient-text mb-6">Get Started</h2>
 				<div className="glass rounded-lg p-6 inline-block">
-					<code className="text-brand-cyan font-mono">uv add agent-harness-skills</code>
+					<code className="text-brand-cyan font-mono">pip install agent-harness-skills</code>
+					<div className="text-xs text-gray-500 mt-2">
+						or <code className="text-brand-cyan font-mono">uv add agent-harness-skills</code>
+					</div>
 				</div>
 				<div className="mt-8 flex gap-4 justify-center">
 					<a

@@ -8,6 +8,35 @@ import { features } from "../data/features";
 
 const cliFeatures = features.filter((f) => f.category === "cli");
 
+const installSnippet = `# Install from PyPI (the package is published as agent-harness-skills)
+$ pip install agent-harness-skills
+
+# Or, with uv:
+$ uv add agent-harness-skills
+
+# Verify the CLI is on your PATH:
+$ harness --help
+Usage: harness [OPTIONS] COMMAND [ARGS]...
+
+  Agent harness — quality gates, observability, and multi-agent
+  coordination for AI engineering workflows.
+
+Options:
+  --version   Show the version and exit.
+  --help      Show this message and exit.
+
+Commands:
+  audit              Score artifact freshness against current state
+  boot               Launch isolated app instance with health check
+  completion-report  Aggregate plan-completion status into a report
+  context            Provision agent context for the current task
+  …
+  (17 commands total — see below)
+
+# Optional extras:
+$ pip install "agent-harness-skills[dashboard]"   # numpy/scipy
+$ pip install "agent-harness-skills[languages]"   # tree-sitter parsers`;
+
 const tooManyCommands = `# Monday morning: what commands do I need again?
 
 $ ruff check .                    # lint Python
@@ -124,14 +153,32 @@ const commands: Command[] = [
 	{ name: "search", description: "Search symbol index across the codebase" },
 	{ name: "coordinate", description: "Cross-agent conflict detection and reordering" },
 	{ name: "audit", description: "Per-artifact freshness scoring" },
-	{ name: "handoff", description: "Generate context handoff for next agent" },
 	{ name: "telemetry", description: "Report utilization and effectiveness scores" },
-	{ name: "init", description: "Standalone shell script for non-CC environments" },
+	{ name: "completion-report", description: "Aggregate plan-completion status into a report" },
+	{ name: "manifest", description: "Validate harness_manifest.json against schema" },
 ];
 
 export default function CliPage() {
 	return (
 		<DeepDiveLayout categoryId="cli">
+			{/* Act 0: Install */}
+			<section className="mb-20">
+				<ScrollReveal>
+					<GlowBadge text="Install" color="green" />
+					<h2 className="text-2xl font-bold text-white mt-4 mb-3">
+						One pip install to get the <code className="text-brand-cyan">harness</code> CLI
+					</h2>
+					<p className="text-gray-400 mb-8 max-w-2xl">
+						The package is published on PyPI as{" "}
+						<code className="text-brand-cyan">agent-harness-skills</code> and registers a{" "}
+						<code className="text-brand-cyan">harness</code> entry point. Requires Python 3.12+.
+					</p>
+				</ScrollReveal>
+				<ScrollReveal delay={0.2}>
+					<CodeBlock code={installSnippet} lang="bash" filename="install.sh" />
+				</ScrollReveal>
+			</section>
+
 			{/* Act 1: The Problem */}
 			<section className="mb-20">
 				<ScrollReveal>
