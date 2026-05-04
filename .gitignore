@@ -86,6 +86,7 @@ Desktop.ini
 
 # --- Generated artifacts ---
 harness_symbols.json
+docs/harness-telemetry.json
 
 # --- Superpowers ---
 .superpowers/
