@@ -89,6 +89,7 @@ harness_symbols.json
 
 # --- Superpowers ---
 .superpowers/
+docs/superpowers/
 
 # --- Misc local / scratch ---
 *.log
