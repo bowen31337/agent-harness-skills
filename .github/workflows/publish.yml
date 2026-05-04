@@ -1,0 +1,65 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # ── Run full test matrix first — publish is blocked until all green ─────────
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev --python ${{ matrix.python-version }}
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test
+        # Skip tests/browser/ — Playwright e2e tests aren't part of the publish gate.
+        # pytest-playwright is still installed (project dep), so the global
+        # `--browser chromium` addopt in pyproject.toml is harmless for unit tests.
+        run: uv run pytest tests/ --ignore=tests/browser -q --tb=short
+
+  # ── Build and publish — only runs when ALL test matrix jobs pass ────────────
+  publish:
+    runs-on: ubuntu-latest
+    needs: [test]          # hard gate: publish never runs if any test job fails
+    environment: pypi
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync version from release tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          # Strip leading 'v' if present (v0.1.0a1 → 0.1.0a1)
+          VERSION="${TAG#v}"
+          echo "Release version: $VERSION"
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Build wheel + sdist
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish --token ${{ secrets.PYPI_TOKEN }}
