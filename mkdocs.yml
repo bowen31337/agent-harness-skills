@@ -10,10 +10,24 @@ theme:
 nav:
   - Home: index.md
   - CLI Commands:
-    # Per-command reference pages (cli/<cmd>.md) are not yet written —
-    # add nav entries here as those files land. For now the overview lists
-    # the full 17-command surface with one-liners.
     - Overview: cli/index.md
+    - harness audit: cli/audit.md
+    - harness boot: cli/boot.md
+    - harness completion-report: cli/completion-report.md
+    - harness context: cli/context.md
+    - harness coordinate: cli/coordinate.md
+    - harness create: cli/create.md
+    - harness evaluate: cli/evaluate.md
+    - harness lint: cli/lint.md
+    - harness manifest: cli/manifest.md
+    - harness observe: cli/observe.md
+    - harness plan: cli/plan.md
+    - harness resume: cli/resume.md
+    - harness screenshot: cli/screenshot.md
+    - harness search: cli/search.md
+    - harness status: cli/status.md
+    - harness telemetry: cli/telemetry.md
+    - harness update: cli/update.md
   - Agents Guide:
     - CLI Reference: agents/cli-commands.md
   - Architecture:
