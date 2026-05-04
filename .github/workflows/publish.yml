@@ -42,6 +42,7 @@ jobs:
     environment: pypi
     permissions:
       contents: read
+      id-token: write      # required: lets the runner mint the OIDC token PyPI verifies
 
     steps:
       - uses: actions/checkout@v4
@@ -61,5 +62,7 @@ jobs:
       - name: Build wheel + sdist
         run: uv build
 
-      - name: Publish to PyPI
-        run: uv publish --token ${{ secrets.PYPI_TOKEN }}
+      - name: Publish to PyPI (OIDC trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No token needed — the action exchanges the OIDC JWT for a
+        # short-lived PyPI upload session. Defaults to uploading ./dist/.
