@@ -1,6 +1,6 @@
 # Structured Logging & Observability — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 All log output must be **NDJSON** (one JSON object per line).  Every entry is validated
 by `log_format_linter`.  Observability tooling (Vector → Loki → Grafana) is provisioned

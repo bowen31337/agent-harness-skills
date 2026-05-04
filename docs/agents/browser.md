@@ -1,6 +1,6 @@
 # Browser Automation & DOM Snapshots — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 Two complementary tools are available: **`AgentDriver`** (full Playwright browser, for
 interactive e2e tests) and **`dom_snapshot_utility`** (browser-free HTML parser, for
@@ -148,4 +148,4 @@ Skill doc: `.claude/commands/dom-snapshot.md`
 - **DOM snapshot source** → `dom_snapshot_utility/snapshot.py`
 - **Playwright tests** → `tests/browser/`
 - **Test dom snapshot** → `tests/test_dom_snapshot.py`
-- **Architecture** → [ARCHITECTURE.md](../../ARCHITECTURE.md) (§ `dom_snapshot_utility`)
+- **Architecture** → [ARCHITECTURE.md](../ARCHITECTURE.md) (§ `dom_snapshot_utility`)

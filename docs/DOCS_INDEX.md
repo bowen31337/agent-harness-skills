@@ -15,8 +15,8 @@ artifact: docs-index
 
 | Document | Purpose |
 |---|---|
-| [AGENTS.md](../AGENTS.md) | Browser automation quick-start, screenshot helpers, e2e test runner |
-| [CLAUDE.md](../CLAUDE.md) | Project stack, build/test commands, claw-forge agent notes |
+| [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md) | Browser automation quick-start, screenshot helpers, e2e test runner |
+| [CLAUDE.md](https://github.com/bowen31337/agent-harness-skills/blob/main/CLAUDE.md) | Project stack, build/test commands, claw-forge agent notes |
 
 ---
 
@@ -96,83 +96,83 @@ artifact: docs-index
 
 | Skill | Purpose |
 |---|---|
-| [`/agents-md`](../.claude/commands/agents-md.md) | Cross-link all generated docs (this index was created by this skill) |
-| [`/check-code`](../.claude/commands/check-code.md) | Run linters, type checker, tests, and enforce principles |
-| [`/review-pr`](../.claude/commands/review-pr.md) | Review a PR against principles and module boundaries |
-| [`/checkpoint`](../.claude/commands/checkpoint.md) | Git commit + state snapshot before risky operations |
-| [`/module-boundaries`](../.claude/commands/module-boundaries.md) | Scan packages, enforce `__all__`, write MB* principles |
-| [`/define-principles`](../.claude/commands/define-principles.md) | Generate or refresh PRINCIPLES.md |
+| [`/agents-md`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/agents-md.md) | Cross-link all generated docs (this index was created by this skill) |
+| [`/check-code`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/check-code.md) | Run linters, type checker, tests, and enforce principles |
+| [`/review-pr`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/review-pr.md) | Review a PR against principles and module boundaries |
+| [`/checkpoint`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/checkpoint.md) | Git commit + state snapshot before risky operations |
+| [`/module-boundaries`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/module-boundaries.md) | Scan packages, enforce `__all__`, write MB* principles |
+| [`/define-principles`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/define-principles.md) | Generate or refresh PRINCIPLES.md |
 
 ### Browser & Observability
 
 | Skill | Purpose |
 |---|---|
-| [`/browser-automation`](../.claude/commands/browser-automation.md) | Set up Playwright browser automation |
-| [`/harness:screenshot`](../.claude/commands/harness/screenshot.md) | Capture browser screenshots |
-| [`/harness:observe`](../.claude/commands/harness/observe.md) | Tail and filter structured logs |
-| [`/dom-snapshot`](../.claude/commands/dom-snapshot.md) | Extract DOM snapshot for inspection |
+| [`/browser-automation`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/browser-automation.md) | Set up Playwright browser automation |
+| [`/harness:screenshot`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/screenshot.md) | Capture browser screenshots |
+| [`/harness:observe`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/observe.md) | Tail and filter structured logs |
+| [`/dom-snapshot`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/dom-snapshot.md) | Extract DOM snapshot for inspection |
 
 ### Planning & Execution
 
 | Skill | Purpose |
 |---|---|
-| [`/execution-plans`](../.claude/commands/execution-plans.md) | Create and manage execution plans |
-| [`/harness:context`](../.claude/commands/harness/context.md) | Build minimal context manifest for a plan or domain |
-| [`/harness:evaluate`](../.claude/commands/harness/evaluate.md) | Run all evaluation gates; regenerate EVALUATION.md |
-| [`/harness:status`](../.claude/commands/harness/status.md) | Show current harness status |
-| [`/coordinate`](../.claude/commands/coordinate.md) | Cross-agent task conflict dashboard |
-| [`/context-handoff`](../.claude/commands/context-handoff.md) | Write or resume a session handoff |
-| [`/harness:resume`](../.claude/commands/harness/resume.md) | Resume from a previous agent session |
+| [`/execution-plans`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/execution-plans.md) | Create and manage execution plans |
+| [`/harness:context`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/context.md) | Build minimal context manifest for a plan or domain |
+| [`/harness:evaluate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/evaluate.md) | Run all evaluation gates; regenerate EVALUATION.md |
+| [`/harness:status`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/status.md) | Show current harness status |
+| [`/coordinate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/coordinate.md) | Cross-agent task conflict dashboard |
+| [`/context-handoff`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/context-handoff.md) | Write or resume a session handoff |
+| [`/harness:resume`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/resume.md) | Resume from a previous agent session |
 
 ### Specifications & Standards
 
 | Skill | Purpose |
 |---|---|
-| [`/logging-convention`](../.claude/commands/logging-convention.md) | Generate SPEC.md (logging convention) |
-| [`/log-format-linter`](../.claude/commands/log-format-linter.md) | Lint structured log files against SPEC.md |
-| [`/health-check-endpoint`](../.claude/commands/health-check-endpoint.md) | Generate HEALTH_CHECK_SPEC.md |
-| [`/create-spec`](../.claude/commands/create-spec.md) | Create a project specification (XML) |
-| [`/detect-api-style`](../.claude/commands/detect-api-style.md) | Detect REST / GraphQL / gRPC API style |
+| [`/logging-convention`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/logging-convention.md) | Generate SPEC.md (logging convention) |
+| [`/log-format-linter`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/log-format-linter.md) | Lint structured log files against SPEC.md |
+| [`/health-check-endpoint`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/health-check-endpoint.md) | Generate HEALTH_CHECK_SPEC.md |
+| [`/create-spec`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/create-spec.md) | Create a project specification (XML) |
+| [`/detect-api-style`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/detect-api-style.md) | Detect REST / GraphQL / gRPC API style |
 
 ### Quality Gates
 
 | Skill | Purpose |
 |---|---|
-| [`/harness:coverage-gate`](../.claude/commands/harness/coverage-gate.md) | Evaluate test coverage gate |
-| [`/harness:lint`](../.claude/commands/harness/lint.md) | Run harness lint checks |
-| [`/type-safety-gate`](../.claude/commands/type-safety-gate.md) | Enforce type annotation completeness |
-| [`/harness:security-check-gate`](../.claude/commands/harness/security-check-gate.md) | Run security checks |
-| [`/harness:principles-gate`](../.claude/commands/harness/principles-gate.md) | Verify principles compliance |
-| [`/doc-freshness-gate`](../.claude/commands/doc-freshness-gate.md) | Check documentation freshness |
-| [`/harness:docs-freshness`](../.claude/commands/harness/docs-freshness.md) | Harness docs freshness gate |
+| [`/harness:coverage-gate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/coverage-gate.md) | Evaluate test coverage gate |
+| [`/harness:lint`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/lint.md) | Run harness lint checks |
+| [`/type-safety-gate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/type-safety-gate.md) | Enforce type annotation completeness |
+| [`/harness:security-check-gate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/security-check-gate.md) | Run security checks |
+| [`/harness:principles-gate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/principles-gate.md) | Verify principles compliance |
+| [`/doc-freshness-gate`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/doc-freshness-gate.md) | Check documentation freshness |
+| [`/harness:docs-freshness`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/docs-freshness.md) | Harness docs freshness gate |
 
 ### Infrastructure & Lifecycle
 
 | Skill | Purpose |
 |---|---|
-| [`/harness:boot`](../.claude/commands/harness/boot.md) | Boot agent instance in isolated worktree |
-| [`/harness:create`](../.claude/commands/harness/create.md) | Create a new harness task |
-| [`/harness:update`](../.claude/commands/harness/update.md) | Update harness task state |
-| [`/harness:handoff`](../.claude/commands/harness/handoff.md) | Structured handoff between agent sessions |
-| [`/harness:task-lock`](../.claude/commands/harness/task-lock.md) | Acquire or release a task lock |
-| [`/harness:shared-state`](../.claude/commands/harness/shared-state.md) | Read / write shared agent state |
-| [`/harness:telemetry`](../.claude/commands/harness/telemetry.md) | Emit and query harness telemetry |
-| [`/harness:performance`](../.claude/commands/harness/performance.md) | Run performance benchmarks |
-| [`/harness:completion-report`](../.claude/commands/harness/completion-report.md) | Generate task completion report |
-| [`/harness:effectiveness`](../.claude/commands/harness/effectiveness.md) | Effectiveness dashboard |
-| [`/harness:detect-stale`](../.claude/commands/harness/detect-stale.md) | Detect stale execution plans |
-| [`/harness:error-aggregation`](../.claude/commands/harness/error-aggregation.md) | Aggregate and query error logs |
-| [`/harness-init`](../.claude/commands/harness-init.md) | Initialise a new harness project |
-| [`/harness-changelog`](../.claude/commands/harness-changelog.md) | Update the harness changelog |
-| [`/progress-log`](../.claude/commands/progress-log.md) | Append to the execution progress log |
-| [`/observability`](../.claude/commands/observability.md) | Observability stack setup |
-| [`/harness:observability`](../.claude/commands/harness/observability.md) | Harness observability configuration |
-| [`/ci-pipeline`](../.claude/commands/ci-pipeline.md) | CI pipeline integration |
-| [`/expand-project`](../.claude/commands/expand-project.md) | Expand project scaffolding |
-| [`/pool-status`](../.claude/commands/pool-status.md) | Agent pool status |
-| [`/claw-forge-status`](../.claude/commands/claw-forge-status.md) | claw-forge orchestrator status |
-| [`/create-bug-report`](../.claude/commands/create-bug-report.md) | Create structured bug report |
+| [`/harness:boot`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/boot.md) | Boot agent instance in isolated worktree |
+| [`/harness:create`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/create.md) | Create a new harness task |
+| [`/harness:update`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/update.md) | Update harness task state |
+| [`/harness:handoff`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/handoff.md) | Structured handoff between agent sessions |
+| [`/harness:task-lock`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/task-lock.md) | Acquire or release a task lock |
+| [`/harness:shared-state`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/shared-state.md) | Read / write shared agent state |
+| [`/harness:telemetry`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/telemetry.md) | Emit and query harness telemetry |
+| [`/harness:performance`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/performance.md) | Run performance benchmarks |
+| [`/harness:completion-report`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/completion-report.md) | Generate task completion report |
+| [`/harness:effectiveness`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/effectiveness.md) | Effectiveness dashboard |
+| [`/harness:detect-stale`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/detect-stale.md) | Detect stale execution plans |
+| [`/harness:error-aggregation`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/error-aggregation.md) | Aggregate and query error logs |
+| [`/harness-init`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness-init.md) | Initialise a new harness project |
+| [`/harness-changelog`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness-changelog.md) | Update the harness changelog |
+| [`/progress-log`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/progress-log.md) | Append to the execution progress log |
+| [`/observability`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/observability.md) | Observability stack setup |
+| [`/harness:observability`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/harness/observability.md) | Harness observability configuration |
+| [`/ci-pipeline`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/ci-pipeline.md) | CI pipeline integration |
+| [`/expand-project`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/expand-project.md) | Expand project scaffolding |
+| [`/pool-status`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/pool-status.md) | Agent pool status |
+| [`/claw-forge-status`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/claw-forge-status.md) | claw-forge orchestrator status |
+| [`/create-bug-report`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/create-bug-report.md) | Create structured bug report |
 
 ---
 
-*Generated by [`/agents-md`](../.claude/commands/agents-md.md) on 2026-03-25. Re-run to refresh after adding new documents or skills.*
+*Generated by [`/agents-md`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/agents-md.md) on 2026-03-25. Re-run to refresh after adding new documents or skills.*

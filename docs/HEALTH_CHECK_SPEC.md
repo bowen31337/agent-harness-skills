@@ -2,7 +2,7 @@
 
 > **Version:** 1.0
 > **Audience:** Application developers and harness agents
-> **Schema:** [`harness_skills/schemas/health_check_response.schema.json`](../harness_skills/schemas/health_check_response.schema.json)
+> **Schema:** [`harness_skills/schemas/health_check_response.schema.json`](https://github.com/bowen31337/agent-harness-skills/blob/main/harness_skills/schemas/health_check_response.schema.json)
 
 ---
 

@@ -1,6 +1,6 @@
 # Multi-Agent Coordination — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 This project uses four complementary mechanisms so agents can work in parallel without
 stepping on each other: **handoff**, **task locking**, **shared state**, and
@@ -167,4 +167,4 @@ Skill: `.claude/commands/harness/boot.md`.
 - **Coordinate script** → `coordinate.py` (multi-agent dashboard)
 - **Context handoff skill** → `.claude/commands/context-handoff.md`
 - **Execution plans** → `.claude/commands/execution-plans.md`
-- **Architecture** → [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Architecture** → [ARCHITECTURE.md](../ARCHITECTURE.md)

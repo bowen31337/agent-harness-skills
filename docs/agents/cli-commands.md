@@ -1,6 +1,6 @@
 # CLI Commands — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 The `harness` CLI is the primary interface for creating, evaluating, and inspecting
 harness artefacts.  All sub-commands are implemented under `harness_skills/cli/` and
@@ -127,4 +127,4 @@ from harness_skills.models import (
 - **Full model reference** → `harness_skills/models/` source directory
 - **Config YAML schema** → `harness.config.yaml` (16 KB annotated reference)
 - **Skill docs** → `.claude/commands/harness/create.md`, `evaluate.md`, `lint.md`, etc.
-- **Architecture** → [ARCHITECTURE.md](../../ARCHITECTURE.md) (dependency graph)
+- **Architecture** → [ARCHITECTURE.md](../ARCHITECTURE.md) (dependency graph)

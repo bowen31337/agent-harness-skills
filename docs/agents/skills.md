@@ -1,6 +1,6 @@
 # Skills Catalog — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 Skills are Claude Code slash-commands defined as Markdown files under `.claude/commands/`.
 Invoke them with `/skill-name` in Claude Code, or call them programmatically via the
@@ -112,4 +112,4 @@ To see which skills are active for the current task:
 - **Harness init (full bootstrap)** → `.claude/commands/harness-init.md` (893 lines)
 - **Skill principles** → `.claude/principles.yaml` (45 KB, 5 major categories)
 - **claw-forge config** → `claw-forge.yaml`
-- **Architecture** → [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Architecture** → [ARCHITECTURE.md](../ARCHITECTURE.md)

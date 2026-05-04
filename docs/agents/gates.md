@@ -1,6 +1,6 @@
 # Evaluation Gates — agent-harness-skills
 
-← [AGENTS.md](../../AGENTS.md)
+← [AGENTS.md](https://github.com/bowen31337/agent-harness-skills/blob/main/AGENTS.md)
 
 Gates are pass/fail checks that run during `harness evaluate`.  Each gate emits a
 `GateResult` (with `rule_id`, `severity`, zero or more `Violation` objects, and a boolean
@@ -138,4 +138,4 @@ from harness_skills.gates.coverage import CoverageGate
 - **Security gate skill** → `.claude/commands/harness/security-check-gate.md`
 - **Performance gate skill** → `.claude/commands/harness/performance.md`
 - **Full evaluate skill** → `.claude/commands/harness/evaluate.md`
-- **Architecture / boundary graph** → [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- **Architecture / boundary graph** → [ARCHITECTURE.md](../ARCHITECTURE.md)

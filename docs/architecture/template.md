@@ -1,6 +1,6 @@
 # ADR-NNNN: [Short Title of the Decision]
 
-> **Status:** Draft | Proposed | Accepted | Deprecated | Superseded by [ADR-XXXX](adr/XXXX-successor.md)
+> **Status:** Draft | Proposed | Accepted | Deprecated | Superseded by ADR-XXXX (replace with link, e.g. `[ADR-0042](adr/0042-replace-foo-with-bar.md)`)
 > **Date:** YYYY-MM-DD
 > **Deciders:** <!-- list names or roles, e.g. "Backend team", "@alice, @bob" -->
 > **Tags:** <!-- optional: e.g. testing, infrastructure, api-design -->
@@ -100,5 +100,5 @@ Optional. Any guidance for how to implement the decision:
 Optional. External links, RFCs, papers, prior art, related ADRs.
 -->
 
-- [Related ADR](adr/NNNN-related.md)
-- [Relevant issue / PR](#)
+- Related ADR — link to `adr/NNNN-related.md` (use the actual filename)
+- Relevant issue / PR — link to the GitHub issue or PR
