@@ -88,6 +88,10 @@ Desktop.ini
 harness_symbols.json
 docs/harness-telemetry.json
 
+# mkdocs build output — written by `mkdocs build` / `mkdocs serve`.
+# The canonical published copy is built by CI; never commit this directory.
+site/
+
 # --- Superpowers ---
 .superpowers/
 docs/superpowers/
