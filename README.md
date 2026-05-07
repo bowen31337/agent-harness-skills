@@ -131,7 +131,7 @@ Claude Code natively loads `.claude/commands/` as slash commands. This is the **
 > /harness:handoff             # Write a handoff document for the next agent
 > /check-code                  # Scan for module boundary violations
 > /browser-automation          # Set up Playwright + AgentDriver
-> /create-spec                 # Generate an XML project specification
+> /create-spec                 # Generate a plugin-shape-aware XML project spec
 ```
 
 **Use the harness CLI directly:**
@@ -405,7 +405,7 @@ docs/exec-plans/perf-timers.json   # Performance timer state
 | `observability` | Vector / Loki / Grafana stack |
 | `check-code` | Module boundary violation scan |
 | `coordinate` | Multi-agent conflict dashboard |
-| `create-spec` | XML project specification |
+| `create-spec` | Plugin-shape-aware XML project specification (`shape="plugin"` / `shape="core"`) |
 | `define-principles` | Golden rules management |
 | `logging-convention` | Structured logging spec generator |
 | `review-pr` | Pull request review |

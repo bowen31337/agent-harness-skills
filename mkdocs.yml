@@ -30,8 +30,10 @@ nav:
     - harness update: cli/update.md
   - Agents Guide:
     - CLI Reference: agents/cli-commands.md
-  - Architecture:
-    - Decision Records: architecture/README.md
+  - Architecture Decision Records:
+    - Index: design-docs/README.md
+    - Template: design-docs/template.md
+    - "ADR-0001 — Playwright": design-docs/adr/0001-adopt-playwright-for-browser-testing.md
 
 markdown_extensions:
   - admonition

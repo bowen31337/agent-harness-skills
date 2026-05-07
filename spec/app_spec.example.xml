@@ -51,7 +51,7 @@
 
   <core_features>
     <!--
-      Each bullet = one agent task.
+      Each bullet (or <feature> element) = one agent task.
       Start with action verb: "User can...", "System displays...", "API returns..."
       Group by category using <category name="..."> tags.
       Aim for 100-300 bullets total for a full app.
@@ -60,16 +60,37 @@
       The name attribute becomes the task category shown in the Kanban board.
       Never use bare snake_case tags like <authentication> or <core_functionality> —
       those are the old format and won't render category names correctly.
+
+      Plugin-shape awareness (optional, recommended for parallel-safe dispatch):
+        <feature index="N" shape="plugin" plugin="auth">
+          <description>...</description>
+        </feature>
+      Or for cross-cutting features that touch shared infrastructure:
+        <feature index="N" shape="core" touches_files="src/core/middleware/jwt.py">
+          <description>...</description>
+        </feature>
+      Bullet form and <feature> elements coexist within the same <category>.
+      See .claude/commands/create-spec.md → Phase 3.25 for the rubric.
     -->
     <category name="Authentication &amp; User Management">
-      - User can register with email and password (returns 201 with user_id)
+      <!--
+        Plugin-shape feature: lives in src/plugins/auth/, parallel-safe with
+        any feature in a different plugin.  index="1" lets feature #2 declare
+        depends_on="1" to enforce intra-plugin ordering.
+      -->
+      <feature index="1" shape="plugin" plugin="auth">
+        <description>User can register with email and password (returns 201 with user_id)</description>
+      </feature>
+      <feature index="2" shape="plugin" plugin="auth" depends_on="1">
+        <description>User can login and receive JWT access_token (15 min) and refresh_token (7 day)</description>
+      </feature>
+
+      <!-- Bullets still work for features without ordering or shape needs. -->
       - System validates email format and rejects duplicates with 409 error
       - System hashes passwords using bcrypt before storing in database
-      - User can login and receive JWT access_token (15 min) and refresh_token (7 day)
       - System returns 401 with "Invalid credentials" on failed login
       - User can logout and system invalidates refresh_token
       - System auto-refreshes access_token using refresh_token when it expires
-      - System returns 401 on all protected endpoints when token is missing or expired
       - User can view their profile: display name, email, account creation date
       - User can update their display name from the profile settings page
       - User can change password by providing current password and new password
@@ -94,9 +115,23 @@
     </category>
 
     <category name="API Layer">
-      - API returns consistent JSON envelope: { "data": ..., "error": null, "status": 200 }
+      <!--
+        Core-shape features: cross-cutting concerns that edit files every
+        plugin's request path uses (middleware, error envelope).  The
+        scheduler serializes these single-flight, so two shape="core"
+        tasks never run in parallel even if their touches_files don't
+        overlap on paper.
+      -->
+      <feature index="20" shape="core"
+               touches_files="src/core/middleware/jwt.py">
+        <description>API requires valid JWT for all protected routes (returns 401 if missing or expired)</description>
+      </feature>
+      <feature index="21" shape="core"
+               touches_files="src/core/errors/envelope.py">
+        <description>API returns consistent JSON envelope: { "data": ..., "error": null, "status": 200 }</description>
+      </feature>
+
       - API validates all request bodies with Pydantic v2 and returns 400 with field-level errors
-      - API requires valid JWT for all protected routes (returns 401 if missing or expired)
       - API returns paginated results: { "items": [...], "total": N, "page": 1, "per_page": 20, "has_next": true }
       - API returns 403 if authenticated user attempts to access another user's resource
       - API returns 500 with unique error_id for unexpected server errors

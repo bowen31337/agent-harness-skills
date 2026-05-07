@@ -147,8 +147,17 @@ examples/ (runnable demos; run from repo root)
 
 spec/ (XML + text specifications)
 ├── app_spec.txt
-├── app_spec.example.xml
+├── app_spec.example.xml          ──► greenfield template; demonstrates plugin-shape <feature> form
 └── logging_convention_spec.txt
+
+skills/ (templates referenced by /create-spec and other slash commands)
+└── app_spec.brownfield.template.xml   plugin-shape-aware brownfield template; <feature shape="plugin"|"core">
+
+The /create-spec slash command (.claude/commands/create-spec.md) classifies each
+feature as shape="plugin" (vertical, lives in plugins/<name>/, parallel-safe) or
+shape="core" (cross-cutting, serialized single-flight by the dispatcher).  See
+the skill body for Phase 3.25 (Architectural Shape) and Phase 3.5 (Overlap
+Analysis).
 
 Standalone (no local deps)
 ├── dom_snapshot_utility

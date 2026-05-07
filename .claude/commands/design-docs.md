@@ -1,6 +1,6 @@
 # Design Docs
 
-Scaffold the `docs/architecture/` directory structure for Architectural Decision Records (ADRs)
+Scaffold the `docs/design-docs/` directory structure for Architectural Decision Records (ADRs)
 and broader design documents. Safe to re-run — existing files are never overwritten.
 
 ---
@@ -18,14 +18,14 @@ and broader design documents. Safe to re-run — existing files are never overwr
 ### Step 1: Check for an existing structure
 
 ```bash
-ls docs/architecture/ 2>/dev/null && echo "__EXISTS__" || echo "__MISSING__"
+ls docs/design-docs/ 2>/dev/null && echo "__EXISTS__" || echo "__MISSING__"
 ```
 
-If `docs/architecture/` already exists, print:
+If `docs/design-docs/` already exists, print:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  docs/architecture/ already present — skipping scaffold.
+  docs/design-docs/ already present — skipping scaffold.
   Run with --force to overwrite existing files.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -38,13 +38,13 @@ files that already exist unless `--force` was passed).
 ### Step 2: Create the directory skeleton
 
 ```bash
-mkdir -p docs/architecture/adr
-mkdir -p docs/architecture/drafts
+mkdir -p docs/design-docs/adr
+mkdir -p docs/design-docs/drafts
 ```
 
 ---
 
-### Step 3: Write `docs/architecture/README.md`
+### Step 3: Write `docs/design-docs/README.md`
 
 Create the file with this exact content (substitute `<PROJECT_NAME>` with the name
 found in `pyproject.toml`, `package.json`, or the repository root directory name):
@@ -65,7 +65,7 @@ accepted), and stored alongside the code they describe.
 ## Directory Structure
 
 ```
-docs/architecture/
+docs/design-docs/
 ├── README.md               ← You are here
 ├── template.md             ← Copy this to start a new ADR
 ├── adr/                    ← Accepted/superseded ADRs (numbered)
@@ -92,7 +92,7 @@ Draft → Proposed → Accepted → Deprecated / Superseded
 
 1. Copy `template.md` into `adr/` with the next sequential number and a short slug:
    ```bash
-   cp docs/architecture/template.md docs/architecture/adr/0002-my-decision.md
+   cp docs/design-docs/template.md docs/design-docs/adr/0002-my-decision.md
    ```
 2. Fill in every section of the template.
 3. Set **Status** to `Draft`, then `Proposed` when ready for review.
@@ -108,7 +108,7 @@ Draft → Proposed → Accepted → Deprecated / Superseded
 
 ---
 
-### Step 4: Write `docs/architecture/template.md`
+### Step 4: Write `docs/design-docs/template.md`
 
 Create the file with this exact content:
 
@@ -226,11 +226,11 @@ Optional. External links, RFCs, papers, prior art, related ADRs.
 Git does not track empty directories. Add a `.gitkeep` to each:
 
 ```bash
-touch docs/architecture/adr/.gitkeep
-touch docs/architecture/drafts/.gitkeep
+touch docs/design-docs/adr/.gitkeep
+touch docs/design-docs/drafts/.gitkeep
 ```
 
-> **Note:** If `docs/architecture/adr/` already contains at least one `.md` file,
+> **Note:** If `docs/design-docs/adr/` already contains at least one `.md` file,
 > skip creating `.gitkeep` there.
 
 ---
@@ -238,7 +238,7 @@ touch docs/architecture/drafts/.gitkeep
 ### Step 6: Stage the new files
 
 ```bash
-git add docs/architecture/
+git add docs/design-docs/
 ```
 
 Do **not** commit automatically — let the engineer review and commit with their
@@ -250,18 +250,18 @@ preferred message or via `/checkpoint`.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  ✅ docs/architecture/ scaffolded
+  ✅ docs/design-docs/ scaffolded
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Created:
-    docs/architecture/README.md      ← ADR process overview & conventions
-    docs/architecture/template.md    ← Copy this for every new ADR
-    docs/architecture/adr/           ← Accepted & superseded decisions live here
-    docs/architecture/drafts/        ← Work-in-progress ADRs live here
+    docs/design-docs/README.md      ← ADR process overview & conventions
+    docs/design-docs/template.md    ← Copy this for every new ADR
+    docs/design-docs/adr/           ← Accepted & superseded decisions live here
+    docs/design-docs/drafts/        ← Work-in-progress ADRs live here
 
   Next steps:
     1. Write your first ADR:
-         cp docs/architecture/template.md docs/architecture/adr/0001-<slug>.md
+         cp docs/design-docs/template.md docs/design-docs/adr/0001-<slug>.md
     2. Fill in every section, then set Status → Proposed.
     3. After team review, set Status → Accepted and open a PR.
 

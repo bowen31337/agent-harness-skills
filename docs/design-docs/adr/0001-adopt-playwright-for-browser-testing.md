@@ -101,4 +101,4 @@ We will use **Playwright** (via `pytest-playwright`) as the primary browser auto
 
 - [Playwright Python docs](https://playwright.dev/python/)
 - [pytest-playwright](https://pypi.org/project/pytest-playwright/)
-- [Project CLAUDE.md](../../CLAUDE.md)
+- [Project CLAUDE.md](https://github.com/bowen31337/agent-harness-skills/blob/main/CLAUDE.md)

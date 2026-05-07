@@ -1,0 +1,118 @@
+<!-- claw-forge Brownfield Addition Spec -->
+<!-- Use this template to describe features you want to ADD to an existing project. -->
+<!-- Generate via /create-spec, then run: claw-forge add  spec=additions_spec.xml -->
+<!--
+  Plugin-shape awareness (declare each feature's architectural shape):
+    shape="plugin"  → vertical, lives under src/plugins/<plugin>/.  The dispatcher
+                       auto-derives touches_files from the plugin name and runs
+                       these features in parallel without merge conflicts.
+                       Pair with plugin="<name>".
+    shape="core"    → cross-cutting (middleware, error envelope, db schema, etc).
+                       Touches files used by every plugin's request path; the
+                       scheduler serializes these single-flight.
+                       Pair with touches_files="<comma-separated paths>".
+    shape omitted   → legacy / unclassified.  No file-claim locking is attempted
+                       and no parallelism guarantee is given.
+
+  See .claude/commands/create-spec.md → Phase 3.25 for the full classification rubric.
+-->
+
+<project_specification mode="brownfield">
+  <project_name>Your Project — Feature Name</project_name>
+  <addition_summary>
+    One paragraph describing what you're adding and why.
+  </addition_summary>
+
+  <existing_context>
+    <!-- Auto-populated by /create-spec when brownfield_manifest.json exists. -->
+    <!-- Or fill in manually. -->
+    <stack>Language / Framework / Database</stack>
+    <test_baseline>N tests passing, X% coverage</test_baseline>
+    <conventions>naming style, error handling, logging approach</conventions>
+    <!--
+      If `claw-forge boundaries audit` produced a boundaries_report.md with
+      score >= 5.0 hotspots, list them here as a heads-up to the dispatcher.
+      Hotspots block plugin-shape features from landing cleanly until refactored.
+    -->
+    <!-- <boundaries_hotspots>cli/main.py (score=8.4, pattern=registry)</boundaries_hotspots> -->
+  </existing_context>
+
+  <features_to_add>
+    <!--
+      Group features by category.  Each <feature> element becomes one agent task.
+      Use index="N" so other features can depend_on it.
+
+      Plugin-shape example: 5 features in a payments plugin, all parallel-safe
+      with each other and with features in OTHER plugins.  Intra-plugin ordering
+      is enforced via depends_on.
+    -->
+    <category name="Payments">
+      <feature index="1" shape="plugin" plugin="payments">
+        <description>User can add a payment method via Stripe Elements</description>
+      </feature>
+      <feature index="2" shape="plugin" plugin="payments" depends_on="1">
+        <description>User can subscribe to Pro plan via Stripe Checkout</description>
+      </feature>
+      <feature index="3" shape="plugin" plugin="payments">
+        <description>System creates Stripe customer on first payment attempt</description>
+      </feature>
+      <feature index="4" shape="plugin" plugin="payments" depends_on="2">
+        <description>Webhook handler processes subscription.created events</description>
+      </feature>
+      <feature index="5" shape="plugin" plugin="payments">
+        <description>User can access billing portal to manage subscription</description>
+      </feature>
+
+      <!--
+        Core-shape example: edits a file every plugin uses (the User model).
+        Scheduler serializes shape="core" tasks single-flight, so this can't
+        race with anything else.  touches_files MUST list every file the
+        agent will modify.
+      -->
+      <feature index="6" shape="core"
+               touches_files="src/core/db/models/user.py">
+        <description>Extends User model with stripe_customer_id field</description>
+      </feature>
+    </category>
+
+    <!--
+      You can also use a <category> with bullet-form features for legacy / quick
+      additions where you don't need shape attributes.  Bullets and <feature>
+      elements coexist within the same spec.
+
+    <category name="Quick Notes">
+      - User can leave a one-line note on any item
+      - System truncates notes longer than 280 characters
+    </category>
+    -->
+  </features_to_add>
+
+  <integration_points>
+    <!-- Where does new code hook into existing code? -->
+    <!-- Example: Extends User model with stripe_customer_id field -->
+    <!-- Example: Adds /payments router to existing FastAPI app -->
+  </integration_points>
+
+  <constraints>
+    <!-- What must NOT change? -->
+    <!-- Example: Must not modify existing auth flow -->
+    <!-- Example: All existing tests must stay green -->
+    <!-- Example: Follow existing async handler pattern in routers/ -->
+  </constraints>
+
+  <implementation_steps>
+    <phase name="Phase 1 Name">
+      Feature one in this phase
+      Feature two in this phase
+    </phase>
+    <phase name="Phase 2 Name">
+      Feature three
+    </phase>
+  </implementation_steps>
+
+  <success_criteria>
+    All new features implemented and tested
+    Existing test suite still 100% green
+    Coverage maintained above X%
+  </success_criteria>
+</project_specification>

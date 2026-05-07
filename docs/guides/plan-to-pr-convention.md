@@ -205,9 +205,9 @@ human override to merge.
 | Document | Relationship |
 |---|---|
 | [../PRINCIPLES.md](../PRINCIPLES.md) | rules §10 that formalise this convention |
-| [exec-plans/progress.md](exec-plans/progress.md) | live plan progress log |
-| [../.claude/commands/execution-plans.md](../.claude/commands/execution-plans.md) | skill that manages execution plans |
-| [../.claude/commands/review-pr.md](../.claude/commands/review-pr.md) | enforces plan-to-PR traceability |
+| [../exec-plans/progress.md](../exec-plans/progress.md) | live plan progress log |
+| [`/execution-plans` skill](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/execution-plans.md) | skill that manages execution plans |
+| [`/review-pr` skill](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/review-pr.md) | enforces plan-to-PR traceability |
 | [../DOCS_INDEX.md](../DOCS_INDEX.md) | full documentation index |
 
 <!-- /harness:cross-links -->

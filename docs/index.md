@@ -17,7 +17,7 @@ Requires Python 3.12+ (uv will provision it automatically if missing).
 
 - [**CLI Commands**](cli/index.md) — overview of the 17 `harness` sub-commands
 - [**Agents Guide → CLI Reference**](agents/cli-commands.md) — workflow-oriented usage examples
-- [**Architecture Decision Records**](architecture/README.md) — design rationale
+- [**Architecture Decision Records**](design-docs/README.md) — design rationale
 
 ## Source
 

@@ -26,7 +26,7 @@ test -f brownfield_manifest.json && echo "BROWNFIELD" || echo "GREENFIELD"
 
 > Use when adding features to an existing codebase.
 
-### Step 1: Load manifest
+### Step 1: Load manifest + check for hotspot report
 
 Read `brownfield_manifest.json` and extract:
 - `stack` (language, framework, database)
@@ -35,6 +35,34 @@ Read `brownfield_manifest.json` and extract:
 
 These will be auto-populated into `<existing_context>`.
 
+Then check whether `boundaries_report.md` is present in the project root
+(emitted by a prior `claw-forge boundaries audit`).  If it exists and
+contains entries with score >= 5.0, surface them to the user before
+proceeding:
+
+```
+Found a boundaries audit at boundaries_report.md.  These files are
+extension hotspots — adding new features as <feature shape="plugin">
+will collide with them unless they're refactored first:
+
+  cli/main.py        score=8.4  pattern=registry
+  core/router.py     score=6.7  pattern=route_table
+
+Recommended:
+  claw-forge boundaries apply --auto
+
+Refactoring these into plugin-extensible patterns first will let your
+new features land cleanly as plugins.
+
+Proceed anyway?  [y / yes]   Refactor first?  [b / boundaries]
+```
+
+If the user picks `b`, stop the slash command — they'll come back
+after the refactor.  If they pick `y`, record the hotspot list as a
+warning in `<existing_context>` and continue to Step 2.
+
+If `boundaries_report.md` doesn't exist, continue to Step 2 silently.
+
 ### Step 2: Gather addition details
 
 Ask the user (one at a time):
@@ -42,9 +70,17 @@ Ask the user (one at a time):
 1. **What are you adding?** Give it a name and one-sentence summary.
    - Example: "Stripe payments — let users subscribe to Pro plan via Stripe Checkout"
 
-2. **Which parts of the existing code does it touch?**
-   - Models, routers, services, background jobs, tests, etc.
-   - Example: "Extends User model, adds /payments router, new StripeService class"
+2. **Where does it live in the codebase?**
+   - **Plugin** (lives in its own directory): "I'll add `plugins/payments/`
+     for the Stripe code."  Used when the addition is vertical and isolated.
+   - **Core** (cross-cutting): "I'll edit `core/middleware/auth.py` and
+     `core/db/models/user.py`."  Used when the addition modifies shared
+     infrastructure.
+
+   For each feature, record either `plugin="<name>"` (plugin shape) or
+   `touches_files="..."` (core shape).  This populates the new
+   `<feature shape>` attributes in Phase 3 of the parser, which lets
+   the dispatcher schedule for parallel safety.
 
 3. **What must NOT change?** List any constraints.
    - Example: "Must not modify auth flow. All 47 existing tests must stay green."
@@ -103,11 +139,27 @@ Next steps:
     <conventions>snake_case, async handlers, pydantic v2 models</conventions>
   </existing_context>
   <features_to_add>
-    - User can add a payment method via Stripe Elements
-    - User can subscribe to Pro plan via Stripe Checkout
-    - System creates Stripe customer on first payment attempt
-    - Webhook handler processes subscription.created events
-    - User can access billing portal to manage subscription
+    <category name="Payments">
+      <feature index="1" shape="plugin" plugin="payments">
+        <description>User can add a payment method via Stripe Elements</description>
+      </feature>
+      <feature index="2" shape="plugin" plugin="payments" depends_on="1">
+        <description>User can subscribe to Pro plan via Stripe Checkout</description>
+      </feature>
+      <feature index="3" shape="plugin" plugin="payments">
+        <description>System creates Stripe customer on first payment attempt</description>
+      </feature>
+      <feature index="4" shape="plugin" plugin="payments" depends_on="2">
+        <description>Webhook handler processes subscription.created events</description>
+      </feature>
+      <feature index="5" shape="plugin" plugin="payments">
+        <description>User can access billing portal to manage subscription</description>
+      </feature>
+      <feature index="6" shape="core"
+               touches_files="src/core/db/models/user.py">
+        <description>Extends User model with stripe_customer_id field</description>
+      </feature>
+    </category>
   </features_to_add>
   <integration_points>
     Extends User model with stripe_customer_id field
@@ -213,6 +265,195 @@ action verb:
 
 ---
 
+### Phase 3.25: Architectural Shape
+
+After confirming the feature list with the user (Phase 3) and before
+overlap analysis (Phase 3.5), classify each feature as either a
+**plugin** (vertical, lives in its own directory) or **core**
+(cross-cutting, edits files used by every plugin).  The classification
+ends up in the emitted XML as `<feature shape>` / `<feature plugin>`
+attributes — the dispatcher reads these for parallel-safe scheduling.
+
+#### Step 1 — Group features by likely shape
+
+Read through the confirmed feature list and silently group:
+
+- **Plugin candidates**: features whose description names a single
+  domain noun ("user", "task", "billing", "notifications") and whose
+  acceptance criteria all read like "user can …" or "system returns …
+  for the X resource".  These typically own their own data model,
+  routes, and tests, and can be added or removed without touching
+  sibling plugins.
+- **Core candidates**: features that say "all endpoints …", "every
+  request …", "uniform error format", "shared logging", "global rate
+  limit", "authentication middleware", "database migrations".  These
+  are cross-cutting — they're touched by every plugin's request path.
+
+A feature can be plugin-shape even if it depends on a core concern.
+"User can register" is plugin-shape (lives in `plugins/auth/`) even
+though it relies on the core `core/db/` connection pool.
+
+#### Step 2 — Confirm with the user
+
+Present the grouping back, naming the plugin directories:
+
+```
+Looking at your features, I'd structure them as:
+
+Plugins (parallel-safe — each in its own directory):
+  • plugins/auth/      — registration, login, password reset (5 features)
+  • plugins/profile/   — view/edit profile, avatar upload (4 features)
+  • plugins/tasks/     — CRUD, search, tag filter, pagination (8 features)
+
+Core (cross-cutting — touch every plugin's request path):
+  • core/middleware/   — JWT validation, request logging (2 features)
+  • core/errors/       — RFC7807 error envelope (1 feature)
+  • core/db/           — connection pool, migrations runner (2 features)
+
+Sound right?  Edits welcome:
+  - Reclassify a feature: "move feature 14 to core"
+  - Rename a plugin:      "rename profile to user-profile"
+  - Add a category:       "add plugins/notifications"
+```
+
+The user can:
+- **Accept** → record the classification.
+- **Edit** by line: "move 14 to core", "rename profile to user-profile",
+  "split tasks into tasks-crud and tasks-search".
+- **Skip** → emit the spec without `shape`/`plugin` attributes (legacy
+  behaviour).  Phase 5 emits unchanged.
+
+#### Step 3 — Persist the classification
+
+Build a per-feature dict in memory:
+
+```
+feature_shape[<index>] = {
+    "shape": "plugin" | "core",
+    "plugin": "<plugin_name>" | None,         # set when shape="plugin"
+    "touches_files": ["..."] | None,           # set when shape="core" only
+}
+```
+
+Phase 5 reads this when emitting `<feature>` elements.  Plugin features
+get `shape="plugin" plugin="X"` and the parser auto-derives `touches_files`.
+Core features get `shape="core" touches_files="..."` (the prose from Step
+2 — typically a single file path the user names — becomes the
+`touches_files` value).
+
+#### Failure modes
+
+- **User skips classification** → emit Phase 5 unchanged; no `shape`
+  attributes.  The legacy parsing path still works; the dispatcher's
+  file-claim layer treats every feature as opt-out (no locking
+  attempted).
+- **A feature can't be classified** (LLM unsure or user says "I don't
+  know") → leave that feature unclassified in `feature_shape`.  Phase 5
+  emits without `shape` for that feature.
+- **User declares a plugin name that conflicts with an existing
+  filesystem path** in brownfield mode → warn but accept (the
+  boundaries-harness can refactor the colliding file later).
+
+---
+
+### Phase 3.5: Overlap Analysis
+
+After confirming the feature list with the user, audit for **merge-conflict risk** between
+features that would be dispatched in parallel. The earlier you serialize known-overlapping
+features, the fewer wasted agent runs you'll have downstream.
+
+#### Step 1 — Run the analysis prompt on the bullet list
+
+Number the confirmed bullets from Phase 3 starting at 1. Then, as the LLM executing
+`/create-spec`, mentally apply the following prompt to that numbered list:
+
+> You are auditing a feature spec for merge-conflict risk. Below are N feature bullets, each
+> numbered. Find pairs where implementing both would force conflicting edits to the same
+> file or function — i.e. they would both modify the same hunks if scheduled in parallel.
+>
+> A pair is overlapping ONLY if changing one without the other would force a merge
+> conflict. Belonging to the same category alone is not overlap.
+>
+> Return JSON only:
+> ```json
+> [{"a": <int>, "b": <int>, "surface": "<file_or_concept>", "rationale": "<one sentence>"}]
+> ```
+> Empty list `[]` if no overlaps. No prose outside the JSON.
+
+#### Step 2 — Resolve each overlap interactively
+
+For every entry returned, present:
+
+```
+Overlap detected:
+  #<a>  <description of feature a>
+  #<b>  <description of feature b>
+  Shared surface: <surface>
+  Rationale: <rationale>
+
+Resolution? [s] serialize (#<b> depends on #<a>)  [k] keep parallel  [q] quit
+```
+
+- **`s`** → record an explicit edge: feature `<b>` will be emitted with `depends_on="<a>"` so
+  the runtime DAG runs `<a>` first and `<b>` only after.
+- **`k`** → record the user's decision to keep parallel; do not flag this pair again on retry.
+- **`q`** → abort `/create-spec` cleanly; do not write any files.
+
+If the user selects `m` (merge), explain that merging is out of scope for this phase — they
+can manually combine the bullets in Phase 3 and re-run, or pick `s` for now.
+
+#### Step 3 — Persist resolutions through Phase 5
+
+In memory, build a list `serialized_pairs: list[tuple[int, int]]` of `(later, earlier)`
+feature numbers from each `s` decision. When Phase 5 emits the XML, every feature that
+appears as `later` in any pair must use the new `<feature>` element form with explicit
+attributes:
+
+```xml
+<core_features>
+  <category name="DSL Compiler">
+    <feature index="14">
+      <description>System displays parse errors on stderr</description>
+    </feature>
+    <feature index="18" depends_on="14">
+      <description>System displays side-by-side diff in terminal</description>
+    </feature>
+  </category>
+</core_features>
+```
+
+Multiple dependencies are comma-separated: `depends_on="14,15,16"`. Features without edges
+may continue using the legacy bullet form; both coexist within the same `<category>`.
+
+When Phase 3.25 classification was accepted, combine `shape`/`plugin` with `index` and
+`depends_on` in the same element:
+
+```xml
+<!-- Phase 3.25 + Phase 3.5 combined: plugin-shape + dependency edge -->
+<feature index="14" shape="plugin" plugin="auth">
+  <description>User can register with email and password</description>
+</feature>
+<feature index="18" shape="plugin" plugin="auth" depends_on="14">
+  <description>System sends welcome email after registration</description>
+</feature>
+<feature index="20" shape="core"
+         touches_files="src/core/middleware/auth.py">
+  <description>All endpoints validate JWT on incoming requests</description>
+</feature>
+```
+
+#### Failure modes
+
+- **LLM returns malformed JSON** → re-prompt once with the schema; if still bad, skip the
+  analysis with a one-line warning ("could not analyze overlaps; emitting spec without
+  explicit edges") and continue to Phase 4.
+- **Empty feature list** (Phase 3 produced 0 bullets) → skip Phase 3.5; downstream
+  validation handles the empty-spec case.
+- **No overlaps detected** (`[]`) → skip directly to Phase 4 with one line: "No overlap
+  risk detected — features can run in parallel."
+
+---
+
 ### Phase 4: Technical Details (Detailed mode only)
 
 If the user chose **Detailed**, ask about:
@@ -288,6 +529,49 @@ Kanban board and used for routing and filtering.
 ```
 
 Use the exact heading confirmed with the user in Phase 3 as the `name` attribute.
+
+**`<feature>` element form (when Phase 3.25 or Phase 3.5 produced extra metadata):**
+A `<category>` may mix bullet-form features with explicit `<feature>` elements. Use the
+element form for any feature that carries `index`, `shape`, `plugin`, `touches_files`, or
+`depends_on` — bullets cannot express those attributes.
+
+```xml
+<core_features>
+  <category name="Authentication &amp; User Management">
+    <!-- Plugin-shape feature: dispatcher auto-derives touches_files
+         from plugin="auth" → src/plugins/auth/. Parallel-safe with
+         features in other plugins. -->
+    <feature index="1" shape="plugin" plugin="auth">
+      <description>User can register with email and password (returns 201 with user_id)</description>
+    </feature>
+    <feature index="2" shape="plugin" plugin="auth" depends_on="1">
+      <description>User can login and receive JWT access_token and refresh_token</description>
+    </feature>
+
+    <!-- Core-shape feature: serialized single-flight by the scheduler
+         because it edits a file every plugin's request path uses. -->
+    <feature index="3" shape="core"
+             touches_files="src/core/middleware/auth.py">
+      <description>All endpoints validate JWT on incoming requests</description>
+    </feature>
+
+    <!-- Legacy bullet form still works inside the same category for
+         features that don't need shape/index/dependencies. -->
+    - User can request a password reset link by email
+  </category>
+</core_features>
+```
+
+Attribute rules:
+- `index="N"` — 1-based feature number, unique across the whole spec. Required when other
+  features `depends_on` it.
+- `shape="plugin"` — feature is vertical and lives in `plugins/<plugin>/`. Pair with
+  `plugin="<name>"`. The parser auto-derives `touches_files` from the plugin root.
+- `shape="core"` — feature is cross-cutting. Pair with `touches_files="path1,path2"` so
+  the scheduler can lock those files single-flight.
+- `depends_on="3"` or `depends_on="3,7,9"` — runtime DAG edges. The dispatcher will not
+  start this feature until all listed indices have completed.
+- Features without any of these attributes can stay as bullet lines — both forms coexist.
 
 **CRITICAL — `<database_schema>` format:**
 Use `<table name="…">` with `<column>` children for each table. Full SQL-style column definitions.
@@ -400,4 +684,10 @@ Next steps:
 
 💡 Tip: Each feature bullet = one agent task. More specific bullets = better agent output.
    Aim for 100-300 bullets for a full application.
+
+💡 Tip: Features with `shape="plugin"` in your spec can be dispatched
+   in parallel without merge conflicts (their `touches_files` are
+   disjoint by construction).  Features with `shape="core"` serialize
+   single-flight via the scheduler's cross-cutting rule.  See
+   docs/commands.md → "claw-forge run" for parallelism settings.
 ```

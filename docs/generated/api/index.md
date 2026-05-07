@@ -9,5 +9,5 @@ Auto-derived by `/generate-docs`. Run `/generate-docs --only api` to regenerate.
 
 | File | Format | Description |
 |------|--------|-------------|
-| [openapi.yaml](openapi.yaml) | OpenAPI 3.1 | Machine-readable API spec |
+| [openapi](openapi.md) | OpenAPI 3.1 (YAML at `openapi.yaml`) | Machine-readable API spec |
 | [routes.md](routes.md) | Markdown | Human-readable route table |

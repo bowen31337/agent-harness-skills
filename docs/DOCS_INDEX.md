@@ -25,8 +25,8 @@ artifact: docs-index
 | Document | Purpose |
 |---|---|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Domain map, dependency graph, module boundary violations |
-| [architecture/README.md](architecture/README.md) | Architectural Decision Records (ADR) directory |
-| [architecture/adr/0001-adopt-playwright-for-browser-testing.md](architecture/adr/0001-adopt-playwright-for-browser-testing.md) | ADR-0001: Playwright for browser testing |
+| [design-docs/README.md](design-docs/README.md) | Architectural Decision Records (ADR) directory |
+| [design-docs/adr/0001-adopt-playwright-for-browser-testing.md](design-docs/adr/0001-adopt-playwright-for-browser-testing.md) | ADR-0001: Playwright for browser testing |
 
 ---
 
@@ -131,7 +131,7 @@ artifact: docs-index
 | [`/logging-convention`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/logging-convention.md) | Generate SPEC.md (logging convention) |
 | [`/log-format-linter`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/log-format-linter.md) | Lint structured log files against SPEC.md |
 | [`/health-check-endpoint`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/health-check-endpoint.md) | Generate HEALTH_CHECK_SPEC.md |
-| [`/create-spec`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/create-spec.md) | Create a project specification (XML) |
+| [`/create-spec`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/create-spec.md) | Create a plugin-shape-aware project specification (XML) — features classified as `shape="plugin"` (parallel-safe) or `shape="core"` (single-flight) |
 | [`/detect-api-style`](https://github.com/bowen31337/agent-harness-skills/blob/main/.claude/commands/detect-api-style.md) | Detect REST / GraphQL / gRPC API style |
 
 ### Quality Gates
