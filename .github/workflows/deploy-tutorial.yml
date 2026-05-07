@@ -1,9 +1,20 @@
-name: Deploy Tutorial
+name: Deploy Site
+
+# Deploys a single GitHub Pages artifact containing both the React tutorial
+# (served at the site root) and the mkdocs documentation (served at /docs/).
+# Pages only allows one workflow_dispatch deploy at a time, so combining the
+# two avoids the last-to-run-wins clobbering that two separate workflows
+# would race into.
 
 on:
   push:
     branches: [main]
-    paths: ['tutorial/**']
+    paths:
+      - 'tutorial/**'
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-tutorial.yml'
   workflow_dispatch:
 
 permissions:
@@ -47,10 +58,33 @@ jobs:
         run: npm test -- --run
         working-directory: tutorial
 
-      - name: Build
+      - name: Build tutorial
         run: npm run build
         working-directory: tutorial
 
+      # ── mkdocs documentation build ──────────────────────────────────────
+      - name: Set up Python for mkdocs
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install mkdocs deps
+        run: uv sync --extra dev --python 3.12
+
+      - name: Build docs (mkdocs --strict)
+        run: uv run mkdocs build --strict --site-dir site
+
+      - name: Merge docs into tutorial dist
+        # mkdocs site/ → tutorial/dist/docs/ so the unified artifact serves
+        # tutorial at / and docs at /docs/.
+        run: |
+          mkdir -p tutorial/dist/docs
+          cp -R site/. tutorial/dist/docs/
+
+      # ── Pages deploy ────────────────────────────────────────────────────
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

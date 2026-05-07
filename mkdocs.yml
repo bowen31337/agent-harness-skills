@@ -1,5 +1,6 @@
 site_name: Harness Skills
 site_description: Agent harness engineering toolkit documentation
+site_url: https://bowen31337.github.io/agent-harness-skills/docs/
 theme:
   name: material
   features:
