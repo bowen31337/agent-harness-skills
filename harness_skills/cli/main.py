@@ -137,7 +137,7 @@ class PipelineGroup(click.Group):
 
 
 @click.group(cls=PipelineGroup)
-@click.version_option()
+@click.version_option(package_name="agent-harness-skills")
 def cli() -> None:
     """Harness Skills — agent harness engineering toolkit.
 

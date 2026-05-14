@@ -121,3 +121,9 @@ class TestCommandHelp:
     def test_update_help(self) -> None:
         result = self.runner.invoke(cli, ["update", "--help"])
         assert result.exit_code == 0
+
+    def test_version_flag(self) -> None:
+        result = self.runner.invoke(cli, ["--version"])
+        assert result.exit_code == 0, result.output
+        assert result.exception is None
+        assert "version" in result.output.lower()
